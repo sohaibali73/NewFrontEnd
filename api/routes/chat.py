@@ -1,4 +1,4 @@
-"""Chat/Agent routes with conversation history."""
+"""Chat/Agent routes with conversation history and Claude tools."""
 
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Depends
@@ -9,6 +9,7 @@ import json
 from api.dependencies import get_current_user_id, get_user_api_keys
 from core.claude_engine import ClaudeAFLEngine
 from core.prompts import get_base_prompt, get_chat_prompt
+from core.tools import get_all_tools, handle_tool_call
 from db.supabase_client import get_supabase
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
@@ -76,7 +77,7 @@ async def send_message(
         user_id: str = Depends(get_current_user_id),
         api_keys: dict = Depends(get_user_api_keys),
 ):
-    """Send a message and get AI response."""
+    """Send a message and get AI response with tool support."""
     db = get_supabase()
 
     if not api_keys.get("claude"):
@@ -121,29 +122,112 @@ async def send_message(
 
     history = [{"role": m["role"], "content": m["content"]} for m in history_result.data[:-1]]
 
-    # Generate response
+    # Generate response with tools
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=api_keys["claude"])
 
-        system_prompt = f"{get_base_prompt()}\n\n{get_chat_prompt()}"
+        # Enhanced system prompt with tool awareness
+        system_prompt = f"""{get_base_prompt()}
+
+{get_chat_prompt()}
+
+## Available Tools
+You have access to powerful tools to help users:
+
+1. **Web Search** - Search the internet for real-time information, news, and data
+2. **Execute Python** - Run Python code for calculations, data analysis, and complex computations
+3. **Search Knowledge Base** - Search the user's uploaded documents and trading knowledge
+4. **Get Stock Data** - Fetch real-time and historical stock market data
+5. **Validate AFL** - Check AFL code for syntax errors before presenting it
+
+Use these tools proactively when they would help provide better answers. For example:
+- Use stock data when discussing specific securities
+- Use knowledge base when the user asks about their uploaded strategies
+- Use Python execution for complex calculations or backtesting math
+- Use AFL validation before presenting trading system code
+"""
 
         messages = history + [{"role": "user", "content": data.content}]
 
-        # Enable web search tool for real-time data access
+        # Get all tools (built-in + custom)
+        tools = get_all_tools()
+        
+        # Track tool usage for the response
+        tools_used = []
+        
+        # Initial API call with tools
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=4096,
             system=system_prompt,
             messages=messages,
-            tools=[{
-                "type": "web_search_20250305",
-                "name": "web_search",
-                "max_uses": 5
-            }]
+            tools=tools
         )
 
-        # Extract text content from response (may include web search results and citations)
+        # Handle tool use loop (max 5 iterations to prevent infinite loops)
+        max_iterations = 5
+        iteration = 0
+        
+        while response.stop_reason == "tool_use" and iteration < max_iterations:
+            iteration += 1
+            
+            # Process tool calls
+            tool_results = []
+            
+            for block in response.content:
+                if block.type == "tool_use":
+                    tool_name = block.name
+                    tool_input = block.input
+                    tool_use_id = block.id
+                    
+                    # Execute the tool (skip web_search as it's handled by Claude)
+                    if tool_name != "web_search":
+                        result = handle_tool_call(
+                            tool_name=tool_name,
+                            tool_input=tool_input,
+                            supabase_client=db
+                        )
+                        
+                        tools_used.append({
+                            "tool": tool_name,
+                            "input": tool_input,
+                            "result_preview": result[:200] + "..." if len(result) > 200 else result
+                        })
+                        
+                        tool_results.append({
+                            "type": "tool_result",
+                            "tool_use_id": tool_use_id,
+                            "content": result
+                        })
+            
+            # If we have tool results, continue the conversation
+            if tool_results:
+                # Add assistant's tool use message
+                messages.append({
+                    "role": "assistant",
+                    "content": response.content
+                })
+                
+                # Add tool results
+                messages.append({
+                    "role": "user",
+                    "content": tool_results
+                })
+                
+                # Get next response
+                response = client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=4096,
+                    system=system_prompt,
+                    messages=messages,
+                    tools=tools
+                )
+            else:
+                # No tool results to process (e.g., only web_search which is handled internally)
+                break
+
+        # Extract final text content from response
         assistant_content = ""
         for block in response.content:
             if hasattr(block, 'text'):
@@ -164,7 +248,62 @@ async def send_message(
         return {
             "conversation_id": conversation_id,
             "response": assistant_content,
+            "tools_used": tools_used if tools_used else None,
         }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/tools")
+async def list_available_tools():
+    """List all available tools for the chat agent."""
+    tools = get_all_tools()
+    
+    tool_info = []
+    for tool in tools:
+        if "input_schema" in tool:
+            # Custom tool
+            tool_info.append({
+                "name": tool["name"],
+                "description": tool["description"],
+                "type": "custom",
+                "parameters": list(tool["input_schema"]["properties"].keys())
+            })
+        else:
+            # Built-in tool
+            tool_info.append({
+                "name": tool.get("name", tool.get("type", "unknown")),
+                "type": "built-in",
+                "description": "Anthropic built-in tool"
+            })
+    
+    return {
+        "tools": tool_info,
+        "count": len(tool_info)
+    }
+
+
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation(
+        conversation_id: str,
+        user_id: str = Depends(get_current_user_id),
+):
+    """Delete a conversation and all its messages."""
+    db = get_supabase()
+
+    # Verify ownership
+    conv = db.table("conversations").select("user_id").eq(
+        "id", conversation_id
+    ).execute()
+
+    if not conv.data or conv.data[0]["user_id"] != user_id:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # Delete messages first (foreign key)
+    db.table("messages").delete().eq("conversation_id", conversation_id).execute()
+    
+    # Delete conversation
+    db.table("conversations").delete().eq("id", conversation_id).execute()
+
+    return {"status": "deleted", "conversation_id": conversation_id}

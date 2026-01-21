@@ -27,5 +27,9 @@ pydantic
 pydantic-settings
 python-multipart
 
+# Data Analysis (for code execution tool)
+numpy
+pandas
+
 # Optional: Embeddings (for vector search)
 sentence-transformers==2.2.2

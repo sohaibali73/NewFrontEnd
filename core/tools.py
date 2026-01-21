@@ -847,11 +847,11 @@ def _generate_sanity_check_summary(result: Dict[str, Any]) -> str:
     orig = result["original_issues"]
     
     if orig["color_issues"]:
-        issues.append(f"<¨ {len(orig['color_issues'])} invalid color(s)")
+        issues.append(f"< {len(orig['color_issues'])} invalid color(s)")
     if orig["function_issues"]:
-        issues.append(f"  {len(orig['function_issues'])} function hallucination(s)")
+        issues.append(f" {len(orig['function_issues'])} function hallucination(s)")
     if orig["reserved_word_issues"]:
-        issues.append(f"=Û {len(orig['reserved_word_issues'])} reserved word conflict(s)")
+        issues.append(f"= {len(orig['reserved_word_issues'])} reserved word conflict(s)")
     if orig["errors"]:
         issues.append(f"L {len(orig['errors'])} syntax error(s)")
     
@@ -861,7 +861,7 @@ def _generate_sanity_check_summary(result: Dict[str, Any]) -> str:
         if result.get("fixed_valid"):
             summary += f"\n Auto-fixed {len(result['fixes_applied'])} issue(s). Code is now valid."
         else:
-            summary += f"\n  Auto-fixed {len(result['fixes_applied'])} issue(s), but manual fixes still needed."
+            summary += f"\n Auto-fixed {len(result['fixes_applied'])} issue(s), but manual fixes still needed."
     
     return summary
 
@@ -943,6 +943,12 @@ def handle_tool_call(tool_name: str, tool_input: Dict[str, Any], supabase_client
             result = explain_afl_code(
                 code=tool_input.get("code", ""),
                 api_key=api_key
+            )
+        
+        elif tool_name == "sanity_check_afl":
+            result = sanity_check_afl(
+                code=tool_input.get("code", ""),
+                auto_fix=tool_input.get("auto_fix", True)
             )
         
         else:

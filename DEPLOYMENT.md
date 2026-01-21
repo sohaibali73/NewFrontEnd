@@ -1,106 +1,117 @@
-# Deploying to Render
+# Deployment Guide
 
-This guide will help you deploy the Potomac Analyst API backend to Render.
+This backend is fully serverless - all data is stored in **Supabase** (cloud database) and uses **Claude API**, **Tavily API** for AI/research features.
 
-## Prerequisites
+---
 
-- A [Render](https://render.com) account
-- Your GitHub repository pushed with latest changes
+## 🚂 Deploy to Railway (Recommended)
 
-## Quick Deploy Steps
+### Quick Deploy Steps
 
-### 1. Push Your Code to GitHub
+1. **Push your code to GitHub:**
+   ```bash
+   git add .
+   git commit -m "Add Railway deployment configuration"
+   git push
+   ```
 
-```bash
-git add .
-git commit -m "Add Render deployment configuration"
-git push origin main
-```
+2. **Go to [Railway](https://railway.app)**
+   - Sign up/login with GitHub
+   - Click **"New Project"** → **"Deploy from GitHub repo"**
+   - Select: `sohaibali73/Potomac-Analyst-Workbench`
 
-### 2. Create a New Web Service on Render
+3. **Configure Environment Variables:**
+   Go to your project → **Variables** tab and add:
 
-1. Go to [Render Dashboard](https://dashboard.render.com)
-2. Click **"New +"** → **"Web Service"**
-3. Connect your GitHub repository: `sohaibali73/Potomac-Analyst-Workbench`
-4. Configure the service:
-   - **Name:** `potomac-analyst-api`
-   - **Region:** Oregon (or your preferred region)
-   - **Branch:** `main`
-   - **Runtime:** Python 3
-   - **Build Command:** `pip install -r requirements.txt`
-   - **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
+   | Variable | Value |
+   |----------|-------|
+   | `ANTHROPIC_API_KEY` | Your Anthropic (Claude) API key |
+   | `SUPABASE_URL` | Your Supabase project URL |
+   | `SUPABASE_KEY` | Your Supabase anon key |
+   | `TAVILY_API_KEY` | Your Tavily API key |
+   | `SECRET_KEY` | A strong random string (for JWT) |
 
-### 3. Set Environment Variables
+4. **Deploy!**
+   Railway will automatically:
+   - Detect Python project
+   - Install dependencies from `requirements.txt`
+   - Run `uvicorn main:app --host 0.0.0.0 --port $PORT`
 
-In the Render dashboard, go to your service → **Environment** tab and add:
+5. **Get your URL:**
+   - Go to **Settings** → **Networking** → **Generate Domain**
+   - Your API will be at: `https://your-project.up.railway.app`
 
-| Key | Value |
-|-----|-------|
-| `ANTHROPIC_API_KEY` | Your Anthropic API key |
-| `SUPABASE_URL` | Your Supabase project URL |
-| `SUPABASE_KEY` | Your Supabase anon key |
-| `TAVILY_API_KEY` | Your Tavily API key |
-| `SECRET_KEY` | A strong random string for JWT signing |
+### Update Your Frontend
 
-### 4. Deploy
-
-Click **"Create Web Service"** and wait for the deployment to complete.
-
-Your API will be available at: `https://potomac-analyst-api.onrender.com`
-
-## Update Your Frontend
-
-Update your frontend environment to use the new Render URL:
-
+Change your frontend environment variable:
 ```env
-VITE_API_URL=https://potomac-analyst-api.onrender.com
+VITE_API_URL=https://your-project.up.railway.app
 ```
 
-## Verify Deployment
+---
 
-Test your deployment:
+## 🎯 Verify Deployment
+
+Test your deployment with:
 
 ```bash
 # Health check
-curl https://potomac-analyst-api.onrender.com/health
+curl https://your-project.up.railway.app/health
 
-# List routes
-curl https://potomac-analyst-api.onrender.com/routes
+# List routes  
+curl https://your-project.up.railway.app/routes
+
+# Root endpoint
+curl https://your-project.up.railway.app/
 ```
 
-## Important Notes
+---
 
-### Free Tier Limitations
+## 📁 Architecture - Everything is Cloud-Based
 
-- The service will spin down after 15 minutes of inactivity
-- First request after spin-down takes 30-60 seconds (cold start)
-- Consider upgrading to the Starter plan ($7/month) for always-on service
+| Component | Service | Notes |
+|-----------|---------|-------|
+| **Database** | Supabase (PostgreSQL) | All user data, conversations, documents |
+| **AI Chat** | Claude API (Anthropic) | With web search capability |
+| **Research** | Tavily API | Real-time market research |
+| **File Processing** | In-memory | Files uploaded → processed → stored in Supabase |
+| **Authentication** | JWT tokens | Stored in Supabase users table |
 
-### Security Reminders
+**No local storage required** - the backend is completely stateless and can scale horizontally.
 
-- ⚠️ Never commit your `.env` file to GitHub
-- ⚠️ Always set environment variables through Render's dashboard
-- ⚠️ Use a strong, unique `SECRET_KEY` in production
+---
 
-## Troubleshooting
+## 🔐 Security Checklist
 
-### Build Fails
+- ✅ `.env` is in `.gitignore` (secrets not committed)
+- ✅ All API keys set via Railway environment variables
+- ✅ Use a strong, unique `SECRET_KEY` in production
+- ✅ CORS configured (update `allow_origins` for production)
 
-- Check the build logs in Render dashboard
-- Ensure all dependencies in `requirements.txt` are compatible
+---
 
-### Service Won't Start
+## 🛠 Files for Deployment
 
-- Verify all required environment variables are set
-- Check the logs for any import errors
+| File | Purpose |
+|------|---------|
+| `railway.json` | Railway configuration |
+| `Procfile` | Start command definition |
+| `nixpacks.toml` | Build configuration |
+| `requirements.txt` | Python dependencies |
+| `runtime.txt` | Python version (3.11.0) |
 
-### API Errors
+---
 
-- Verify your API keys are correctly set in Render
-- Check Supabase connection settings
+## 💰 Railway Pricing
 
-## Files Created for Deployment
+- **Free Tier**: $5 credit/month (usually enough for development)
+- **Hobby**: $5/month + usage
+- **Pro**: $20/month + usage (team features)
 
-- `render.yaml` - Render Blueprint specification
-- `runtime.txt` - Python version specification
-- `DEPLOYMENT.md` - This guide
+Railway does **not** spin down services on the hobby plan, so no cold starts!
+
+---
+
+## 🔄 Alternative: Render
+
+If you prefer Render, the `render.yaml` file is also included. Follow similar steps but use Render's dashboard instead.

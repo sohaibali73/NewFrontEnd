@@ -26,6 +26,7 @@ python-dotenv
 pydantic
 pydantic-settings
 python-multipart
+email-validator
 
 # Data Analysis (for code execution tool)
 numpy

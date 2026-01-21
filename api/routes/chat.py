@@ -186,7 +186,8 @@ Use these tools proactively when they would help provide better answers. For exa
                         result = handle_tool_call(
                             tool_name=tool_name,
                             tool_input=tool_input,
-                            supabase_client=db
+                            supabase_client=db,
+                            api_key=api_keys.get("claude")
                         )
                         
                         tools_used.append({

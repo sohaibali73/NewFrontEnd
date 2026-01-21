@@ -105,6 +105,135 @@ TOOL_DEFINITIONS = [
             },
             "required": ["code"]
         }
+    },
+    # Custom: Strategy Research
+    {
+        "name": "research_strategy",
+        "description": "Conduct comprehensive research on a trading strategy. Searches the web, SEC EDGAR filings, and financial databases to find strategy rules, methodology, and implementation details. Use this when the user asks about a specific trading strategy, fund, or wants to reverse engineer a strategy.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Strategy name or description to research (e.g., 'Dual Momentum strategy', 'ARKK ETF holdings', 'Renaissance Technologies')"
+                },
+                "research_type": {
+                    "type": "string",
+                    "description": "Type of research to conduct",
+                    "enum": ["strategy", "fund", "trading_rules", "general"],
+                    "default": "strategy"
+                }
+            },
+            "required": ["query"]
+        }
+    },
+    # Custom: SEC EDGAR Search
+    {
+        "name": "search_sec_filings",
+        "description": "Search SEC EDGAR database for fund filings, prospectuses, 13F holdings reports, and regulatory documents. Use this to find official fund holdings, strategy disclosures, and compliance documents.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Fund name, company name, or CIK number to search"
+                },
+                "filing_type": {
+                    "type": "string",
+                    "description": "Type of filing to search for",
+                    "enum": ["all", "holdings", "prospectus", "annual_report"],
+                    "default": "all"
+                }
+            },
+            "required": ["query"]
+        }
+    },
+    # Custom: Market Context
+    {
+        "name": "get_market_context",
+        "description": "Get current market context including major indices (SPY, QQQ), volatility (VIX), treasuries (TLT), and commodities (GLD). Use this to provide market backdrop when discussing trading strategies or market conditions.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "include_details": {
+                    "type": "boolean",
+                    "description": "Whether to include detailed analysis",
+                    "default": True
+                }
+            },
+            "required": []
+        }
+    },
+    # Custom: Generate AFL
+    {
+        "name": "generate_afl_code",
+        "description": "Generate AmiBroker AFL code from a natural language description. Use this when the user wants to create a trading system, indicator, or exploration formula. This creates complete, production-ready AFL code.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "description": "Natural language description of the trading strategy, indicator, or system to create"
+                },
+                "strategy_type": {
+                    "type": "string",
+                    "description": "Type of AFL code to generate",
+                    "enum": ["standalone", "composite", "indicator", "exploration"],
+                    "default": "standalone"
+                }
+            },
+            "required": ["description"]
+        }
+    },
+    # Custom: Debug AFL
+    {
+        "name": "debug_afl_code",
+        "description": "Debug and fix errors in AFL code. Analyzes the code, identifies issues, and returns corrected code. Use this when the user has AFL code that isn't working or has errors.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": "The AFL code that needs debugging"
+                },
+                "error_message": {
+                    "type": "string",
+                    "description": "Optional error message from AmiBroker",
+                    "default": ""
+                }
+            },
+            "required": ["code"]
+        }
+    },
+    # Custom: Optimize AFL
+    {
+        "name": "optimize_afl_code",
+        "description": "Optimize AFL code for better performance, readability, and best practices. Improves code structure, efficiency, and adds documentation. Use this when the user wants to improve existing AFL code.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": "The AFL code to optimize"
+                }
+            },
+            "required": ["code"]
+        }
+    },
+    # Custom: Explain AFL
+    {
+        "name": "explain_afl_code",
+        "description": "Explain AFL code in plain English. Provides a detailed breakdown of what each section does, the trading logic, and how signals are generated. Use this when the user wants to understand existing AFL code.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": "The AFL code to explain"
+                }
+            },
+            "required": ["code"]
+        }
     }
 ]
 
@@ -443,10 +572,227 @@ def validate_afl(code: str) -> Dict[str, Any]:
 
 
 # ============================================================================
+# NEW TOOL HANDLERS - Strategy Research, AFL Generation, etc.
+# ============================================================================
+
+def research_strategy(query: str, research_type: str = "strategy") -> Dict[str, Any]:
+    """
+    Conduct comprehensive research on a trading strategy using the StrategyResearcher.
+    """
+    try:
+        import os
+        from core.researcher import StrategyResearcher
+        
+        tavily_key = os.environ.get("TAVILY_API_KEY")
+        researcher = StrategyResearcher(tavily_api_key=tavily_key)
+        
+        if research_type == "strategy":
+            result = researcher.research_strategy(query)
+        elif research_type == "fund":
+            result = researcher.research_fund(query)
+        elif research_type == "trading_rules":
+            result = researcher.search_trading_rules(query)
+        else:
+            result = researcher.search_web(query, search_type="general")
+        
+        return {
+            "success": True,
+            "query": query,
+            "research_type": research_type,
+            "research": result
+        }
+        
+    except ImportError as e:
+        return {
+            "success": False,
+            "error": f"Research module not available: {str(e)}"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+def search_sec_filings(query: str, filing_type: str = "all") -> Dict[str, Any]:
+    """
+    Search SEC EDGAR database for fund filings.
+    """
+    try:
+        from core.researcher import StrategyResearcher
+        
+        researcher = StrategyResearcher()
+        result = researcher.search_sec_edgar(query)
+        
+        return {
+            "success": True,
+            "query": query,
+            "filing_type": filing_type,
+            "filings": result if result else "No filings found"
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+def get_market_context_tool(include_details: bool = True) -> Dict[str, Any]:
+    """
+    Get current market context including major indices.
+    """
+    try:
+        from core.researcher import StrategyResearcher
+        
+        researcher = StrategyResearcher()
+        context = researcher.get_market_context("")
+        
+        return {
+            "success": True,
+            "market_context": context if context else "Market data unavailable"
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+def generate_afl_code(description: str, strategy_type: str = "standalone", api_key: str = None) -> Dict[str, Any]:
+    """
+    Generate AFL code using the ClaudeAFLEngine.
+    """
+    if not api_key:
+        return {
+            "success": False,
+            "error": "API key required for AFL generation"
+        }
+    
+    try:
+        from core.claude_engine import ClaudeAFLEngine, StrategyType
+        
+        engine = ClaudeAFLEngine(api_key=api_key)
+        
+        strat_type = StrategyType.STANDALONE
+        if strategy_type.lower() == "composite":
+            strat_type = StrategyType.COMPOSITE
+        
+        result = engine.generate_afl(
+            request=description,
+            strategy_type=strat_type
+        )
+        
+        return {
+            "success": True,
+            "description": description,
+            "strategy_type": strategy_type,
+            "afl_code": result.get("afl_code", ""),
+            "explanation": result.get("explanation", ""),
+            "stats": result.get("stats", {})
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+def debug_afl_code(code: str, error_message: str = "", api_key: str = None) -> Dict[str, Any]:
+    """
+    Debug and fix AFL code using the ClaudeAFLEngine.
+    """
+    if not api_key:
+        return {
+            "success": False,
+            "error": "API key required for AFL debugging"
+        }
+    
+    try:
+        from core.claude_engine import ClaudeAFLEngine
+        
+        engine = ClaudeAFLEngine(api_key=api_key)
+        fixed_code = engine.debug_code(code, error_message)
+        
+        return {
+            "success": True,
+            "original_code": code[:200] + "..." if len(code) > 200 else code,
+            "error_message": error_message,
+            "fixed_code": fixed_code
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+def optimize_afl_code(code: str, api_key: str = None) -> Dict[str, Any]:
+    """
+    Optimize AFL code using the ClaudeAFLEngine.
+    """
+    if not api_key:
+        return {
+            "success": False,
+            "error": "API key required for AFL optimization"
+        }
+    
+    try:
+        from core.claude_engine import ClaudeAFLEngine
+        
+        engine = ClaudeAFLEngine(api_key=api_key)
+        optimized_code = engine.optimize_code(code)
+        
+        return {
+            "success": True,
+            "original_code": code[:200] + "..." if len(code) > 200 else code,
+            "optimized_code": optimized_code
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+def explain_afl_code(code: str, api_key: str = None) -> Dict[str, Any]:
+    """
+    Explain AFL code using the ClaudeAFLEngine.
+    """
+    if not api_key:
+        return {
+            "success": False,
+            "error": "API key required for AFL explanation"
+        }
+    
+    try:
+        from core.claude_engine import ClaudeAFLEngine
+        
+        engine = ClaudeAFLEngine(api_key=api_key)
+        explanation = engine.explain_code(code)
+        
+        return {
+            "success": True,
+            "code": code[:200] + "..." if len(code) > 200 else code,
+            "explanation": explanation
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+# ============================================================================
 # TOOL DISPATCHER
 # ============================================================================
 
-def handle_tool_call(tool_name: str, tool_input: Dict[str, Any], supabase_client=None) -> str:
+def handle_tool_call(tool_name: str, tool_input: Dict[str, Any], supabase_client=None, api_key: str = None) -> str:
     """
     Dispatch tool calls to appropriate handlers.
     Returns JSON string result.
@@ -476,6 +822,49 @@ def handle_tool_call(tool_name: str, tool_input: Dict[str, Any], supabase_client
         elif tool_name == "validate_afl":
             result = validate_afl(
                 code=tool_input.get("code", "")
+            )
+        
+        elif tool_name == "research_strategy":
+            result = research_strategy(
+                query=tool_input.get("query", ""),
+                research_type=tool_input.get("research_type", "strategy")
+            )
+        
+        elif tool_name == "search_sec_filings":
+            result = search_sec_filings(
+                query=tool_input.get("query", ""),
+                filing_type=tool_input.get("filing_type", "all")
+            )
+        
+        elif tool_name == "get_market_context":
+            result = get_market_context_tool(
+                include_details=tool_input.get("include_details", True)
+            )
+        
+        elif tool_name == "generate_afl_code":
+            result = generate_afl_code(
+                description=tool_input.get("description", ""),
+                strategy_type=tool_input.get("strategy_type", "standalone"),
+                api_key=api_key
+            )
+        
+        elif tool_name == "debug_afl_code":
+            result = debug_afl_code(
+                code=tool_input.get("code", ""),
+                error_message=tool_input.get("error_message", ""),
+                api_key=api_key
+            )
+        
+        elif tool_name == "optimize_afl_code":
+            result = optimize_afl_code(
+                code=tool_input.get("code", ""),
+                api_key=api_key
+            )
+        
+        elif tool_name == "explain_afl_code":
+            result = explain_afl_code(
+                code=tool_input.get("code", ""),
+                api_key=api_key
             )
         
         else:

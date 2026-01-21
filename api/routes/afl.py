@@ -1,0 +1,408 @@
+"""AFL code generation routes."""
+
+from typing import Optional, Dict, Any
+from enum import Enum
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
+
+from api.dependencies import get_current_user_id, get_user_api_keys
+from core.claude_engine import ClaudeAFLEngine, StrategyType, BacktestSettings
+from db.supabase_client import get_supabase
+
+router = APIRouter(prefix="/afl", tags=["AFL Generation"])
+
+
+class GenerationPhase(str, Enum):
+    """Phases of AFL generation workflow."""
+    INITIAL = "initial"
+    AWAITING_ANSWERS = "awaiting_answers"
+    GENERATING = "generating"
+    COMPLETE = "complete"
+
+
+class GenerateRequest(BaseModel):
+    """Request model for AFL generation."""
+    prompt: str
+    strategy_type: str = "standalone"
+    settings: Optional[Dict[str, Any]] = None
+    conversation_id: Optional[str] = None
+    answers: Optional[Dict[str, str]] = None  # {"strategy_type": "standalone", "trade_timing": "close"}
+
+
+class OptimizeRequest(BaseModel):
+    """Request model for AFL optimization."""
+    code: str
+
+
+class DebugRequest(BaseModel):
+    """Request model for AFL debugging."""
+    code: str
+    error_message: Optional[str] = ""
+
+
+class ExplainRequest(BaseModel):
+    """Request model for AFL explanation."""
+    code: str
+
+
+class ValidateRequest(BaseModel):
+    """Request model for AFL validation."""
+    code: str
+
+
+@router.post("/generate")
+async def generate_afl(
+        request: GenerateRequest,
+        user_id: str = Depends(get_current_user_id),
+        api_keys: dict = Depends(get_user_api_keys),
+):
+    """Generate AFL code with optional mandatory question flow."""
+
+    if not api_keys.get("claude"):
+        raise HTTPException(status_code=400, detail="Claude API key not configured")
+
+    db = get_supabase()
+
+    # Determine if we're using the conversation workflow or simple generation
+    if request.conversation_id or request.answers:
+        # Conversation-based workflow with mandatory questions
+        return await _generate_with_conversation(request, user_id, api_keys, db)
+    else:
+        # Simple one-shot generation
+        return await _generate_simple(request, user_id, api_keys, db)
+
+
+async def _generate_simple(
+        request: GenerateRequest,
+        user_id: str,
+        api_keys: dict,
+        db,
+) -> Dict[str, Any]:
+    """Simple one-shot AFL generation without conversation workflow."""
+    try:
+        engine = ClaudeAFLEngine(api_key=api_keys["claude"])
+
+        # Parse strategy type
+        strat_type = StrategyType.STANDALONE
+        if request.strategy_type.lower() == "composite":
+            strat_type = StrategyType.COMPOSITE
+
+        # Parse backtest settings if provided
+        settings = None
+        if request.settings:
+            settings = BacktestSettings(**request.settings)
+
+        # Generate
+        result = engine.generate_afl(
+            request=request.prompt,
+            strategy_type=strat_type,
+            settings=settings,
+        )
+
+        afl_code = result.get("afl_code", "")
+
+        # Save to database (with error handling for missing table)
+        try:
+            db.table("afl_codes").insert({
+                "user_id": user_id,
+                "name": request.prompt[:100],
+                "description": request.prompt,
+                "code": afl_code,
+                "strategy_type": request.strategy_type,
+                "quality_score": result.get("stats", {}).get("quality_score", 0),
+            }).execute()
+        except Exception as db_error:
+            # Log but don't fail if DB save fails
+            import logging
+            logging.warning(f"Failed to save AFL code to database: {db_error}")
+
+        # Return response with 'code' field for frontend compatibility
+        return {
+            "code": afl_code,
+            "afl_code": afl_code,  # Keep for backward compatibility
+            "explanation": result.get("explanation", ""),
+            "stats": result.get("stats", {}),
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+async def _generate_with_conversation(
+        request: GenerateRequest,
+        user_id: str,
+        api_keys: dict,
+        db,
+) -> Dict[str, Any]:
+    """AFL generation with conversation workflow and mandatory questions."""
+
+    # Get or create conversation
+    if request.conversation_id:
+        conv = db.table("conversations").select("*").eq("id", request.conversation_id).execute()
+        conversation = conv.data[0] if conv.data else None
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        phase = conversation.get("phase", GenerationPhase.INITIAL)
+    else:
+        # Create new conversation
+        conv_result = db.table("conversations").insert({
+            "user_id": user_id,
+            "title": request.prompt[:50],
+            "conversation_type": "afl_generation",
+            "phase": GenerationPhase.INITIAL,
+        }).execute()
+        conversation = conv_result.data[0]
+        request.conversation_id = conversation["id"]
+        phase = GenerationPhase.INITIAL
+
+    try:
+        engine = ClaudeAFLEngine(api_key=api_keys["claude"])
+
+        # PHASE 1: Ask mandatory questions
+        if phase == GenerationPhase.INITIAL:
+            questions_prompt = f"""The user wants to create an AFL strategy: "{request.prompt}"
+
+⚠️ CRITICAL: Before writing ANY code, you MUST ask these two questions:
+
+1. "Do you want this to be a **standalone strategy** in one AFL file, or part of a **composite** system?"
+   - Standalone = Complete strategy with all sections (buy/sell, plotting, exploration, backtest settings)
+   - Composite = Module to be included in a master template (only strategy logic, no plotting/settings)
+
+2. "Do you want to trade on the **OPEN** or the **CLOSE** of the bar?"
+   - CLOSE = SetTradeDelays(0, 0, 0, 0)
+   - OPEN = SetTradeDelays(1, 1, 1, 1)
+
+Please ask these questions clearly and wait for the user's response. Do NOT generate any code yet."""
+
+            import anthropic
+            client = anthropic.Anthropic(api_key=api_keys["claude"])
+
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1000,
+                messages=[{"role": "user", "content": questions_prompt}],
+            )
+
+            questions = response.content[0].text
+
+            # Save messages
+            db.table("messages").insert([
+                {"conversation_id": request.conversation_id, "role": "user", "content": request.prompt},
+                {"conversation_id": request.conversation_id, "role": "assistant", "content": questions},
+            ]).execute()
+
+            # Update phase
+            db.table("conversations").update({
+                "phase": GenerationPhase.AWAITING_ANSWERS
+            }).eq("id", request.conversation_id).execute()
+
+            return {
+                "conversation_id": request.conversation_id,
+                "phase": GenerationPhase.AWAITING_ANSWERS,
+                "response": questions,
+                "needs_answers": True,
+            }
+
+        # PHASE 2: Generate code with answers
+        elif phase == GenerationPhase.AWAITING_ANSWERS and request.answers:
+            # Validate answers
+            if not request.answers.get("strategy_type") or not request.answers.get("trade_timing"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Missing required answers: strategy_type and trade_timing"
+                )
+
+            # Map answers
+            strategy_type = StrategyType.STANDALONE if "standalone" in request.answers[
+                "strategy_type"].lower() else StrategyType.COMPOSITE
+
+            if "close" in request.answers["trade_timing"].lower():
+                trade_delays = (0, 0, 0, 0)
+            else:
+                trade_delays = (1, 1, 1, 1)
+
+            settings = BacktestSettings(trade_delays=trade_delays)
+            if request.settings:
+                # Merge with provided settings
+                for key, value in request.settings.items():
+                    if hasattr(settings, key):
+                        setattr(settings, key, value)
+
+            # Get conversation history
+            history = db.table("messages").select("role, content").eq(
+                "conversation_id", request.conversation_id
+            ).order("created_at").execute()
+
+            conversation_history = [{"role": m["role"], "content": m["content"]} for m in history.data]
+
+            # Generate with full context
+            result = engine.generate_afl(
+                request=request.prompt,
+                strategy_type=strategy_type,
+                settings=settings,
+                conversation_history=conversation_history,
+                user_answers=request.answers,
+            )
+
+            afl_code = result.get("afl_code", "")
+
+            # Save to database
+            code_result = db.table("afl_codes").insert({
+                "user_id": user_id,
+                "conversation_id": request.conversation_id,
+                "name": request.prompt[:100],
+                "description": request.prompt,
+                "code": afl_code,
+                "strategy_type": strategy_type.value,
+                "quality_score": result.get("stats", {}).get("quality_score", 0),
+            }).execute()
+
+            # Save assistant message
+            db.table("messages").insert({
+                "conversation_id": request.conversation_id,
+                "role": "assistant",
+                "content": f"## Generated AFL Code\n\n```afl\n{afl_code}\n```",
+            }).execute()
+
+            # Update phase
+            db.table("conversations").update({
+                "phase": GenerationPhase.COMPLETE
+            }).eq("id", request.conversation_id).execute()
+
+            return {
+                "conversation_id": request.conversation_id,
+                "phase": GenerationPhase.COMPLETE,
+                "afl_code": afl_code,
+                "code_id": code_result.data[0]["id"],
+                "stats": result.get("stats", {}),
+            }
+
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid phase transition. Current phase: {phase}, Has answers: {bool(request.answers)}"
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/optimize")
+async def optimize_afl(
+        request: OptimizeRequest,
+        api_keys: dict = Depends(get_user_api_keys),
+):
+    """Optimize existing AFL code."""
+
+    if not api_keys.get("claude"):
+        raise HTTPException(status_code=400, detail="Claude API key not configured")
+
+    try:
+        engine = ClaudeAFLEngine(api_key=api_keys["claude"])
+        optimized = engine.optimize_code(request.code)
+
+        return {"optimized_code": optimized}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/debug")
+async def debug_afl(
+        request: DebugRequest,
+        api_keys: dict = Depends(get_user_api_keys),
+):
+    """Debug AFL code and fix errors."""
+
+    if not api_keys.get("claude"):
+        raise HTTPException(status_code=400, detail="Claude API key not configured")
+
+    try:
+        engine = ClaudeAFLEngine(api_key=api_keys["claude"])
+        debugged = engine.debug_code(request.code, request.error_message)
+
+        return {"debugged_code": debugged}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/explain")
+async def explain_afl(
+        request: ExplainRequest,
+        api_keys: dict = Depends(get_user_api_keys),
+):
+    """Explain AFL code in plain English."""
+
+    if not api_keys.get("claude"):
+        raise HTTPException(status_code=400, detail="Claude API key not configured")
+
+    try:
+        engine = ClaudeAFLEngine(api_key=api_keys["claude"])
+        explanation = engine.explain_code(request.code)
+
+        return {"explanation": explanation}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/validate")
+async def validate_afl(request: ValidateRequest):
+    """Validate AFL code syntax without API call."""
+
+    engine = ClaudeAFLEngine()  # No API key needed for validation
+    result = engine.validate_code(request.code)
+
+    return result
+
+
+@router.get("/codes")
+async def list_codes(
+        user_id: str = Depends(get_current_user_id),
+        limit: int = 50,
+):
+    """List user's saved AFL codes."""
+    db = get_supabase()
+
+    result = db.table("afl_codes").select(
+        "id, name, description, strategy_type, quality_score, created_at"
+    ).eq("user_id", user_id).order("created_at", desc=True).limit(limit).execute()
+
+    return result.data
+
+
+@router.get("/codes/{code_id}")
+async def get_code(
+        code_id: str,
+        user_id: str = Depends(get_current_user_id),
+):
+    """Get a specific AFL code."""
+    db = get_supabase()
+
+    result = db.table("afl_codes").select("*").eq("id", code_id).execute()
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Code not found")
+
+    return result.data[0]
+
+
+@router.delete("/codes/{code_id}")
+async def delete_code(
+        code_id: str,
+        user_id: str = Depends(get_current_user_id),
+):
+    """Delete an AFL code."""
+    db = get_supabase()
+
+    # Verify ownership
+    existing = db.table("afl_codes").select("user_id").eq("id", code_id).execute()
+    if not existing.data or existing.data[0]["user_id"] != user_id:
+        raise HTTPException(status_code=404, detail="Code not found")
+
+    db.table("afl_codes").delete().eq("id", code_id).execute()
+
+    return {"status": "deleted"}

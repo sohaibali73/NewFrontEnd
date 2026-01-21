@@ -234,6 +234,26 @@ TOOL_DEFINITIONS = [
             },
             "required": ["code"]
         }
+    },
+    # Custom: Sanity Check AFL (auto-fix)
+    {
+        "name": "sanity_check_afl",
+        "description": "Performs comprehensive sanity check on AFL code and automatically fixes common issues. Validates colors (only official AmiBroker colors), function signatures (prevents hallucinations like RSI(Close,14)), and reserved words. Returns fixed code with list of corrections made. USE THIS BEFORE PRESENTING ANY AFL CODE TO THE USER.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": "The AFL code to sanity check and fix"
+                },
+                "auto_fix": {
+                    "type": "boolean",
+                    "description": "Whether to automatically fix detected issues",
+                    "default": True
+                }
+            },
+            "required": ["code"]
+        }
     }
 ]
 
@@ -502,72 +522,36 @@ def get_stock_data(symbol: str, period: str = "1mo", info_type: str = "price") -
 
 def validate_afl(code: str) -> Dict[str, Any]:
     """
-    Validate AFL code for common syntax errors.
+    Comprehensive AFL code validation with hallucination prevention.
+    Validates colors, function signatures, reserved words, and syntax.
     """
-    errors = []
-    warnings = []
+    from core.afl_validator import AFLValidator, get_valid_colors
     
-    # Basic syntax checks
+    validator = AFLValidator()
+    result = validator.validate(code)
+    
+    # Basic info
     lines = code.split("\n")
-    
-    # Check for balanced parentheses and brackets
-    paren_count = 0
-    bracket_count = 0
-    brace_count = 0
-    
-    for i, line in enumerate(lines, 1):
-        # Skip comments
-        if line.strip().startswith("//"):
-            continue
-        
-        for char in line:
-            if char == "(": paren_count += 1
-            elif char == ")": paren_count -= 1
-            elif char == "[": bracket_count += 1
-            elif char == "]": bracket_count -= 1
-            elif char == "{": brace_count += 1
-            elif char == "}": brace_count -= 1
-            
-            if paren_count < 0:
-                errors.append(f"Line {i}: Unmatched closing parenthesis")
-            if bracket_count < 0:
-                errors.append(f"Line {i}: Unmatched closing bracket")
-            if brace_count < 0:
-                errors.append(f"Line {i}: Unmatched closing brace")
-    
-    if paren_count != 0:
-        errors.append(f"Unbalanced parentheses: {abs(paren_count)} {'open' if paren_count > 0 else 'close'} missing")
-    if bracket_count != 0:
-        errors.append(f"Unbalanced brackets: {abs(bracket_count)} {'open' if bracket_count > 0 else 'close'} missing")
-    if brace_count != 0:
-        errors.append(f"Unbalanced braces: {abs(brace_count)} {'open' if brace_count > 0 else 'close'} missing")
-    
-    # Check for common AFL issues
-    common_issues = [
-        (r"=\s*=", "Use '==' for comparison, not '= ='"),
-        (r"[^=!<>]=(?!=)", None),  # Assignment in condition - skip, AFL uses = for both
-    ]
-    
-    # Check for required elements in trading systems
     code_upper = code.upper()
-    if "BUY" in code_upper or "SELL" in code_upper:
-        if "BUY" in code_upper and "SELL" not in code_upper:
-            warnings.append("Trading system has BUY but no SELL condition")
-        if "SELL" in code_upper and "BUY" not in code_upper:
-            warnings.append("Trading system has SELL but no BUY condition")
     
-    # Check for common function usage
-    if "PLOT" in code_upper and "GRAPHXSPACE" not in code_upper:
-        warnings.append("Consider adding _SECTION_BEGIN/END and GraphXSpace for better chart organization")
+    # Combine all errors for backward compatibility
+    all_errors = result.errors + result.color_issues + result.function_issues
+    all_warnings = result.warnings + result.reserved_word_issues + result.style_issues
     
     return {
-        "success": len(errors) == 0,
-        "valid": len(errors) == 0,
-        "errors": errors,
-        "warnings": warnings,
+        "success": result.is_valid,
+        "valid": result.is_valid,
+        "errors": all_errors,
+        "warnings": all_warnings,
+        "color_issues": result.color_issues,
+        "function_issues": result.function_issues,
+        "reserved_word_issues": result.reserved_word_issues,
+        "style_issues": result.style_issues,
+        "suggestions": result.suggestions,
         "line_count": len(lines),
         "has_buy_sell": "BUY" in code_upper or "SELL" in code_upper,
-        "has_plot": "PLOT" in code_upper
+        "has_plot": "PLOT" in code_upper,
+        "valid_colors": get_valid_colors() if not result.is_valid else None
     }
 
 
@@ -786,6 +770,100 @@ def explain_afl_code(code: str, api_key: str = None) -> Dict[str, Any]:
             "success": False,
             "error": str(e)
         }
+
+
+def sanity_check_afl(code: str, auto_fix: bool = True) -> Dict[str, Any]:
+    """
+    Comprehensive AFL sanity check with auto-fix capability.
+    Validates colors, function signatures, reserved words, and fixes common issues.
+    """
+    from core.afl_validator import AFLValidator, fix_afl_code, get_valid_colors, get_valid_styles, get_valid_shapes
+    
+    validator = AFLValidator()
+    
+    # First, validate the original code
+    original_validation = validator.validate(code)
+    
+    result = {
+        "success": original_validation.is_valid,
+        "original_valid": original_validation.is_valid,
+        "original_issues": {
+            "errors": original_validation.errors,
+            "color_issues": original_validation.color_issues,
+            "function_issues": original_validation.function_issues,
+            "reserved_word_issues": original_validation.reserved_word_issues,
+            "style_issues": original_validation.style_issues,
+            "warnings": original_validation.warnings,
+        },
+        "total_issues_found": (
+            len(original_validation.errors) +
+            len(original_validation.color_issues) +
+            len(original_validation.function_issues) +
+            len(original_validation.reserved_word_issues)
+        )
+    }
+    
+    # If auto_fix is enabled and there are issues, try to fix them
+    if auto_fix and not original_validation.is_valid:
+        fixed_code, fixes_applied = validator.fix_code(code)
+        fixed_validation = validator.validate(fixed_code)
+        
+        result.update({
+            "auto_fixed": True,
+            "fixes_applied": fixes_applied,
+            "fixed_code": fixed_code,
+            "fixed_valid": fixed_validation.is_valid,
+            "remaining_issues": {
+                "errors": fixed_validation.errors,
+                "color_issues": fixed_validation.color_issues,
+                "function_issues": fixed_validation.function_issues,
+                "reserved_word_issues": fixed_validation.reserved_word_issues,
+            },
+            "success": fixed_validation.is_valid
+        })
+        
+        # If still has issues, provide helpful info
+        if not fixed_validation.is_valid:
+            result["valid_colors_reference"] = get_valid_colors()
+            result["valid_styles_reference"] = get_valid_styles()[:10]  # Top 10
+            result["valid_shapes_reference"] = get_valid_shapes()[:10]
+            result["manual_fixes_needed"] = True
+    else:
+        result["auto_fixed"] = False
+        result["fixed_code"] = code
+    
+    # Always include summary
+    result["summary"] = _generate_sanity_check_summary(result)
+    
+    return result
+
+
+def _generate_sanity_check_summary(result: Dict[str, Any]) -> str:
+    """Generate a human-readable summary of the sanity check."""
+    if result["original_valid"]:
+        return " AFL code passed all sanity checks. No hallucinations or invalid colors detected."
+    
+    issues = []
+    orig = result["original_issues"]
+    
+    if orig["color_issues"]:
+        issues.append(f"<¨ {len(orig['color_issues'])} invalid color(s)")
+    if orig["function_issues"]:
+        issues.append(f"  {len(orig['function_issues'])} function hallucination(s)")
+    if orig["reserved_word_issues"]:
+        issues.append(f"=Û {len(orig['reserved_word_issues'])} reserved word conflict(s)")
+    if orig["errors"]:
+        issues.append(f"L {len(orig['errors'])} syntax error(s)")
+    
+    summary = f"Found {result['total_issues_found']} issue(s): " + ", ".join(issues)
+    
+    if result.get("auto_fixed"):
+        if result.get("fixed_valid"):
+            summary += f"\n Auto-fixed {len(result['fixes_applied'])} issue(s). Code is now valid."
+        else:
+            summary += f"\n  Auto-fixed {len(result['fixes_applied'])} issue(s), but manual fixes still needed."
+    
+    return summary
 
 
 # ============================================================================

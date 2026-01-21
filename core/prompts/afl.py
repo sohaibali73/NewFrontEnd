@@ -129,6 +129,50 @@ MA_Val = MA(Close, maLength);
 - Pattern: <name>Default, <name>Min, <name>Max, <name>Step, <name>_Dflt, <name>
 '''
 
+COLOR_RULES = '''
+## MANDATORY COLOR RULES - ONLY USE OFFICIAL AMIBROKER COLORS
+
+### ❌ NEVER USE:
+- Custom RGB values like RGB(255, 100, 50)
+- ColorHSB() with custom values
+- Made-up color names like colorCyan, colorMagenta, colorPurple
+- Any color not in the approved list below
+
+### ✅ APPROVED COLORS ONLY:
+colorBlack, colorBlue, colorBrightGreen, colorBrown, colorDarkBlue, 
+colorDarkGreen, colorDarkGrey, colorDarkOliveGreen, colorDarkRed, 
+colorDarkTeal, colorDarkYellow, colorDefault, colorGold, colorGreen, 
+colorGrey40, colorGrey50, colorIndigo, colorLavender, colorLightBlue, 
+colorLightGrey, colorLightOrange, colorLightYellow, colorLime, 
+colorOrange, colorPaleGreen, colorPink, colorPlum, colorRed, colorRose, 
+colorSeaGreen, colorSkyblue, colorTan, colorTeal, colorTurquoise, 
+colorViolet, colorWhite, colorYellow, colorAqua
+
+### COMMON COLOR USAGE:
+- Buy signals: colorGreen, colorBrightGreen, colorLime
+- Sell signals: colorRed, colorOrange, colorDarkRed
+- Moving averages: colorBlue, colorYellow, colorWhite
+- Background/Neutral: colorGrey40, colorGrey50, colorLightGrey
+- Price bars: colorDefault (uses chart settings)
+- Bollinger bands: colorBlue, colorLightBlue
+
+### EXAMPLE CORRECT USAGE:
+```afl
+Plot(Close, "Close", colorDefault, styleLine);
+Plot(MA_Fast, "Fast MA", colorYellow, styleThick);
+Plot(MA_Slow, "Slow MA", colorBlue, styleThick);
+PlotShapes(Buy * shapeUpArrow, colorGreen, 0, Low, -15);
+PlotShapes(Sell * shapeDownArrow, colorRed, 0, High, -15);
+```
+
+### CONDITIONAL COLORING (APPROVED):
+```afl
+// Use IIf with approved colors only
+barColor = IIf(Close > Open, colorGreen, colorRed);
+Plot(Close, "Close", barColor, styleCandle);
+```
+'''
+
 BACKTEST_SETTINGS = '''
 ## REQUIRED BACKTEST SETTINGS
 
@@ -157,6 +201,8 @@ def get_base_prompt() -> str:
 {RESERVED_KEYWORDS}
 
 {PARAM_OPTIMIZE_STRUCTURE}
+
+{COLOR_RULES}
 
 ## MANDATORY RULES - ALWAYS FOLLOW
 1. ALWAYS use correct function signatures - RSI(14) NOT RSI(Close, 14)

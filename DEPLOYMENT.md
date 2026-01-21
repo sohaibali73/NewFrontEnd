@@ -1,26 +1,17 @@
-# Deployment Guide
+# Deploy to Railway
 
 This backend is fully serverless - all data is stored in **Supabase** (cloud database) and uses **Claude API**, **Tavily API** for AI/research features.
 
 ---
 
-## 🚂 Deploy to Railway (Recommended)
+## 🚂 Quick Deploy Steps
 
-### Quick Deploy Steps
-
-1. **Push your code to GitHub:**
-   ```bash
-   git add .
-   git commit -m "Add Railway deployment configuration"
-   git push
-   ```
-
-2. **Go to [Railway](https://railway.app)**
+1. **Go to [Railway](https://railway.app)**
    - Sign up/login with GitHub
    - Click **"New Project"** → **"Deploy from GitHub repo"**
-   - Select: `sohaibali73/Potomac-Analyst-Workbench`
+   - Select: `sohaibali73/Potomac-Analyst-Workbench1`
 
-3. **Configure Environment Variables:**
+2. **Configure Environment Variables:**
    Go to your project → **Variables** tab and add:
 
    | Variable | Value |
@@ -31,22 +22,16 @@ This backend is fully serverless - all data is stored in **Supabase** (cloud dat
    | `TAVILY_API_KEY` | Your Tavily API key |
    | `SECRET_KEY` | A strong random string (for JWT) |
 
-4. **Deploy!**
+3. **Deploy!**
    Railway will automatically:
-   - Detect Python project
+   - Detect the Dockerfile
+   - Build with Python 3.11
    - Install dependencies from `requirements.txt`
-   - Run `uvicorn main:app --host 0.0.0.0 --port $PORT`
+   - Run `uvicorn main:app`
 
-5. **Get your URL:**
+4. **Get your URL:**
    - Go to **Settings** → **Networking** → **Generate Domain**
    - Your API will be at: `https://your-project.up.railway.app`
-
-### Update Your Frontend
-
-Change your frontend environment variable:
-```env
-VITE_API_URL=https://your-project.up.railway.app
-```
 
 ---
 
@@ -60,9 +45,6 @@ curl https://your-project.up.railway.app/health
 
 # List routes  
 curl https://your-project.up.railway.app/routes
-
-# Root endpoint
-curl https://your-project.up.railway.app/
 ```
 
 ---
@@ -77,7 +59,7 @@ curl https://your-project.up.railway.app/
 | **File Processing** | In-memory | Files uploaded → processed → stored in Supabase |
 | **Authentication** | JWT tokens | Stored in Supabase users table |
 
-**No local storage required** - the backend is completely stateless and can scale horizontally.
+**No local storage required** - the backend is completely stateless.
 
 ---
 
@@ -86,32 +68,15 @@ curl https://your-project.up.railway.app/
 - ✅ `.env` is in `.gitignore` (secrets not committed)
 - ✅ All API keys set via Railway environment variables
 - ✅ Use a strong, unique `SECRET_KEY` in production
-- ✅ CORS configured (update `allow_origins` for production)
 
 ---
 
-## 🛠 Files for Deployment
+## 🛠 Deployment Files
 
 | File | Purpose |
 |------|---------|
+| `Dockerfile` | Container build configuration |
+| `.dockerignore` | Excludes unnecessary files |
 | `railway.json` | Railway configuration |
-| `Procfile` | Start command definition |
-| `nixpacks.toml` | Build configuration |
+| `Procfile` | Start command |
 | `requirements.txt` | Python dependencies |
-| `runtime.txt` | Python version (3.11.0) |
-
----
-
-## 💰 Railway Pricing
-
-- **Free Tier**: $5 credit/month (usually enough for development)
-- **Hobby**: $5/month + usage
-- **Pro**: $20/month + usage (team features)
-
-Railway does **not** spin down services on the hobby plan, so no cold starts!
-
----
-
-## 🔄 Alternative: Render
-
-If you prefer Render, the `render.yaml` file is also included. Follow similar steps but use Render's dashboard instead.

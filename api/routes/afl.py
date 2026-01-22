@@ -3,10 +3,13 @@
 from typing import Optional, Dict, Any
 from enum import Enum
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+import json
 
 from api.dependencies import get_current_user_id, get_user_api_keys
 from core.claude_engine import ClaudeAFLEngine, StrategyType, BacktestSettings
+from core.context_manager import build_optimized_context
 from db.supabase_client import get_supabase
 
 router = APIRouter(prefix="/afl", tags=["AFL Generation"])
@@ -27,6 +30,7 @@ class GenerateRequest(BaseModel):
     settings: Optional[Dict[str, Any]] = None
     conversation_id: Optional[str] = None
     answers: Optional[Dict[str, str]] = None  # {"strategy_type": "standalone", "trade_timing": "close"}
+    stream: Optional[bool] = False  # Enable streaming responses
 
 
 class OptimizeRequest(BaseModel):
@@ -80,7 +84,8 @@ async def _generate_simple(
 ) -> Dict[str, Any]:
     """Simple one-shot AFL generation without conversation workflow."""
     try:
-        engine = ClaudeAFLEngine(api_key=api_keys["claude"])
+        # Use condensed prompts for performance (default: True)
+        engine = ClaudeAFLEngine(api_key=api_keys["claude"], use_condensed_prompts=True)
 
         # Parse strategy type
         strat_type = StrategyType.STANDALONE
@@ -92,11 +97,53 @@ async def _generate_simple(
         if request.settings:
             settings = BacktestSettings(**request.settings)
 
-        # Generate
+        # Check if streaming is requested
+        if request.stream:
+            # Return streaming response
+            async def generate_stream():
+                try:
+                    generator = engine.generate_afl(
+                        request=request.prompt,
+                        strategy_type=strat_type,
+                        settings=settings,
+                        stream=True,
+                    )
+                    
+                    for chunk in generator:
+                        yield f"data: {json.dumps(chunk)}\n\n"
+                        
+                        # Save to database when complete
+                        if chunk.get("type") == "complete":
+                            try:
+                                db.table("afl_codes").insert({
+                                    "user_id": user_id,
+                                    "name": request.prompt[:100],
+                                    "description": request.prompt,
+                                    "code": chunk.get("afl_code", ""),
+                                    "strategy_type": request.strategy_type,
+                                    "quality_score": chunk.get("stats", {}).get("quality_score", 0),
+                                }).execute()
+                            except Exception as db_error:
+                                import logging
+                                logging.warning(f"Failed to save AFL code to database: {db_error}")
+                except Exception as e:
+                    yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+            
+            return StreamingResponse(
+                generate_stream(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "X-Accel-Buffering": "no",
+                }
+            )
+
+        # Non-streaming generation
         result = engine.generate_afl(
             request=request.prompt,
             strategy_type=strat_type,
             settings=settings,
+            stream=False,
         )
 
         afl_code = result.get("afl_code", "")
@@ -156,7 +203,8 @@ async def _generate_with_conversation(
         phase = GenerationPhase.INITIAL
 
     try:
-        engine = ClaudeAFLEngine(api_key=api_keys["claude"])
+        # Use condensed prompts for performance
+        engine = ClaudeAFLEngine(api_key=api_keys["claude"], use_condensed_prompts=True)
 
         # PHASE 1: Ask mandatory questions
         if phase == GenerationPhase.INITIAL:
@@ -228,20 +276,18 @@ Please ask these questions clearly and wait for the user's response. Do NOT gene
                     if hasattr(settings, key):
                         setattr(settings, key, value)
 
-            # Get conversation history
-            history = db.table("messages").select("role, content").eq(
-                "conversation_id", request.conversation_id
-            ).order("created_at").execute()
+            # Get conversation history with optimization
+            from core.context_manager import get_recent_messages
+            conversation_history = get_recent_messages(request.conversation_id)
 
-            conversation_history = [{"role": m["role"], "content": m["content"]} for m in history.data]
-
-            # Generate with full context
+            # Generate with optimized context
             result = engine.generate_afl(
                 request=request.prompt,
                 strategy_type=strategy_type,
                 settings=settings,
                 conversation_history=conversation_history,
                 user_answers=request.answers,
+                stream=False,  # Conversation mode uses non-streaming for now
             )
 
             afl_code = result.get("afl_code", "")
@@ -300,7 +346,8 @@ async def optimize_afl(
         raise HTTPException(status_code=400, detail="Claude API key not configured")
 
     try:
-        engine = ClaudeAFLEngine(api_key=api_keys["claude"])
+        # Use condensed prompts for faster optimization
+        engine = ClaudeAFLEngine(api_key=api_keys["claude"], use_condensed_prompts=True)
         optimized = engine.optimize_code(request.code)
 
         return {"optimized_code": optimized}
@@ -320,7 +367,8 @@ async def debug_afl(
         raise HTTPException(status_code=400, detail="Claude API key not configured")
 
     try:
-        engine = ClaudeAFLEngine(api_key=api_keys["claude"])
+        # Use condensed prompts for faster debugging
+        engine = ClaudeAFLEngine(api_key=api_keys["claude"], use_condensed_prompts=True)
         debugged = engine.debug_code(request.code, request.error_message)
 
         return {"debugged_code": debugged}
@@ -340,7 +388,8 @@ async def explain_afl(
         raise HTTPException(status_code=400, detail="Claude API key not configured")
 
     try:
-        engine = ClaudeAFLEngine(api_key=api_keys["claude"])
+        # Use condensed prompts for faster explanations
+        engine = ClaudeAFLEngine(api_key=api_keys["claude"], use_condensed_prompts=True)
         explanation = engine.explain_code(request.code)
 
         return {"explanation": explanation}

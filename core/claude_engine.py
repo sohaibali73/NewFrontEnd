@@ -22,6 +22,26 @@ from core.prompts import (
     RESERVED_KEYWORDS,
 )
 
+# Import condensed prompts for performance
+from core.prompts.condensed_prompts import (
+    get_condensed_base_prompt,
+    get_condensed_generate_prompt,
+    get_condensed_optimize_prompt,
+    get_condensed_debug_prompt,
+    get_condensed_explain_prompt,
+    get_condensed_chat_prompt,
+    should_use_condensed_prompts,
+    CONDENSED_CONTEXT_LIMITS,
+)
+
+# Import training manager for dynamic learning
+try:
+    from core.training import get_training_manager
+    TRAINING_ENABLED = True
+except ImportError:
+    TRAINING_ENABLED = False
+    get_training_manager = None
+
 logger = logging.getLogger(__name__)
 
 # Default model - consistent across the application
@@ -93,17 +113,19 @@ class ClaudeAFLEngine:
         "Filter", "PositionSize", "PositionScore"
     }
 
-    def __init__(self, api_key: str = None, model: str = None):
+    def __init__(self, api_key: str = None, model: str = None, use_condensed_prompts: bool = True):
         """
         Initialize the AFL engine.
 
         Args:
             api_key: Anthropic API key
             model: Claude model to use (defaults to claude-sonnet-4-20250514)
+            use_condensed_prompts: Use condensed prompts for faster responses (default: True)
         """
         self.api_key = api_key
         self.MODEL = model or DEFAULT_MODEL
         self.client = None
+        self.use_condensed_prompts = use_condensed_prompts
 
         if self.api_key:
             self._init_client()
@@ -128,6 +150,8 @@ class ClaudeAFLEngine:
             kb_context: str = "",
             conversation_history: Optional[List[Dict]] = None,
             user_answers: Optional[Dict[str, str]] = None,
+            include_training: bool = True,
+            stream: bool = False,
     ) -> Dict[str, Any]:
         """
         Generate AFL code from natural language request.
@@ -139,16 +163,32 @@ class ClaudeAFLEngine:
             kb_context: Optional knowledge base context
             conversation_history: Optional conversation history for context
             user_answers: Optional user answers to mandatory questions
+            include_training: Whether to include training context (default: True)
+            stream: Whether to return a streaming generator (default: False)
 
         Returns:
-            Dictionary with afl_code, explanation, and stats
+            Dictionary with afl_code, explanation, and stats (or generator if stream=True)
         """
         self._ensure_client()
         start_time = time.time()
 
-        # Build system prompt
-        system_prompt = get_base_prompt()
-        system_prompt += "\n\n" + get_generate_prompt(strategy_type.value)
+        # Use condensed prompts for better performance
+        if self.use_condensed_prompts:
+            system_prompt = get_condensed_base_prompt()
+            system_prompt += "\n\n" + get_condensed_generate_prompt(strategy_type.value)
+        else:
+            system_prompt = get_base_prompt()
+            system_prompt += "\n\n" + get_generate_prompt(strategy_type.value)
+
+        # Include training context (learned rules, patterns, corrections) - CONDITIONAL & OPTIMIZED
+        if include_training:
+            training_context = self._get_training_context()
+            if training_context:
+                # Truncate training context to prevent bloat (more aggressive if condensed)
+                from core.context_manager import truncate_context
+                max_training_tokens = CONDENSED_CONTEXT_LIMITS["training_context_max_tokens"] if self.use_condensed_prompts else 2000
+                training_context = truncate_context(training_context, max_tokens=max_training_tokens)
+                system_prompt += f"\n\nLEARNED RULES:\n{training_context}"
 
         # Include user answers if provided
         if user_answers:
@@ -156,42 +196,54 @@ class ClaudeAFLEngine:
             system_prompt += f"\n\n{answer_context}"
 
         if kb_context:
-            system_prompt += f"\n\n## KNOWLEDGE BASE CONTEXT:\n{kb_context}"
+            # Optimize KB context size
+            from core.context_manager import truncate_context
+            max_kb_tokens = CONDENSED_CONTEXT_LIMITS["kb_context_max_tokens"] if self.use_condensed_prompts else 1500
+            kb_context = truncate_context(kb_context, max_tokens=max_kb_tokens)
+            system_prompt += f"\n\nKB CONTEXT:\n{kb_context}"
 
         if settings:
             system_prompt += f"\n\n## BACKTEST SETTINGS TO APPLY:\n{settings.to_afl()}"
 
-        # Build messages
+        # Build messages with limited history
         messages = []
         if conversation_history:
-            messages.extend(conversation_history)
+            # Limit to recent messages to prevent context overload
+            from core.context_manager import MAX_RECENT_MESSAGES
+            recent_messages = conversation_history[-MAX_RECENT_MESSAGES:]
+            messages.extend(recent_messages)
         messages.append({"role": "user", "content": f"Generate AFL code for: {request}"})
 
-        # Generate code
+        # Generate code with optional streaming
         try:
-            response = self.client.messages.create(
-                model=self.MODEL,
-                max_tokens=self.MAX_TOKENS,
-                system=system_prompt,
-                messages=messages
-            )
+            if stream:
+                # Return streaming generator
+                return self._generate_stream(system_prompt, messages, start_time)
+            else:
+                # Standard non-streaming response
+                response = self.client.messages.create(
+                    model=self.MODEL,
+                    max_tokens=self.MAX_TOKENS,
+                    system=system_prompt,
+                    messages=messages
+                )
 
-            raw_response = response.content[0].text
-            code = self._extract_code(raw_response)
-            code, errors, warnings = self._validate_and_fix(code)
-            quality_score = self._calculate_quality(code, errors, warnings)
-            generation_time = time.time() - start_time
+                raw_response = response.content[0].text
+                code = self._extract_code(raw_response)
+                code, errors, warnings = self._validate_and_fix(code)
+                quality_score = self._calculate_quality(code, errors, warnings)
+                generation_time = time.time() - start_time
 
-            return {
-                "afl_code": code,
-                "explanation": self._extract_explanation(raw_response),
-                "stats": {
-                    "quality_score": quality_score,
-                    "generation_time": f"{generation_time:.2f}s",
-                    "errors_fixed": errors,
-                    "warnings": warnings,
+                return {
+                    "afl_code": code,
+                    "explanation": self._extract_explanation(raw_response),
+                    "stats": {
+                        "quality_score": quality_score,
+                        "generation_time": f"{generation_time:.2f}s",
+                        "errors_fixed": errors,
+                        "warnings": warnings,
+                    }
                 }
-            }
 
         except Exception as e:
             logger.error(f"Generation error: {e}")
@@ -234,6 +286,52 @@ class ClaudeAFLEngine:
 
 ⚠️ CRITICAL: Implement according to these specifications."""
 
+    def _generate_stream(self, system_prompt: str, messages: List[Dict], start_time: float):
+        """
+        Internal method to generate streaming response.
+        
+        Yields chunks of text as they arrive from Claude.
+        """
+        try:
+            with self.client.messages.stream(
+                model=self.MODEL,
+                max_tokens=self.MAX_TOKENS,
+                system=system_prompt,
+                messages=messages
+            ) as stream:
+                full_response = ""
+                for text in stream.text_stream:
+                    full_response += text
+                    yield {
+                        "type": "chunk",
+                        "content": text,
+                        "full_content": full_response
+                    }
+                
+                # Final message with processed code
+                code = self._extract_code(full_response)
+                code, errors, warnings = self._validate_and_fix(code)
+                quality_score = self._calculate_quality(code, errors, warnings)
+                generation_time = time.time() - start_time
+                
+                yield {
+                    "type": "complete",
+                    "afl_code": code,
+                    "explanation": self._extract_explanation(full_response),
+                    "stats": {
+                        "quality_score": quality_score,
+                        "generation_time": f"{generation_time:.2f}s",
+                        "errors_fixed": errors,
+                        "warnings": warnings,
+                    }
+                }
+        except Exception as e:
+            logger.error(f"Streaming error: {e}")
+            yield {
+                "type": "error",
+                "error": str(e)
+            }
+
     def debug_code(self, code: str, error_message: str = "") -> str:
         """
         Debug and fix AFL code.
@@ -247,14 +345,19 @@ class ClaudeAFLEngine:
         """
         self._ensure_client()
 
-        prompt = f"{get_debug_prompt()}\n\nCode to debug:\n```afl\n{code}\n```"
+        if self.use_condensed_prompts:
+            prompt = f"{get_condensed_debug_prompt()}\n\nCode:\n```afl\n{code}\n```"
+        else:
+            prompt = f"{get_debug_prompt()}\n\nCode to debug:\n```afl\n{code}\n```"
         if error_message:
             prompt += f"\n\nError message: {error_message}"
 
+        base_prompt = get_condensed_base_prompt() if self.use_condensed_prompts else get_base_prompt()
+        
         response = self.client.messages.create(
             model=self.MODEL,
             max_tokens=self.MAX_TOKENS,
-            system=get_base_prompt(),
+            system=base_prompt,
             messages=[{"role": "user", "content": prompt}]
         )
 
@@ -273,12 +376,17 @@ class ClaudeAFLEngine:
         """
         self._ensure_client()
 
-        prompt = f"{get_optimize_prompt()}\n\nCode to optimize:\n```afl\n{code}\n```"
+        if self.use_condensed_prompts:
+            prompt = f"{get_condensed_optimize_prompt()}\n\nCode:\n```afl\n{code}\n```"
+            base_prompt = get_condensed_base_prompt()
+        else:
+            prompt = f"{get_optimize_prompt()}\n\nCode to optimize:\n```afl\n{code}\n```"
+            base_prompt = get_base_prompt()
 
         response = self.client.messages.create(
             model=self.MODEL,
             max_tokens=self.MAX_TOKENS,
-            system=get_base_prompt(),
+            system=base_prompt,
             messages=[{"role": "user", "content": prompt}]
         )
 
@@ -297,11 +405,18 @@ class ClaudeAFLEngine:
         """
         self._ensure_client()
 
+        if self.use_condensed_prompts:
+            prompt = f"{get_condensed_explain_prompt()}\n\n```afl\n{code}\n```"
+        else:
+            prompt = f"Explain this AFL code:\n```afl\n{code}\n```"
+        
+        explain_prompt = get_condensed_explain_prompt() if self.use_condensed_prompts else get_explain_prompt()
+
         response = self.client.messages.create(
             model=self.MODEL,
             max_tokens=4000,
-            system=get_explain_prompt(),
-            messages=[{"role": "user", "content": f"Explain this AFL code:\n```afl\n{code}\n```"}]
+            system=explain_prompt,
+            messages=[{"role": "user", "content": prompt}]
         )
 
         return response.content[0].text
@@ -310,38 +425,70 @@ class ClaudeAFLEngine:
             self,
             message: str,
             history: Optional[List[Dict[str, str]]] = None,
-            context: str = ""
+            context: str = "",
+            stream: bool = False,
     ) -> str:
         """
         Interactive chat about AFL and trading strategies.
 
         Args:
             message: User's message
-            history: Previous conversation messages
+            history: Previous conversation messages (will be limited to recent)
             context: Additional context from knowledge base
+            stream: Whether to return a streaming generator
 
         Returns:
-            Assistant's response
+            Assistant's response (or generator if stream=True)
         """
         self._ensure_client()
 
-        system_prompt = f"{get_base_prompt()}\n\n{get_chat_prompt()}"
+        if self.use_condensed_prompts:
+            system_prompt = f"{get_condensed_base_prompt()}\n\n{get_condensed_chat_prompt()}"
+        else:
+            system_prompt = f"{get_base_prompt()}\n\n{get_chat_prompt()}"
+            
         if context:
-            system_prompt += f"\n\n## KNOWLEDGE BASE CONTEXT:\n{context}"
+            # Truncate KB context to prevent overload (more aggressive if condensed)
+            from core.context_manager import truncate_context
+            max_kb_tokens = CONDENSED_CONTEXT_LIMITS["kb_context_max_tokens"] if self.use_condensed_prompts else 1500
+            context = truncate_context(context, max_tokens=max_kb_tokens)
+            system_prompt += f"\n\nKB:\n{context}"
 
         messages = []
         if history:
-            messages.extend(history)
+            # Limit to recent messages
+            from core.context_manager import MAX_RECENT_MESSAGES
+            recent_history = history[-MAX_RECENT_MESSAGES:]
+            messages.extend(recent_history)
         messages.append({"role": "user", "content": message})
 
-        response = self.client.messages.create(
-            model=self.MODEL,
-            max_tokens=4096,
-            system=system_prompt,
-            messages=messages
-        )
+        if stream:
+            # Return streaming response
+            return self._chat_stream(system_prompt, messages)
+        else:
+            response = self.client.messages.create(
+                model=self.MODEL,
+                max_tokens=4096,
+                system=system_prompt,
+                messages=messages
+            )
 
-        return response.content[0].text
+            return response.content[0].text
+    
+    def _chat_stream(self, system_prompt: str, messages: List[Dict]):
+        """Stream chat responses."""
+        try:
+            with self.client.messages.stream(
+                model=self.MODEL,
+                max_tokens=4096,
+                system=system_prompt,
+                messages=messages
+            ) as stream:
+                for text in stream.text_stream:
+                    yield text
+        except Exception as e:
+            logger.error(f"Chat streaming error: {e}")
+            yield f"Error: {str(e)}"
 
     def validate_code(self, code: str) -> Dict[str, Any]:
         """
@@ -465,3 +612,33 @@ class ClaudeAFLEngine:
             score += 0.05
 
         return max(0.0, min(1.0, score))
+
+    def _get_training_context(self, category: str = "afl", limit: int = 5) -> str:
+        """
+        Get training context from the training manager.
+        
+        This retrieves all learned rules, patterns, examples, and corrections
+        that admins have added to train the AI.
+        
+        Args:
+            category: Category to filter training data (default: "afl")
+            limit: Maximum number of training examples to include (default: 5, reduced from 20)
+            
+        Returns:
+            Formatted training context string
+        """
+        if not TRAINING_ENABLED or get_training_manager is None:
+            return ""
+        
+        try:
+            training_manager = get_training_manager()
+            # Pass limit to reduce training examples
+            context = training_manager.get_training_context(category=category, limit=limit)
+            
+            if context:
+                logger.debug(f"Loaded training context: {len(context)} chars (limit: {limit} examples)")
+            
+            return context
+        except Exception as e:
+            logger.warning(f"Could not load training context: {e}")
+            return ""

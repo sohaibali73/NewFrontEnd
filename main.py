@@ -74,6 +74,20 @@ try:
 except ImportError as e:
     logger.warning(f"Could not load backtest router: {e}")
 
+try:
+    from api.routes.admin import router as admin_router
+    app.include_router(admin_router)
+    logger.info("Loaded admin router")
+except ImportError as e:
+    logger.warning(f"Could not load admin router: {e}")
+
+try:
+    from api.routes.train import router as train_router
+    app.include_router(train_router)
+    logger.info("Loaded train router")
+except ImportError as e:
+    logger.warning(f"Could not load train router: {e}")
+
 @app.get("/")
 async def root():
     """Root endpoint."""

@@ -2,12 +2,16 @@
 
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 import logging
+import json
 
 from api.dependencies import get_current_user_id, get_user_api_keys
 from core.claude_engine import ClaudeAFLEngine, StrategyType
 from core.researcher import StrategyResearcher
+from core.context_manager import truncate_context, get_recent_messages, CONDENSED_CONTEXT_LIMITS
+from core.prompts.condensed_prompts import get_condensed_clarification_prompt, get_condensed_reverse_engineer_prompt
 from core.prompts import (
     get_clarification_prompt,
     get_research_synthesis_prompt,
@@ -17,7 +21,6 @@ from core.prompts import (
     get_reverse_engineer_prompt,
 )
 from db.supabase_client import get_supabase
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -110,18 +113,18 @@ async def start_reverse_engineer(
         import anthropic
         client = anthropic.Anthropic(api_key=api_keys["claude"])
 
-        # Use clarification-specific prompt
-        prompt = get_clarification_prompt(query)
+        # Use condensed clarification prompt for performance
+        prompt = get_condensed_clarification_prompt(query)
 
-        # Enable web search tool for real-time research
+        # Enable web search tool for real-time research (reduced max_tokens for faster response)
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=2000,
+            max_tokens=1500,  # Reduced from 2000 for faster responses
             messages=[{"role": "user", "content": prompt}],
             tools=[{
                 "type": "web_search_20250305",
                 "name": "web_search",
-                "max_uses": 5
+                "max_uses": 3  # Reduced from 5 for faster responses
             }]
         )
 
@@ -188,14 +191,10 @@ async def continue_conversation(
             "content": message,
         }).execute()
 
-        # Get history
+        # Get history with optimization (limit to recent messages)
         logger.info("Fetching conversation history")
-        history = db.table("messages").select("role, content").eq(
-            "conversation_id", conversation_id
-        ).order("created_at").execute()
-
-        messages = [{"role": m["role"], "content": m["content"]} for m in history.data]
-        logger.info(f"Found {len(messages)} messages in history")
+        messages = get_recent_messages(conversation_id, limit=10)
+        logger.info(f"Retrieved {len(messages)} recent messages")
 
         # Generate response
         import anthropic
@@ -218,32 +217,41 @@ async def continue_conversation(
                 researcher = StrategyResearcher(tavily_api_key=api_keys.get("tavily"))
                 research_context = researcher.research_strategy(strategy_data.get("source_query", ""))
                 logger.info(f"Research completed: {len(research_context)} chars")
+                # Truncate research context for performance
+                research_context = truncate_context(research_context, max_tokens=CONDENSED_CONTEXT_LIMITS["research_context_max_tokens"])
             except Exception as e:
                 logger.warning(f"Research failed: {e}")
                 research_context = ""
         
-        # Combine synthesis with live research
+        # Combine synthesis with live research (truncated)
         full_context = synthesis
         if research_context:
             full_context = f"{synthesis}\n\n## Live Research Results:\n{research_context}" if synthesis else research_context
+        
+        # Truncate full context to prevent overload
+        full_context = truncate_context(full_context, max_tokens=CONDENSED_CONTEXT_LIMITS["total_context_budget"] // 2)
 
         logger.info(f"Generating response for phase: {phase}")
-        prompt = get_reverse_engineer_prompt(
-            strategy_data.get("source_query", ""),
-            full_context,
-            phase
-        )
+        # Use condensed prompt for better performance
+        prompt = get_condensed_reverse_engineer_prompt(phase)
+        
+        # Add strategy query and context
+        system_prompt = f'''{prompt}
 
-        # Enable web search tool for real-time research
+Strategy: {strategy_data.get("source_query", "")}
+
+Context: {full_context[:2000] if full_context else "No context yet"}'''
+
+        # Enable web search tool for real-time research (reduced max_uses)
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=4000,
-            system=prompt,
+            max_tokens=3000,  # Reduced from 4000 for faster responses
+            system=system_prompt,
             messages=messages,
             tools=[{
                 "type": "web_search_20250305",
                 "name": "web_search",
-                "max_uses": 5
+                "max_uses": 3  # Reduced from 5 for faster responses
             }]
         )
 
@@ -298,29 +306,26 @@ async def conduct_research(
             researcher = StrategyResearcher()
             researcher.client.api_key = api_keys["tavily"]
             research_context = researcher.research_strategy(strategy_data["source_query"])
+            # Truncate research for performance
+            research_context = truncate_context(research_context, max_tokens=CONDENSED_CONTEXT_LIMITS["research_context_max_tokens"])
         except Exception as e:
             research_context = f"Research unavailable: {str(e)}"
 
-    # Synthesize with Claude
+    # Synthesize with Claude using condensed prompt
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=api_keys["claude"])
 
-        synthesis_prompt = f"""Synthesize this research about the trading strategy: {strategy_data['source_query']}
+        # Condensed synthesis prompt
+        synthesis_prompt = f"""Synthesize research for: {strategy_data['source_query']}
 
-Web Research Results:
-{research_context}
+Research: {research_context[:3000]}
 
-Provide:
-1. Strategy Overview - What does this strategy do?
-2. Key Components - Indicators, signals, filters
-3. Estimated Parameters - With confidence levels
-4. Implementation Notes - For AFL coding
-"""
+Provide: Strategy overview, key components, parameters with confidence, implementation notes."""
 
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=4000,
+            max_tokens=2500,  # Reduced from 4000 for faster responses
             messages=[{"role": "user", "content": synthesis_prompt}],
         )
 
@@ -429,7 +434,8 @@ async def generate_code(
     strategy_data = strategy.data[0]
 
     try:
-        engine = ClaudeAFLEngine(api_key=api_keys["claude"])
+        # Use condensed prompts for faster code generation
+        engine = ClaudeAFLEngine(api_key=api_keys["claude"], use_condensed_prompts=True)
 
         # Safely handle None values for research_data and schematic_data
         research_data = strategy_data.get("research_data") or {}
@@ -438,16 +444,18 @@ async def generate_code(
         schematic_data = strategy_data.get("schematic_data") or {}
         schematic_json = json.dumps(schematic_data, indent=2) if isinstance(schematic_data, dict) else "{}"
 
-        # Build prompt from all gathered data
-        prompt = f"""Generate complete AFL code for this strategy:
+        # Truncate synthesis and schematic for performance
+        synthesis = truncate_context(synthesis, max_tokens=1000)
+        schematic_json = truncate_context(schematic_json, max_tokens=800)
+
+        # Build condensed prompt
+        prompt = f"""Generate AFL code:
 
 Name: {strategy_data.get('name', 'Unknown Strategy')}
-Description: {strategy_data.get('description', '')}
 Research: {synthesis}
 Schematic: {schematic_json}
 
-Generate production-ready, complete AFL code.
-"""
+Production-ready AFL code with all sections."""
 
         result = engine.generate_afl(
             request=prompt,

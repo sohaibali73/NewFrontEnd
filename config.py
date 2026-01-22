@@ -19,10 +19,20 @@ class Settings(BaseSettings):
     # Optional server-side API keys
     anthropic_api_key: str = ""
     tavily_api_key: str = ""
+    
+    # Admin configuration
+    # Comma-separated list of admin emails
+    admin_emails: str = ""
 
     class Config:
         env_file = ".env"
         extra = "ignore"
+    
+    def get_admin_emails(self) -> list:
+        """Get list of admin emails from comma-separated string."""
+        if not self.admin_emails:
+            return []
+        return [email.strip().lower() for email in self.admin_emails.split(",") if email.strip()]
 
 @lru_cache()
 def get_settings() -> Settings:

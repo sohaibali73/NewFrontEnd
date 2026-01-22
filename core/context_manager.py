@@ -14,6 +14,15 @@ MAX_RECENT_MESSAGES = 10  # Keep only recent messages in context
 MAX_TRAINING_EXAMPLES = 5  # Reduced from 20
 MAX_CONTEXT_TOKENS = 8000  # Soft limit for total context
 
+# Condensed context limits for performance optimization
+CONDENSED_CONTEXT_LIMITS = {
+    "system_prompt_max_tokens": 500,  # Reduced from ~2000
+    "training_context_max_tokens": 800,  # Reduced from 2000
+    "kb_context_max_tokens": 600,  # Reduced from 1500
+    "research_context_max_tokens": 1000,  # Reduced from 2000
+    "total_context_budget": 5000,  # Reduced from 8000
+}
+
 
 def get_recent_messages(
     conversation_id: str,

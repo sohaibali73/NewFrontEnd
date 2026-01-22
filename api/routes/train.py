@@ -9,14 +9,39 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from datetime import datetime
 
-from api.dependencies import get_current_user_id, get_user_api_keys
+from api.routes.auth import get_current_user_id
 from db.supabase_client import get_supabase
+from config import get_settings
 from core.training import get_training_manager
 from core.claude_engine import ClaudeAFLEngine
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/train", tags=["Training"])
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+async def get_user_api_keys(user_id: str = Depends(get_current_user_id)) -> dict:
+    """Get user's API keys from database."""
+    db = get_supabase()
+    settings = get_settings()
+
+    result = db.table("users").select(
+        "claude_api_key, tavily_api_key"
+    ).eq("id", user_id).execute()
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user = result.data[0]
+
+    return {
+        "claude": user.get("claude_api_key") or settings.anthropic_api_key,
+        "tavily": user.get("tavily_api_key") or settings.tavily_api_key,
+    }
 
 
 # =============================================================================

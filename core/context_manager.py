@@ -5,6 +5,7 @@ Prevents context overload and enables faster responses.
 
 import logging
 from typing import List, Dict, Any, Optional
+from functools import lru_cache
 from db.supabase_client import get_supabase
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ CONDENSED_CONTEXT_LIMITS = {
 }
 
 
+@lru_cache(maxsize=100)
 def get_recent_messages(
     conversation_id: str,
     limit: int = MAX_RECENT_MESSAGES,

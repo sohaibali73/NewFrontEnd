@@ -1,6 +1,7 @@
 """FastAPI dependencies."""
 
 from typing import Optional
+from functools import lru_cache
 from fastapi import Header, HTTPException, Depends
 from jose import jwt, JWTError
 
@@ -30,9 +31,9 @@ async def get_current_user_id(
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-async def get_user_api_keys(user_id: str = Depends(get_current_user_id)) -> dict:
-    """Get user's API keys from database."""
-
+@lru_cache(maxsize=1000)
+def get_cached_api_keys(user_id: str) -> dict:
+    """Get user's API keys from database with caching."""
     db = get_db()
     settings = get_settings()
 
@@ -49,3 +50,7 @@ async def get_user_api_keys(user_id: str = Depends(get_current_user_id)) -> dict
         "claude": user.get("claude_api_key") or settings.anthropic_api_key,
         "tavily": user.get("tavily_api_key") or settings.tavily_api_key,
     }
+
+async def get_user_api_keys(user_id: str = Depends(get_current_user_id)) -> dict:
+    """Get user's API keys from database with caching."""
+    return get_cached_api_keys(user_id)

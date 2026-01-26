@@ -21,8 +21,8 @@ import openbb
 from fredapi import Fred
 from newsapi import NewsApiClient
 
-from core.claude_engine import ClaudeEngine
-from core.config import settings
+from core.claude_engine import ClaudeAFLEngine
+from config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,8 @@ class ResearcherEngine:
     """Main orchestrator for market research and intelligence gathering"""
     
     def __init__(self):
-        self.claude = ClaudeEngine()
+        self.claude = ClaudeAFLEngine()
+        settings = get_settings()
         self.finnhub_client = finnhub.Client(api_key=settings.finnhub_api_key)
         self.fred = Fred(api_key=settings.fred_api_key)
         self.newsapi = NewsApiClient(api_key=settings.newsapi_key)
@@ -651,24 +652,6 @@ class ResearcherEngine:
         # This would typically call an options data API
         # For now, return a placeholder
         return 0.8
-    
-    def _calculate_overall_sentiment(self, fear_greed: float, put_call: float) -> str:
-        """Calculate overall market sentiment"""
-        if fear_greed > 70:
-            return 'greedy'
-        elif fear_greed < 30:
-            return 'fearful'
-        else:
-            return 'neutral'
-    
-    def _determine_policy_stance(self, rate: float, inflation: float) -> str:
-        """Determine Fed policy stance"""
-        if rate > 4.0 and inflation > 3.0:
-            return 'hawkish'
-        elif rate < 2.0 and inflation < 2.0:
-            return 'dovish'
-        else:
-            return 'neutral'
     
     def _calculate_overall_sentiment(self, fear_greed: float, put_call: float) -> str:
         """Calculate overall market sentiment"""

@@ -1,13 +1,15 @@
 """Chat/Agent routes with conversation history and Claude tools."""
 
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from pydantic import Field
 import json
 
 from api.dependencies import get_current_user_id, get_user_api_keys
 from core.claude_engine import ClaudeAFLEngine
+from core.context_manager import build_optimized_context
 from core.prompts import get_base_prompt, get_chat_prompt
 from core.tools import get_all_tools, handle_tool_call
 from db.supabase_client import get_supabase

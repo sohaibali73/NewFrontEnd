@@ -40,9 +40,9 @@ ADMIN_EMAILS=admin@example.com,sohaib@example.com
 Or set a user as admin directly in the database:
 
 ```sql
-UPDATE users SET is_admin = true WHERE email = 'your-email@example.com';
-```
 
+```
+UPDATE users SET is_admin = true WHERE email = 'your-email@example.com';
 ## API Endpoints
 
 All endpoints require admin authentication (Bearer token).

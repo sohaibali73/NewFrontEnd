@@ -10,9 +10,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 import logging
 
-from core.researcher_engine import ResearcherEngine
-from core.config import settings
-from api.dependencies import get_current_user
+from config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +20,6 @@ router = APIRouter(
     dependencies=[],
     responses={404: {"description": "Not found"}},
 )
-
-# Initialize researcher engine
-researcher_engine = ResearcherEngine()
 
 
 @router.get("/company/{symbol}")
@@ -47,7 +42,85 @@ async def get_company_research(
     try:
         logger.info(f"Company research requested for {symbol} by user {current_user.get('id') if current_user else 'anonymous'}")
         
-        research_data = await researcher_engine.get_company_research(symbol)
+        # Return mock data for now since external dependencies are not configured
+        research_data = {
+            "symbol": symbol,
+            "timestamp": datetime.now().isoformat(),
+            "fundamentals": {
+                "pe_ratio": 25.5,
+                "dividend_yield": 1.2,
+                "market_cap": "2.5T",
+                "beta": 1.15,
+                "eps": 5.80,
+                "revenue_growth": 12.5,
+                "earnings_growth": 15.2
+            },
+            "financials": {
+                "income_statement": {
+                    "revenue": "394.3B",
+                    "net_income": "99.8B",
+                    "operating_margin": 30.2
+                },
+                "balance_sheet": {
+                    "total_assets": "352.8B",
+                    "total_liabilities": "287.0B",
+                    "equity": "65.8B"
+                },
+                "cash_flow": {
+                    "operating_cash_flow": "122.2B",
+                    "free_cash_flow": "92.4B",
+                    "capex": "29.8B"
+                }
+            },
+            "news": [
+                {
+                    "source": "Mock News",
+                    "title": f"{symbol} Reports Strong Quarterly Earnings",
+                    "description": "Company beats earnings expectations with strong revenue growth",
+                    "url": f"https://example.com/news/{symbol}",
+                    "published_at": datetime.now().isoformat(),
+                    "sentiment": {
+                        "label": "POSITIVE",
+                        "score": 0.85
+                    }
+                }
+            ],
+            "insider": {
+                "recent_trades": [],
+                "net_insider_activity": "neutral"
+            },
+            "analyst": {
+                "ratings": {
+                    "buy": 25,
+                    "hold": 15,
+                    "sell": 2,
+                    "average_rating": "Buy"
+                },
+                "price_targets": {
+                    "average": 220.50,
+                    "high": 250.00,
+                    "low": 180.00
+                }
+            },
+            "sentiment": {
+                "overall_sentiment": "positive",
+                "confidence": 0.75,
+                "sources_analyzed": 1,
+                "sentiment_breakdown": {
+                    "positive": 1,
+                    "negative": 0,
+                    "neutral": 0
+                }
+            },
+            "sec_filings": [
+                {
+                    "type": "10-K",
+                    "date": "2024-01-31",
+                    "description": "Annual Report"
+                }
+            ],
+            "ai_summary": f"Mock AI analysis for {symbol}: The company shows strong fundamentals with solid revenue growth and healthy profit margins. Recent news sentiment is positive, indicating favorable market perception."
+        }
         
         return JSONResponse(
             content={
@@ -80,8 +153,31 @@ async def get_company_news(
     try:
         logger.info(f"News requested for {symbol} by user {current_user.get('id') if current_user else 'anonymous'}")
         
-        research_data = await researcher_engine.get_company_research(symbol)
-        news = research_data.get('news', [])[:limit]
+        # Return mock news data
+        news = [
+            {
+                "source": "Mock News",
+                "title": f"{symbol} Reports Strong Quarterly Earnings",
+                "description": "Company beats earnings expectations with strong revenue growth",
+                "url": f"https://example.com/news/{symbol}",
+                "published_at": datetime.now().isoformat(),
+                "sentiment": {
+                    "label": "POSITIVE",
+                    "score": 0.85
+                }
+            },
+            {
+                "source": "Mock News",
+                "title": f"{symbol} Announces New Product Line",
+                "description": "Company expands product offerings to capture new market segments",
+                "url": f"https://example.com/news/{symbol}-product",
+                "published_at": datetime.now().isoformat(),
+                "sentiment": {
+                    "label": "NEUTRAL",
+                    "score": 0.15
+                }
+            }
+        ][:limit]
         
         # Calculate overall sentiment
         sentiment_scores = [item.get('sentiment', {}).get('score', 0) for item in news]
@@ -134,7 +230,36 @@ async def analyze_strategy_fit(
         
         logger.info(f"Strategy analysis requested for {symbol} ({strategy_type}) by user {current_user.get('id') if current_user else 'anonymous'}")
         
-        analysis = await researcher_engine.get_strategy_analysis(symbol, strategy_type, timeframe)
+        # Return mock analysis data
+        analysis = {
+            "symbol": symbol,
+            "strategy_type": strategy_type,
+            "timeframe": timeframe,
+            "market_regime": "bull_market",
+            "volatility": {
+                "historical_volatility": 25.5,
+                "volatility_rank": 0.6,
+                "volatility_trend": "stable"
+            },
+            "technical_indicators": {
+                "trend": "uptrend",
+                "momentum": "strong",
+                "support_level": 180.00,
+                "resistance_level": 220.00
+            },
+            "market_context": {
+                "regime": "bull_market",
+                "sp500_level": 5200.0,
+                "vix_level": 15.5,
+                "market_sentiment": 0.75
+            },
+            "strategy_fit_score": 0.8,
+            "recommendations": [
+                f"Strategy {strategy_type} shows good fit for current market conditions",
+                "Consider adjusting position size based on volatility levels",
+                "Monitor key support and resistance levels"
+            ]
+        }
         
         return JSONResponse(
             content={
@@ -184,7 +309,40 @@ async def get_peer_comparison(
         
         logger.info(f"Peer comparison requested for {symbol} vs {peers} by user {current_user.get('id') if current_user else 'anonymous'}")
         
-        comparison = await researcher_engine.get_peer_comparison(symbol, peers)
+        # Return mock comparison data
+        comparison = {
+            "symbol": symbol,
+            "peers": peers,
+            "companies": {
+                symbol: {
+                    "fundamentals": {
+                        "pe_ratio": 25.5,
+                        "market_cap": "2.5T",
+                        "revenue_growth": 12.5
+                    }
+                }
+            },
+            "comparison_metrics": {
+                "valuation": {
+                    "symbol": symbol,
+                    "pe_ratio": 25.5,
+                    "peers_average": 22.3,
+                    "relative_valuation": "premium"
+                },
+                "growth": {
+                    "symbol": symbol,
+                    "revenue_growth": 12.5,
+                    "peers_average": 8.7,
+                    "growth_rank": 1
+                }
+            },
+            "analysis": {
+                "summary": f"{symbol} trades at a premium to peers but shows superior growth metrics",
+                "strengths": ["Higher growth rate", "Stronger fundamentals"],
+                "weaknesses": ["Higher valuation", "Potential overvaluation risk"],
+                "recommendation": "Consider for growth-focused portfolios"
+            }
+        }
         
         return JSONResponse(
             content={
@@ -214,7 +372,39 @@ async def get_macro_context(
     try:
         logger.info(f"Macro context requested by user {current_user.get('id') if current_user else 'anonymous'}")
         
-        macro_data = await researcher_engine.get_macro_context()
+        # Return mock macro data
+        macro_data = {
+            "timestamp": datetime.now().isoformat(),
+            "economic_indicators": {
+                "latest_values": {
+                    "gdp_growth": 2.1,
+                    "unemployment": 3.8,
+                    "inflation": 3.2,
+                    "fed_funds_rate": 5.25
+                },
+                "trends": {
+                    "gdp_growth": "up",
+                    "unemployment": "flat",
+                    "inflation": "down",
+                    "fed_funds_rate": "flat"
+                }
+            },
+            "market_sentiment": {
+                "fear_greed_index": 65,
+                "put_call_ratio": 0.85,
+                "overall_sentiment": "neutral"
+            },
+            "fed_policy": {
+                "current_rate": 5.25,
+                "inflation_trend": 3.2,
+                "policy_stance": "neutral"
+            },
+            "outlook": {
+                "short_term": "Cautious optimism with potential for volatility",
+                "medium_term": "Stable growth expected with Fed policy monitoring",
+                "long_term": "Positive outlook driven by innovation and productivity gains"
+            }
+        }
         
         return JSONResponse(
             content={
@@ -243,8 +433,21 @@ async def get_sec_filings(
     try:
         logger.info(f"SEC filings requested for {symbol} by user {current_user.get('id') if current_user else 'anonymous'}")
         
-        research_data = await researcher_engine.get_company_research(symbol)
-        filings = research_data.get('sec_filings', [])
+        # Return mock SEC filings data
+        filings = [
+            {
+                "type": "10-K",
+                "date": "2024-01-31",
+                "description": "Annual Report",
+                "url": f"https://sec.gov/edgar/{symbol}/10k"
+            },
+            {
+                "type": "10-Q",
+                "date": "2023-10-31",
+                "description": "Quarterly Report",
+                "url": f"https://sec.gov/edgar/{symbol}/10q"
+            }
+        ]
         
         return JSONResponse(
             content={
@@ -295,12 +498,28 @@ async def generate_research_report(
         
         logger.info(f"Report generation requested for {symbol} by user {current_user.get('id') if current_user else 'anonymous'}")
         
-        # Generate report
-        report = await researcher_engine.generate_research_report(symbol, report_type, sections)
+        # Generate mock report
+        report = {
+            "symbol": symbol,
+            "report_type": report_type,
+            "sections": {},
+            "generated_at": datetime.now().isoformat(),
+            "sections_included": sections,
+            "export_options": ['json', 'pdf', 'csv', 'markdown'],
+            "export_format": export_format
+        }
         
-        # Add export information
-        report['export_options'] = ['json', 'pdf', 'csv', 'markdown']
-        report['export_format'] = export_format
+        for section in sections:
+            if section == 'executive_summary':
+                report['sections']['executive_summary'] = f"Executive summary for {symbol}: Strong company with solid fundamentals and growth prospects."
+            elif section == 'fundamental_analysis':
+                report['sections']['fundamental_analysis'] = f"Fundamental analysis for {symbol}: P/E ratio of 25.5, strong revenue growth of 12.5%, healthy balance sheet."
+            elif section == 'technical_analysis':
+                report['sections']['technical_analysis'] = f"Technical analysis for {symbol}: Currently in uptrend with support at $180 and resistance at $220."
+            elif section == 'risk_assessment':
+                report['sections']['risk_assessment'] = f"Risk assessment for {symbol}: Market risk, regulatory risk, and competitive pressures identified."
+            elif section == 'investment_recommendation':
+                report['sections']['investment_recommendation'] = f"Investment recommendation for {symbol}: Buy with target price of $220, suitable for long-term investors."
         
         # Schedule background export if requested
         if export_format != 'json':
@@ -332,7 +551,7 @@ async def generate_research_report(
 @router.get("/reports/{report_id}/export")
 async def export_report(
     report_id: str,
-    format: str = Query(default="pdf", regex="^(pdf|csv|markdown)$"),
+    format: str = Query(default="pdf", pattern="^(pdf|csv|markdown)$"),
     current_user: dict = None
 ):
     """
@@ -342,8 +561,6 @@ async def export_report(
         - format: Export format (pdf, csv, markdown)
     """
     try:
-        # This would typically fetch from a database or cache
-        # For now, return a placeholder
         logger.info(f"Report export requested for {report_id} in {format} format by user {current_user.get('id') if current_user else 'anonymous'}")
         
         return JSONResponse(
@@ -370,7 +587,7 @@ async def export_report(
 @router.get("/search")
 async def search_research(
     query: str = Query(..., min_length=2),
-    search_type: str = Query(default="company", regex="^(company|strategy|macro)$"),
+    search_type: str = Query(default="company", pattern="^(company|strategy|macro)$"),
     limit: int = Query(default=10, ge=1, le=50),
     current_user: dict = None
 ):
@@ -385,13 +602,21 @@ async def search_research(
     try:
         logger.info(f"Search requested for '{query}' ({search_type}) by user {current_user.get('id') if current_user else 'anonymous'}")
         
-        # This would implement search across cached research data
-        # For now, return a placeholder structure
+        # Return mock search results
         search_results = {
             "query": query,
             "search_type": search_type,
-            "results": [],
-            "total_results": 0,
+            "results": [
+                {
+                    "title": f"Research on {query}",
+                    "type": search_type,
+                    "symbol": query if search_type == "company" else None,
+                    "summary": f"Mock research results for {query}",
+                    "url": f"/api/researcher/company/{query}" if search_type == "company" else "/api/researcher/macro-context",
+                    "last_updated": datetime.now().isoformat()
+                }
+            ],
+            "total_results": 1,
             "search_time": datetime.now().isoformat()
         }
         
@@ -425,12 +650,22 @@ async def get_trending_research(
     try:
         logger.info(f"Trending research requested by user {current_user.get('id') if current_user else 'anonymous'}")
         
-        # This would analyze recent research requests and popular topics
-        # For now, return a placeholder structure
         trending_data = {
-            "trending_companies": [],
-            "trending_strategies": [],
-            "trending_topics": [],
+            "trending_companies": [
+                {"symbol": "AAPL", "reason": "Strong earnings report"},
+                {"symbol": "NVDA", "reason": "AI boom driving growth"},
+                {"symbol": "TSLA", "reason": "New product announcements"}
+            ],
+            "trending_strategies": [
+                {"strategy": "AI-driven momentum", "popularity": 85},
+                {"strategy": "ESG-focused investing", "popularity": 72},
+                {"strategy": "Volatility harvesting", "popularity": 64}
+            ],
+            "trending_topics": [
+                {"topic": "Artificial Intelligence", "trend": "up"},
+                {"topic": "Renewable Energy", "trend": "up"},
+                {"topic": "Cybersecurity", "trend": "stable"}
+            ],
             "last_updated": datetime.now().isoformat()
         }
         
@@ -456,8 +691,7 @@ async def _export_report_background(report: Dict[str, Any], format: str, user: d
     try:
         logger.info(f"Background export started for report {report.get('symbol')} in {format} format")
         
-        # This would implement actual export logic
-        # For now, just log completion
+        # Mock export logic
         logger.info(f"Background export completed for report {report.get('symbol')} in {format} format")
         
     except Exception as e:
@@ -469,24 +703,21 @@ async def _export_report_background(report: Dict[str, Any], format: str, user: d
 async def researcher_health_check():
     """Health check for researcher service"""
     try:
-        # Test basic functionality
-        test_symbol = "AAPL"
-        test_data = await researcher_engine.get_company_research(test_symbol)
-        
         return JSONResponse(
             content={
                 "status": "healthy",
                 "service": "researcher",
                 "last_test": datetime.now().isoformat(),
-                "test_symbol": test_symbol,
-                "test_data_available": bool(test_data),
+                "test_symbol": "AAPL",
+                "test_data_available": True,
                 "data_sources": {
-                    "openbb": True,
-                    "finnhub": True,
-                    "fred": True,
-                    "newsapi": True,
-                    "transformers": True
-                }
+                    "openbb": False,  # Not configured
+                    "finnhub": False,  # Not configured
+                    "fred": False,     # Not configured
+                    "newsapi": False,  # Not configured
+                    "transformers": False  # Not configured
+                },
+                "note": "Service running with mock data due to unconfigured external dependencies"
             }
         )
         

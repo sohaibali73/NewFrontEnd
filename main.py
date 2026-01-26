@@ -88,6 +88,13 @@ try:
 except ImportError as e:
     logger.warning(f"Could not load train router: {e}")
 
+try:
+    from api.routes.researcher import router as researcher_router
+    app.include_router(researcher_router)
+    logger.info("Loaded researcher router")
+except ImportError as e:
+    logger.warning(f"Could not load researcher router: {e}")
+
 @app.get("/")
 async def root():
     """Root endpoint."""

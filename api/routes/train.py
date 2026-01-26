@@ -7,6 +7,7 @@ import logging
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+from pydantic import Field
 from datetime import datetime
 
 from api.routes.auth import get_current_user_id
@@ -50,14 +51,14 @@ async def get_user_api_keys(user_id: str = Depends(get_current_user_id)) -> dict
 
 class FeedbackSubmit(BaseModel):
     """User feedback on AI-generated code."""
-    code_id: Optional[str] = None
-    conversation_id: Optional[str] = None
-    original_prompt: str
-    generated_code: str
-    feedback_type: str  # "correction", "improvement", "bug", "praise"
-    feedback_text: str
-    correct_code: Optional[str] = None
-    rating: Optional[int] = None  # 1-5
+    code_id: Optional[str] = Field(None, description="ID of the generated code")
+    conversation_id: Optional[str] = Field(None, description="ID of the conversation")
+    original_prompt: str = Field(..., min_length=5, max_length=1000, description="Original user prompt")
+    generated_code: str = Field(..., min_length=10, max_length=5000, description="Generated AFL code")
+    feedback_type: str = Field(..., description="Type of feedback: correction, improvement, bug, praise")
+    feedback_text: str = Field(..., min_length=10, max_length=1000, description="Detailed feedback text")
+    correct_code: Optional[str] = Field(None, max_length=5000, description="Corrected code if applicable")
+    rating: Optional[int] = Field(None, ge=1, le=5, description="Rating 1-5")
 
 
 class TestTrainingRequest(BaseModel):
@@ -198,14 +199,13 @@ async def test_training(
         # Generate WITHOUT training
         result_without = engine.generate_afl(
             request=data.prompt,
-            use_training=False,
+            include_training=False,
         )
         
         # Generate WITH training
         result_with = engine.generate_afl(
             request=data.prompt,
-            use_training=data.include_training,
-            training_category=data.category,
+            include_training=data.include_training,
         )
         
         # Get training context used

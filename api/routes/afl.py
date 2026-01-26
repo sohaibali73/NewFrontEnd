@@ -5,6 +5,7 @@ from enum import Enum
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from pydantic import Field
 import json
 
 from api.dependencies import get_current_user_id, get_user_api_keys
@@ -25,12 +26,12 @@ class GenerationPhase(str, Enum):
 
 class GenerateRequest(BaseModel):
     """Request model for AFL generation."""
-    prompt: str
-    strategy_type: str = "standalone"
+    prompt: str = Field(..., min_length=10, max_length=1000, description="Strategy description")
+    strategy_type: str = Field("standalone", description="Strategy type: standalone or composite")
     settings: Optional[Dict[str, Any]] = None
     conversation_id: Optional[str] = None
     answers: Optional[Dict[str, str]] = None  # {"strategy_type": "standalone", "trade_timing": "close"}
-    stream: Optional[bool] = False  # Enable streaming responses
+    stream: Optional[bool] = Field(False, description="Enable streaming responses")
 
 
 class OptimizeRequest(BaseModel):

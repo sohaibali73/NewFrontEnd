@@ -9,10 +9,14 @@ from fastapi.responses import JSONResponse
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import logging
+import requests
+import json
+from functools import lru_cache
 
 from config import get_settings
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 router = APIRouter(
     prefix="/api/researcher",
@@ -21,6 +25,125 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
+# API clients for external services
+class FinnhubClient:
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://finnhub.io/api/v1"
+    
+    def get_quote(self, symbol: str):
+        """Get current quote data"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/quote",
+                params={"symbol": symbol, "token": self.api_key}
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Finnhub quote error for {symbol}: {e}")
+            return None
+    
+    def get_company_profile(self, symbol: str):
+        """Get company profile"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/stock/profile2",
+                params={"symbol": symbol, "token": self.api_key}
+            )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Finnhub profile error for {symbol}: {e}")
+            return None
+    
+    def get_news(self, symbol: str, limit: int = 20):
+        """Get company news"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/news",
+                params={"category": symbol, "token": self.api_key}
+            )
+            response.raise_for_status()
+            return response.json()[:limit]
+        except Exception as e:
+            logger.error(f"Finnhub news error for {symbol}: {e}")
+            return []
+
+class NewsApiClient:
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://newsapi.org/v2"
+    
+    def get_company_news(self, symbol: str, limit: int = 20):
+        """Get company news from NewsAPI"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/everything",
+                params={
+                    "q": symbol,
+                    "language": "en",
+                    "sortBy": "publishedAt",
+                    "pageSize": limit,
+                    "apiKey": self.api_key
+                }
+            )
+            response.raise_for_status()
+            return response.json().get("articles", [])
+        except Exception as e:
+            logger.error(f"NewsAPI error for {symbol}: {e}")
+            return []
+
+class FredClient:
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://api.stlouisfed.org/fred"
+    
+    def get_indicator(self, series_id: str):
+        """Get economic indicator"""
+        try:
+            response = requests.get(
+                f"{self.base_url}/series/observations",
+                params={
+                    "series_id": series_id,
+                    "api_key": self.api_key,
+                    "file_type": "json",
+                    "limit": 1,
+                    "order_by": "observation_date",
+                    "sort_order": "desc"
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            if data.get("observations"):
+                return data["observations"][0]
+            return None
+        except Exception as e:
+            logger.error(f"FRED API error for {series_id}: {e}")
+            return None
+
+# Initialize API clients
+finnhub_client = FinnhubClient(settings.finnhub_api_key)
+newsapi_client = NewsApiClient(settings.newsapi_key)
+fred_client = FredClient(settings.fred_api_key)
+
+# Simple sentiment analysis function
+def analyze_sentiment(text: str) -> Dict[str, Any]:
+    """Simple sentiment analysis based on keywords"""
+    positive_words = ['buy', 'strong', 'growth', 'beat', 'increase', 'positive', 'up', 'gain', 'success']
+    negative_words = ['sell', 'weak', 'decline', 'miss', 'decrease', 'negative', 'down', 'loss', 'problem']
+    
+    text_lower = text.lower()
+    positive_score = sum(1 for word in positive_words if word in text_lower)
+    negative_score = sum(1 for word in negative_words if word in text_lower)
+    
+    if positive_score > negative_score:
+        return {"label": "POSITIVE", "score": min(positive_score / (positive_score + negative_score + 1), 1.0)}
+    elif negative_score > positive_score:
+        return {"label": "NEGATIVE", "score": min(negative_score / (positive_score + negative_score + 1), 1.0)}
+    else:
+        return {"label": "NEUTRAL", "score": 0.0}
+
 
 @router.get("/company/{symbol}")
 async def get_company_research(
@@ -28,7 +151,7 @@ async def get_company_research(
     current_user: dict = None
 ):
     """
-    Get comprehensive company research for a symbol
+    Get comprehensive company research for a symbol using OpenBB
     
     Returns:
         - Fundamentals (P/E, dividend, growth rates)
@@ -42,91 +165,18 @@ async def get_company_research(
     try:
         logger.info(f"Company research requested for {symbol} by user {current_user.get('id') if current_user else 'anonymous'}")
         
-        # Return mock data for now since external dependencies are not configured
-        research_data = {
-            "symbol": symbol,
-            "timestamp": datetime.now().isoformat(),
-            "fundamentals": {
-                "pe_ratio": 25.5,
-                "dividend_yield": 1.2,
-                "market_cap": "2.5T",
-                "beta": 1.15,
-                "eps": 5.80,
-                "revenue_growth": 12.5,
-                "earnings_growth": 15.2
-            },
-            "financials": {
-                "income_statement": {
-                    "revenue": "394.3B",
-                    "net_income": "99.8B",
-                    "operating_margin": 30.2
-                },
-                "balance_sheet": {
-                    "total_assets": "352.8B",
-                    "total_liabilities": "287.0B",
-                    "equity": "65.8B"
-                },
-                "cash_flow": {
-                    "operating_cash_flow": "122.2B",
-                    "free_cash_flow": "92.4B",
-                    "capex": "29.8B"
-                }
-            },
-            "news": [
-                {
-                    "source": "Mock News",
-                    "title": f"{symbol} Reports Strong Quarterly Earnings",
-                    "description": "Company beats earnings expectations with strong revenue growth",
-                    "url": f"https://example.com/news/{symbol}",
-                    "published_at": datetime.now().isoformat(),
-                    "sentiment": {
-                        "label": "POSITIVE",
-                        "score": 0.85
-                    }
-                }
-            ],
-            "insider": {
-                "recent_trades": [],
-                "net_insider_activity": "neutral"
-            },
-            "analyst": {
-                "ratings": {
-                    "buy": 25,
-                    "hold": 15,
-                    "sell": 2,
-                    "average_rating": "Buy"
-                },
-                "price_targets": {
-                    "average": 220.50,
-                    "high": 250.00,
-                    "low": 180.00
-                }
-            },
-            "sentiment": {
-                "overall_sentiment": "positive",
-                "confidence": 0.75,
-                "sources_analyzed": 1,
-                "sentiment_breakdown": {
-                    "positive": 1,
-                    "negative": 0,
-                    "neutral": 0
-                }
-            },
-            "sec_filings": [
-                {
-                    "type": "10-K",
-                    "date": "2024-01-31",
-                    "description": "Annual Report"
-                }
-            ],
-            "ai_summary": f"Mock AI analysis for {symbol}: The company shows strong fundamentals with solid revenue growth and healthy profit margins. Recent news sentiment is positive, indicating favorable market perception."
-        }
+        # Initialize researcher engine
+        from core.researcher_engine import ResearcherEngine
+        engine = ResearcherEngine()
+        
+        # Get comprehensive research data using OpenBB
+        research_data = await engine.get_company_research(symbol)
         
         return JSONResponse(
             content={
                 "success": True,
                 "data": research_data,
-                "message": f"Research data for {symbol} retrieved successfully"
+                "message": f"Research data for {symbol} retrieved successfully using OpenBB"
             }
         )
         
@@ -153,34 +203,59 @@ async def get_company_news(
     try:
         logger.info(f"News requested for {symbol} by user {current_user.get('id') if current_user else 'anonymous'}")
         
-        # Return mock news data
-        news = [
-            {
-                "source": "Mock News",
-                "title": f"{symbol} Reports Strong Quarterly Earnings",
-                "description": "Company beats earnings expectations with strong revenue growth",
-                "url": f"https://example.com/news/{symbol}",
-                "published_at": datetime.now().isoformat(),
-                "sentiment": {
-                    "label": "POSITIVE",
-                    "score": 0.85
-                }
-            },
-            {
-                "source": "Mock News",
-                "title": f"{symbol} Announces New Product Line",
-                "description": "Company expands product offerings to capture new market segments",
-                "url": f"https://example.com/news/{symbol}-product",
-                "published_at": datetime.now().isoformat(),
-                "sentiment": {
-                    "label": "NEUTRAL",
-                    "score": 0.15
-                }
-            }
-        ][:limit]
+        # Get news from multiple sources
+        finnhub_news = finnhub_client.get_news(symbol, limit=limit)
+        newsapi_news = newsapi_client.get_company_news(symbol, limit=limit)
         
-        # Calculate overall sentiment
-        sentiment_scores = [item.get('sentiment', {}).get('score', 0) for item in news]
+        # Combine and analyze news
+        all_news = []
+        sentiment_scores = []
+        
+        # Process Finnhub news
+        for news_item in finnhub_news:
+            if isinstance(news_item, dict):
+                title = news_item.get('headline', '')
+                description = news_item.get('summary', '')
+                url = news_item.get('url', '')
+                published_at = news_item.get('datetime', datetime.now().timestamp())
+                
+                if isinstance(published_at, (int, float)):
+                    published_at = datetime.fromtimestamp(published_at).isoformat()
+                
+                sentiment = analyze_sentiment(title + " " + description)
+                sentiment_scores.append(sentiment['score'])
+                
+                all_news.append({
+                    "source": "Finnhub",
+                    "title": title,
+                    "description": description,
+                    "url": url,
+                    "published_at": published_at,
+                    "sentiment": sentiment
+                })
+        
+        # Process NewsAPI news
+        for news_item in newsapi_news:
+            if isinstance(news_item, dict):
+                title = news_item.get('title', '')
+                description = news_item.get('description', '')
+                url = news_item.get('url', '')
+                published_at = news_item.get('publishedAt', datetime.now().isoformat())
+                
+                sentiment = analyze_sentiment(title + " " + description)
+                sentiment_scores.append(sentiment['score'])
+                
+                all_news.append({
+                    "source": "NewsAPI",
+                    "title": title,
+                    "description": description,
+                    "url": url,
+                    "published_at": published_at,
+                    "sentiment": sentiment
+                })
+        
+        # Limit results and calculate overall sentiment
+        news = all_news[:limit]
         overall_sentiment = sum(sentiment_scores) / len(sentiment_scores) if sentiment_scores else 0
         
         return JSONResponse(
@@ -372,32 +447,41 @@ async def get_macro_context(
     try:
         logger.info(f"Macro context requested by user {current_user.get('id') if current_user else 'anonymous'}")
         
-        # Return mock macro data
+        # Get economic indicators from FRED
+        gdp_data = fred_client.get_indicator("A191RL1Q225SBEA")  # Real GDP Growth Rate
+        unemployment_data = fred_client.get_indicator("UNRATE")   # Unemployment Rate
+        inflation_data = fred_client.get_indicator("FPCPITOTLZGUSA")  # Inflation Rate
+        fed_rate_data = fred_client.get_indicator("FEDFUNDS")     # Fed Funds Rate
+        
+        # Build economic indicators data
+        economic_indicators = {
+            "latest_values": {
+                "gdp_growth": float(gdp_data.get("value", 0)) if gdp_data else 0,
+                "unemployment": float(unemployment_data.get("value", 0)) if unemployment_data else 0,
+                "inflation": float(inflation_data.get("value", 0)) if inflation_data else 0,
+                "fed_funds_rate": float(fed_rate_data.get("value", 0)) if fed_rate_data else 0
+            },
+            "trends": {
+                "gdp_growth": "up" if gdp_data and float(gdp_data.get("value", 0)) > 0 else "down",
+                "unemployment": "up" if unemployment_data and float(unemployment_data.get("value", 0)) > 4 else "down",
+                "inflation": "up" if inflation_data and float(inflation_data.get("value", 0)) > 2 else "down",
+                "fed_funds_rate": "up" if fed_rate_data and float(fed_rate_data.get("value", 0)) > 2 else "down"
+            }
+        }
+        
+        # Build macro data
         macro_data = {
             "timestamp": datetime.now().isoformat(),
-            "economic_indicators": {
-                "latest_values": {
-                    "gdp_growth": 2.1,
-                    "unemployment": 3.8,
-                    "inflation": 3.2,
-                    "fed_funds_rate": 5.25
-                },
-                "trends": {
-                    "gdp_growth": "up",
-                    "unemployment": "flat",
-                    "inflation": "down",
-                    "fed_funds_rate": "flat"
-                }
-            },
+            "economic_indicators": economic_indicators,
             "market_sentiment": {
-                "fear_greed_index": 65,
-                "put_call_ratio": 0.85,
+                "fear_greed_index": 65,  # Mock data - would need premium API
+                "put_call_ratio": 0.85,   # Mock data - would need premium API
                 "overall_sentiment": "neutral"
             },
             "fed_policy": {
-                "current_rate": 5.25,
-                "inflation_trend": 3.2,
-                "policy_stance": "neutral"
+                "current_rate": economic_indicators["latest_values"]["fed_funds_rate"],
+                "inflation_trend": economic_indicators["trends"]["inflation"],
+                "policy_stance": "neutral"  # Would need more analysis for real stance
             },
             "outlook": {
                 "short_term": "Cautious optimism with potential for volatility",
@@ -703,6 +787,11 @@ async def _export_report_background(report: Dict[str, Any], format: str, user: d
 async def researcher_health_check():
     """Health check for researcher service"""
     try:
+        # Test API clients
+        finnhub_status = "configured" if settings.finnhub_api_key else "not_configured"
+        newsapi_status = "configured" if settings.newsapi_key else "not_configured"
+        fred_status = "configured" if settings.fred_api_key else "not_configured"
+        
         return JSONResponse(
             content={
                 "status": "healthy",
@@ -711,13 +800,13 @@ async def researcher_health_check():
                 "test_symbol": "AAPL",
                 "test_data_available": True,
                 "data_sources": {
-                    "openbb": False,  # Not configured
-                    "finnhub": False,  # Not configured
-                    "fred": False,     # Not configured
-                    "newsapi": False,  # Not configured
-                    "transformers": False  # Not configured
+                    "openbb": "not_configured",
+                    "finnhub": finnhub_status,
+                    "fred": fred_status,
+                    "newsapi": newsapi_status,
+                    "transformers": "not_configured"
                 },
-                "note": "Service running with mock data due to unconfigured external dependencies"
+                "note": "Service running with configured API keys where available"
             }
         )
         

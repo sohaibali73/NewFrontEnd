@@ -30,6 +30,9 @@ logger = logging.getLogger(__name__)
 class ResearcherEngine:
     """Main orchestrator for market research and intelligence gathering"""
     
+    # Class-level cache for sentiment model (shared across instances)
+    _sentiment_model = None
+    
     def __init__(self):
         self.claude = ClaudeAFLEngine()
         settings = get_settings()
@@ -37,16 +40,22 @@ class ResearcherEngine:
         self.fred = Fred(api_key=settings.fred_api_key)
         self.newsapi = NewsApiClient(api_key=settings.newsapi_key)
         
-        # Initialize sentiment analysis
-        self.sentiment_analyzer = pipeline(
-            "sentiment-analysis",
-            model="ProsusAI/finBERT",
-            tokenizer="ProsusAI/finBERT"
-        )
-        
         # Cache for expensive operations
         self._cache = {}
         self._cache_ttl = {}
+    
+    @classmethod
+    def get_sentiment_analyzer(cls):
+        """Lazy-load sentiment analyzer (only when needed)"""
+        if cls._sentiment_model is None:
+            logger.info("Loading FinBERT sentiment model (first use only)...")
+            cls._sentiment_model = pipeline(
+                "sentiment-analysis",
+                model="ProsusAI/finBERT",
+                tokenizer="ProsusAI/finBERT"
+            )
+            logger.info("FinBERT model loaded successfully")
+        return cls._sentiment_model
         
     async def get_company_research(self, symbol: str) -> Dict[str, Any]:
         """Get comprehensive company research"""
@@ -215,27 +224,40 @@ class ResearcherEngine:
     # Private methods for data collection
     
     async def _get_fundamentals(self, symbol: str) -> Dict[str, Any]:
-        """Get company fundamentals using OpenBB"""
+        """Get company fundamentals using OpenBB SDK"""
         try:
-            # Use OpenBB for comprehensive fundamentals
-            fundamentals = openbb.equity.fundamentals(symbol)
-            return fundamentals.to_dict() if hasattr(fundamentals, 'to_dict') else {}
+            # Use OpenBB SDK for comprehensive fundamentals
+            fundamentals = openbb.sdk.equity.fundamental.latest_attributes(symbol=symbol)
+            # Return as dict directly if possible, avoiding unnecessary DataFrame conversion
+            if hasattr(fundamentals, 'to_dict'):
+                return fundamentals.to_dict()
+            elif hasattr(fundamentals, 'to_df'):
+                return fundamentals.to_df().to_dict()
+            return {}
         except Exception as e:
             logger.error(f"Error getting fundamentals for {symbol}: {e}")
             return {}
     
     async def _get_financials(self, symbol: str) -> Dict[str, Any]:
-        """Get financial statements"""
+        """Get financial statements using OpenBB SDK"""
         try:
-            # Get income statement, balance sheet, cash flow
-            income = openbb.equity.financials(symbol, statement="income")
-            balance = openbb.equity.financials(symbol, statement="balance")
-            cashflow = openbb.equity.financials(symbol, statement="cash")
+            # Get income statement, balance sheet, cash flow using OpenBB SDK
+            income = openbb.sdk.equity.fundamental.income(symbol=symbol)
+            balance = openbb.sdk.equity.fundamental.balance(symbol=symbol)
+            cashflow = openbb.sdk.equity.fundamental.cash(symbol=symbol)
+            
+            # Helper to convert efficiently
+            def to_dict_efficient(data):
+                if hasattr(data, 'to_dict'):
+                    return data.to_dict()
+                elif hasattr(data, 'to_df'):
+                    return data.to_df().to_dict()
+                return {}
             
             return {
-                'income_statement': income.to_dict() if hasattr(income, 'to_dict') else {},
-                'balance_sheet': balance.to_dict() if hasattr(balance, 'to_dict') else {},
-                'cash_flow': cashflow.to_dict() if hasattr(cashflow, 'to_dict') else {}
+                'income_statement': to_dict_efficient(income),
+                'balance_sheet': to_dict_efficient(balance),
+                'cash_flow': to_dict_efficient(cashflow)
             }
         except Exception as e:
             logger.error(f"Error getting financials for {symbol}: {e}")
@@ -355,19 +377,32 @@ class ResearcherEngine:
             return []
     
     async def _get_market_context(self) -> Dict[str, Any]:
-        """Get current market context and regime"""
+        """Get current market context and regime using OpenBB SDK"""
         try:
-            # Get market indices data
-            sp500 = openbb.equity.index("SPY")
-            vix = openbb.equity.index("^VIX")
+            # Get market indices data using OpenBB SDK
+            sp500 = openbb.sdk.equity.price.historical(symbol="SPY")
+            vix = openbb.sdk.equity.price.historical(symbol="^VIX")
+            
+            # Get current prices efficiently
+            if hasattr(sp500, 'to_df'):
+                sp500_df = sp500.to_df()
+                sp500_current = float(sp500_df['close'].iloc[-1]) if not sp500_df.empty else 0
+            else:
+                sp500_current = 0
+            
+            if hasattr(vix, 'to_df'):
+                vix_df = vix.to_df()
+                vix_current = float(vix_df['close'].iloc[-1]) if not vix_df.empty else 0
+            else:
+                vix_current = 0
             
             # Determine market regime based on technical indicators
-            market_regime = self._determine_market_regime(sp500, vix)
+            market_regime = self._determine_market_regime({'close': sp500_current}, {'close': vix_current})
             
             return {
                 'regime': market_regime,
-                'sp500_level': sp500.get('close', 0) if hasattr(sp500, 'get') else 0,
-                'vix_level': vix.get('close', 0) if hasattr(vix, 'get') else 0,
+                'sp500_level': sp500_current,
+                'vix_level': vix_current,
                 'market_sentiment': self._get_market_sentiment_score()
             }
         except Exception as e:
@@ -375,33 +410,75 @@ class ResearcherEngine:
             return {'regime': 'unknown', 'market_sentiment': 0.5}
     
     async def _get_technical_analysis(self, symbol: str, timeframe: str) -> Dict[str, Any]:
-        """Get technical indicators"""
+        """Get technical indicators using OpenBB SDK"""
         try:
-            # Get price data
-            price_data = openbb.equity.price(symbol, timeframe=timeframe)
+            # Get price data using OpenBB SDK
+            price_data = openbb.sdk.equity.price.historical(symbol=symbol, interval=timeframe)
             
-            # Calculate technical indicators
-            technicals = openbb.equity.technical(symbol, indicators=['SMA', 'RSI', 'MACD'])
+            # Calculate technical indicators manually from price data
+            if hasattr(price_data, 'to_df'):
+                df = price_data.to_df()
+                if not df.empty:
+                    # Calculate SMA
+                    sma_20 = df['close'].rolling(window=20).mean()
+                    
+                    # Calculate RSI
+                    delta = df['close'].diff()
+                    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+                    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+                    rs = gain / loss
+                    rsi = 100 - (100 / (1 + rs))
+                    
+                    # Calculate MACD
+                    exp1 = df['close'].ewm(span=12).mean()
+                    exp2 = df['close'].ewm(span=26).mean()
+                    macd_line = exp1 - exp2
+                    signal_line = macd_line.ewm(span=9).mean()
+                    macd_histogram = macd_line - signal_line
+                    
+                    return {
+                        'price_data': {
+                            'latest_close': float(df['close'].iloc[-1]),
+                            'latest_volume': float(df['volume'].iloc[-1]) if 'volume' in df else 0,
+                            'period_high': float(df['close'].max()),
+                            'period_low': float(df['close'].min())
+                        },
+                        'indicators': {
+                            'sma': float(sma_20.iloc[-1]) if not sma_20.empty else 0,
+                            'rsi': float(rsi.iloc[-1]) if not rsi.empty else 0,
+                            'macd': {
+                                'macd_line': float(macd_line.iloc[-1]),
+                                'signal_line': float(signal_line.iloc[-1]),
+                                'histogram': float(macd_histogram.iloc[-1])
+                            }
+                        }
+                    }
             
-            return {
-                'price_data': price_data.to_dict() if hasattr(price_data, 'to_dict') else {},
-                'indicators': technicals.to_dict() if hasattr(technicals, 'to_dict') else {}
-            }
+            return {'price_data': {}, 'indicators': {}}
         except Exception as e:
             logger.error(f"Error getting technical analysis for {symbol}: {e}")
             return {}
     
     async def _get_volatility_analysis(self, symbol: str, timeframe: str) -> Dict[str, Any]:
-        """Analyze volatility characteristics"""
+        """Analyze volatility characteristics using OpenBB SDK"""
         try:
-            # Get historical volatility
-            volatility = openbb.equity.volatility(symbol, timeframe=timeframe)
+            # Get historical volatility using OpenBB SDK
+            volatility = openbb.sdk.equity.price.historical(symbol=symbol, interval=timeframe)
             
-            return {
-                'historical_volatility': volatility.get('volatility', 0) if hasattr(volatility, 'get') else 0,
-                'volatility_rank': volatility.get('rank', 0) if hasattr(volatility, 'get') else 0,
-                'volatility_trend': 'stable'  # Simplified for now
-            }
+            # Calculate volatility metrics
+            if hasattr(volatility, 'to_df'):
+                df = volatility.to_df()
+                if not df.empty:
+                    returns = df['close'].pct_change().dropna()
+                    historical_volatility = returns.std() * (252 ** 0.5)  # Annualized volatility
+                    
+                    return {
+                        'historical_volatility': float(historical_volatility),
+                        'volatility_rank': 0.5,  # Simplified for now
+                        'volatility_trend': 'stable'
+                    }
+            
+            return {'historical_volatility': 0, 'volatility_rank': 0, 'volatility_trend': 'unknown'}
         except Exception as e:
             logger.error(f"Error getting volatility analysis for {symbol}: {e}")
             return {'historical_volatility': 0, 'volatility_rank': 0, 'volatility_trend': 'unknown'}
@@ -462,7 +539,9 @@ class ResearcherEngine:
     def _analyze_news_sentiment(self, text: str) -> Dict[str, Any]:
         """Analyze sentiment of a news headline"""
         try:
-            result = self.sentiment_analyzer(text)[0]
+            # Use lazy-loaded sentiment analyzer
+            analyzer = self.get_sentiment_analyzer()
+            result = analyzer(text)[0]
             return {
                 'label': result['label'],
                 'score': result['score']

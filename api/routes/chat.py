@@ -1,11 +1,12 @@
 """Chat/Agent routes with conversation history and Claude tools."""
 
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from pydantic import Field
 import json
+import base64
 
 from api.dependencies import get_current_user_id, get_user_api_keys
 from core.claude_engine import ClaudeAFLEngine
@@ -50,6 +51,57 @@ async def create_conversation(
     }).execute()
 
     return result.data[0]
+
+
+
+
+
+@router.post("/conversations/{conversation_id}/upload")
+async def upload_file(
+        conversation_id: str,
+        file: UploadFile = File(...),
+        user_id: str = Depends(get_current_user_id),
+):
+    """Upload a file to a conversation."""
+    db = get_supabase()
+
+    # Verify conversation ownership
+    conv = db.table("conversations").select("user_id").eq(
+        "id", conversation_id
+    ).execute()
+
+    if not conv.data or conv.data[0]["user_id"] != user_id:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # Read file content
+    content = await file.read()
+
+    # For images/PDFs, convert to base64
+    if file.content_type.startswith('image/') or file.content_type == 'application/pdf':
+        base64_content = base64.b64encode(content).decode('utf-8')
+        file_data = {
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "base64_content": base64_content
+        }
+    else:
+        # For text files, decode as text
+        file_data = {
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "text_content": content.decode('utf-8', errors='ignore')
+        }
+
+    # Store file reference in database
+    result = db.table("conversation_files").insert({
+        "conversation_id": conversation_id,
+        "filename": file.filename,
+        "content_type": file.content_type,
+        "file_data": file_data
+    }).execute()
+
+    return {"file_id": result.data[0]["id"], "filename": file.filename}
+
 
 @router.get("/conversations/{conversation_id}/messages")
 async def get_messages(
@@ -165,70 +217,70 @@ Use these tools proactively when they would help provide better answers. For exa
             system=system_prompt,
             messages=messages,
             tools=tools
+            stream=True
         )
 
         # Handle tool use loop (max 5 iterations to prevent infinite loops)
         max_iterations = 5
         iteration = 0
-        
+
         while response.stop_reason == "tool_use" and iteration < max_iterations:
             iteration += 1
-            
-            # Process tool calls
             tool_results = []
-            
+
             for block in response.content:
                 if block.type == "tool_use":
                     tool_name = block.name
                     tool_input = block.input
                     tool_use_id = block.id
-                    
-                    # Execute the tool (skip web_search as it's handled by Claude)
-                    if tool_name != "web_search":
+
+                    # Handle ONLY custom tools (Claude handles web_search internally)
+                    if tool_name in ["execute_python", "search_knowledge_base", "get_stock_data",
+                                     "validate_afl", "research_strategy", "search_sec_filings",
+                                     "get_market_context", "generate_afl_code", "debug_afl_code",
+                                     "optimize_afl_code", "explain_afl_code", "sanity_check_afl"]:
                         result = handle_tool_call(
                             tool_name=tool_name,
                             tool_input=tool_input,
                             supabase_client=db,
                             api_key=api_keys.get("claude")
                         )
-                        
+
                         tools_used.append({
                             "tool": tool_name,
                             "input": tool_input,
-                            "result_preview": result[:200] + "..." if len(result) > 200 else result
                         })
-                        
+
                         tool_results.append({
                             "type": "tool_result",
                             "tool_use_id": tool_use_id,
                             "content": result
                         })
-            
-            # If we have tool results, continue the conversation
-            if tool_results:
-                # Add assistant's tool use message
-                messages.append({
-                    "role": "assistant",
-                    "content": response.content
-                })
-                
-                # Add tool results
-                messages.append({
-                    "role": "user",
-                    "content": tool_results
-                })
-                
-                # Get next response
-                response = client.messages.create(
-                    model="claude-sonnet-4-20250514",
-                    max_tokens=4096,
-                    system=system_prompt,
-                    messages=messages,
-                    tools=tools
-                )
-            else:
-                # No tool results to process (e.g., only web_search which is handled internally)
+
+            # Only continue loop if we have custom tool results to process
+            if not tool_results:
                 break
+
+            # Add assistant's response with tool use
+            messages.append({
+                "role": "assistant",
+                "content": response.content
+            })
+
+            # Add tool results
+            messages.append({
+                "role": "user",
+                "content": tool_results
+            })
+
+            # Get next response
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=4096,
+                system=system_prompt,
+                messages=messages,
+                tools=tools
+                stream=True
 
         # Extract final text content from response
         assistant_content = ""

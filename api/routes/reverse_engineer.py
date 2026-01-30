@@ -142,12 +142,9 @@ async def start_reverse_engineer(
 
         return {
             "strategy_id": strategy_id,
-            "id": strategy_id,  # Alias for frontend compatibility
             "conversation_id": conversation_id,
             "phase": "clarification",
             "response": clarification,
-            "research": clarification,  # Alias for frontend compatibility
-            "analysis": clarification,  # Alias for frontend compatibility
         }
 
     except Exception as e:
@@ -350,7 +347,7 @@ Provide: Strategy overview, key components, parameters with confidence, implemen
         return {
             "strategy_id": strategy_id,
             "phase": "findings",
-            "synthesis": synthesis,
+            "response": synthesis,
         }
 
     except Exception as e:
@@ -489,10 +486,8 @@ Production-ready AFL code with all sections."""
 
         return {
             "strategy_id": strategy_id,
-            "phase": "coding",
-            "afl_code": afl_code,
-            "code": afl_code,  # Alias for frontend compatibility
-            "stats": result.get("stats", {}),
+            "phase": "findings",
+            "response": synthesis,
         }
 
     except Exception as e:

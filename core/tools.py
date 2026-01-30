@@ -5,8 +5,17 @@ Implements: Code Execution, Knowledge Base Search, Stock Data
 
 import json
 import traceback
+import logging
+import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
+from functools import lru_cache
+
+
+# Configure logger level based on environment
+log_level = os.getenv("LOG_LEVEL", "WARNING" if os.getenv("ENVIRONMENT") == "production" else "INFO")
+logger = logging.getLogger(__name__)
+logger.setLevel(getattr(logging, log_level.upper()))
 
 
 # ============================================================================
@@ -831,10 +840,10 @@ def sanity_check_afl(code: str, auto_fix: bool = True) -> Dict[str, Any]:
     else:
         result["auto_fixed"] = False
         result["fixed_code"] = code
-    
+
     # Always include summary
     result["summary"] = _generate_sanity_check_summary(result)
-    
+    _log_validation_result(len(code), result)
     return result
 
 
@@ -865,7 +874,17 @@ def _generate_sanity_check_summary(result: Dict[str, Any]) -> str:
     
     return summary
 
-
+def _log_validation_result(code_length: int, result: Dict[str, Any]) -> None:
+    """Log validation results for monitoring."""
+    if result.get("original_valid"):
+        logger.debug(f"AFL validation passed for {code_length} char code")
+    else:
+        logger.warning(
+            f"AFL validation failed: {result.get('total_issues_found', 0)} issues found "
+            f"(errors: {len(result['original_issues']['errors'])}, "
+            f"color: {len(result['original_issues']['color_issues'])}, "
+            f"functions: {len(result['original_issues']['function_issues'])})"
+        )
 # ============================================================================
 # TOOL DISPATCHER
 # ============================================================================
@@ -876,12 +895,14 @@ def handle_tool_call(tool_name: str, tool_input: Dict[str, Any], supabase_client
     Returns JSON string result.
     """
     try:
+        logger.debug(f"Handling tool call: {tool_name}")
+
         if tool_name == "execute_python":
             result = execute_python(
                 code=tool_input.get("code", ""),
                 description=tool_input.get("description", "")
             )
-        
+
         elif tool_name == "search_knowledge_base":
             result = search_knowledge_base(
                 query=tool_input.get("query", ""),
@@ -889,86 +910,93 @@ def handle_tool_call(tool_name: str, tool_input: Dict[str, Any], supabase_client
                 limit=tool_input.get("limit", 5),
                 supabase_client=supabase_client
             )
-        
+
         elif tool_name == "get_stock_data":
             result = get_stock_data(
                 symbol=tool_input.get("symbol", ""),
                 period=tool_input.get("period", "1mo"),
                 info_type=tool_input.get("info_type", "price")
             )
-        
+
         elif tool_name == "validate_afl":
             result = validate_afl(
                 code=tool_input.get("code", "")
             )
-        
+
         elif tool_name == "research_strategy":
             result = research_strategy(
                 query=tool_input.get("query", ""),
                 research_type=tool_input.get("research_type", "strategy")
             )
-        
+
         elif tool_name == "search_sec_filings":
             result = search_sec_filings(
                 query=tool_input.get("query", ""),
                 filing_type=tool_input.get("filing_type", "all")
             )
-        
+
         elif tool_name == "get_market_context":
             result = get_market_context_tool(
                 include_details=tool_input.get("include_details", True)
             )
-        
+
         elif tool_name == "generate_afl_code":
             result = generate_afl_code(
                 description=tool_input.get("description", ""),
                 strategy_type=tool_input.get("strategy_type", "standalone"),
                 api_key=api_key
             )
-        
+
         elif tool_name == "debug_afl_code":
             result = debug_afl_code(
                 code=tool_input.get("code", ""),
                 error_message=tool_input.get("error_message", ""),
                 api_key=api_key
             )
-        
+
         elif tool_name == "optimize_afl_code":
             result = optimize_afl_code(
                 code=tool_input.get("code", ""),
                 api_key=api_key
             )
-        
+
         elif tool_name == "explain_afl_code":
             result = explain_afl_code(
                 code=tool_input.get("code", ""),
                 api_key=api_key
             )
-        
+
         elif tool_name == "sanity_check_afl":
             result = sanity_check_afl(
                 code=tool_input.get("code", ""),
                 auto_fix=tool_input.get("auto_fix", True)
             )
-        
+
         else:
+            logger.warning(f"Unknown tool requested: {tool_name}")
             result = {"error": f"Unknown tool: {tool_name}"}
-        
+
+        logger.debug(f"Tool call {tool_name} completed successfully")
         return json.dumps(result, indent=2, default=str)
-        
+
     except Exception as e:
+        logger.error(f"Error in tool call {tool_name}: {str(e)}", exc_info=True)
         return json.dumps({
             "error": str(e),
             "traceback": traceback.format_exc()
         })
 
 
-# Get only custom tools (not built-in like web_search)
+# Cache custom and all tools for performance
+
+
+@lru_cache(maxsize=1)
 def get_custom_tools() -> List[Dict]:
-    """Return only custom tool definitions (not built-in Claude tools)."""
+    """Return only custom tool definitions (not built-in Claude tools). Cached for performance."""
     return [tool for tool in TOOL_DEFINITIONS if "input_schema" in tool]
 
 
+@lru_cache(maxsize=1)
 def get_all_tools() -> List[Dict]:
-    """Return all tool definitions including built-in."""
-    return TOOL_DEFINITIONS
+    """Return all tool definitions including built-in. Cached for performance."""
+    return TOOL_DEFINITIONS.copy()

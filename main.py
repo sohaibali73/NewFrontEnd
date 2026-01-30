@@ -9,17 +9,19 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 
 # Configure logging
+import os
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING" if os.getenv("ENVIRONMENT") == "production" else "INFO")
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, LOG_LEVEL.upper()),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
 # Create FastAPI app
 app = FastAPI(
     title="Analyst by Potomac API",
     description="AI-powered AmiBroker AFL development platform",
-    version="1.0.0",
+    version="1.2.0",
 )
 
 # CORS middleware
@@ -32,75 +34,33 @@ app.add_middleware(
 )
 
 # Import and include routers
-try:
-    from api.routes.auth import router as auth_router
-    app.include_router(auth_router)
-    logger.info("Loaded auth router")
-except ImportError as e:
-    logger.warning(f"Could not load auth router: {e}")
+# Import and include routers
+ROUTERS = [
+    ("api.routes.auth", "auth_router", "auth"),
+    ("api.routes.chat", "chat_router", "chat"),
+    ("api.routes.afl", "afl_router", "afl"),
+    ("api.routes.reverse_engineer", "re_router", "reverse_engineer"),
+    ("api.routes.brain", "brain_router", "brain"),
+    ("api.routes.backtest", "backtest_router", "backtest"),
+    ("api.routes.admin", "admin_router", "admin"),
+    ("api.routes.train", "train_router", "train"),
+    ("api.routes.researcher", "researcher_router", "researcher"),
+]
 
-try:
-    from api.routes.chat import router as chat_router
-    app.include_router(chat_router)
-    logger.info("Loaded chat router")
-except ImportError as e:
-    logger.warning(f"Could not load chat router: {e}")
-
-try:
-    from api.routes.afl import router as afl_router
-    app.include_router(afl_router)
-    logger.info("Loaded afl router")
-except ImportError as e:
-    logger.warning(f"Could not load afl router: {e}")
-
-try:
-    from api.routes.reverse_engineer import router as re_router
-    app.include_router(re_router)
-    logger.info("Loaded reverse_engineer router")
-except ImportError as e:
-    logger.warning(f"Could not load reverse_engineer router: {e}")
-
-try:
-    from api.routes.brain import router as brain_router
-    app.include_router(brain_router)
-    logger.info("Loaded brain router")
-except ImportError as e:
-    logger.warning(f"Could not load brain router: {e}")
-
-try:
-    from api.routes.backtest import router as backtest_router
-    app.include_router(backtest_router)
-    logger.info("Loaded backtest router")
-except ImportError as e:
-    logger.warning(f"Could not load backtest router: {e}")
-
-try:
-    from api.routes.admin import router as admin_router
-    app.include_router(admin_router)
-    logger.info("Loaded admin router")
-except ImportError as e:
-    logger.warning(f"Could not load admin router: {e}")
-
-try:
-    from api.routes.train import router as train_router
-    app.include_router(train_router)
-    logger.info("Loaded train router")
-except ImportError as e:
-    logger.warning(f"Could not load train router: {e}")
-
-try:
-    from api.routes.researcher import router as researcher_router
-    app.include_router(researcher_router)
-    logger.info("Loaded researcher router")
-except ImportError as e:
-    logger.warning(f"Could not load researcher router: {e}")
-
+for module_path, router_name, display_name in ROUTERS:
+    try:
+        module = __import__(module_path, fromlist=[router_name])
+        router = getattr(module, "router")
+        app.include_router(router)
+        logger.info(f"Loaded {display_name} router")
+    except ImportError as e:
+        logger.warning(f"Could not load {display_name} router: {e}")
 @app.get("/")
 async def root():
     """Root endpoint."""
     return {
         "name": "Analyst by Potomac API",
-        "version": "1.0.0",
+        "version": "1.2.0",
         "status": "online",
     }
 

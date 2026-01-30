@@ -4,14 +4,19 @@ Allows admins to train the AI with examples, rules, and corrections.
 """
 
 import logging
+import os
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from functools import lru_cache
 
 from db.supabase_client import get_supabase
 
+# Configure logger level based on environment
+log_level = os.getenv("LOG_LEVEL", "WARNING" if os.getenv("ENVIRONMENT") == "production" else "INFO")
 logger = logging.getLogger(__name__)
+logger.setLevel(getattr(logging, log_level.upper()))
 
 
 class TrainingType(Enum):
@@ -94,7 +99,8 @@ class TrainingManager:
             result = self.db.table("training_data").insert(data).execute()
             
             if result.data:
-                logger.info(f"Added training example: {title}")
+                if logger.isEnabledFor(logging.INFO):
+                    logger.info(f"Added training example: {title}")
                 return {"status": "success", "data": result.data[0]}
             else:
                 return {"status": "error", "message": "Failed to insert training data"}
@@ -193,7 +199,7 @@ class TrainingManager:
             if category:
                 query = query.eq("category", category)
             
-            result = query.order("priority", desc=True).limit(limit).execute()
+            result = query.order("priority", desc=True).order("training_type").limit(limit).execute()
             
             if not result.data:
                 return ""
@@ -382,12 +388,9 @@ class TrainingManager:
 
 
 # Singleton instance
-_training_manager: Optional[TrainingManager] = None
 
 
+@lru_cache(maxsize=1)
 def get_training_manager() -> TrainingManager:
-    """Get the training manager singleton."""
-    global _training_manager
-    if _training_manager is None:
-        _training_manager = TrainingManager()
-    return _training_manager
+    """Get the training manager singleton (thread-safe cached)."""
+    return TrainingManager()

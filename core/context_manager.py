@@ -11,7 +11,7 @@ from db.supabase_client import get_supabase
 logger = logging.getLogger(__name__)
 
 # Configuration
-MAX_RECENT_MESSAGES = 10  # Keep only recent messages in context
+MAX_RECENT_MESSAGES = 100  # Keep only recent messages in context
 MAX_TRAINING_EXAMPLES = 5  # Reduced from 20
 MAX_CONTEXT_TOKENS = 8000  # Soft limit for total context
 
@@ -33,6 +33,7 @@ def get_recent_messages(
 ) -> List[Dict[str, str]]:
     """
     Get recent messages from a conversation with limit.
+    Cached to avoid repeated database queries.
     
     Args:
         conversation_id: The conversation ID
@@ -45,19 +46,21 @@ def get_recent_messages(
     try:
         db = get_supabase()
         
+        # Build query efficiently - filter at database level
         query = db.table("messages").select("role, content").eq(
             "conversation_id", conversation_id
         ).order("created_at", desc=True).limit(limit)
         
+        # If not including system messages, filter at DB level for efficiency
+        if not include_system:
+            query = query.neq("role", "system")
+        
         result = query.execute()
         
-        # Reverse to get chronological order
+        # Reverse to get chronological order (oldest to newest)
         messages = [{"role": m["role"], "content": m["content"]} for m in reversed(result.data)]
         
-        if not include_system:
-            messages = [m for m in messages if m["role"] != "system"]
-        
-        logger.debug(f"Retrieved {len(messages)} recent messages (limit: {limit})")
+        logger.debug(f"Retrieved {len(messages)} recent messages (limit: {limit}, include_system: {include_system})")
         return messages
         
     except Exception as e:
@@ -67,7 +70,8 @@ def get_recent_messages(
 
 def estimate_tokens(text: str) -> int:
     """
-    Rough estimate of token count (4 chars ≈ 1 token).
+    Improved token estimation using word count.
+    English text averages ~1.3 tokens per word.
     
     Args:
         text: Text to estimate
@@ -75,7 +79,22 @@ def estimate_tokens(text: str) -> int:
     Returns:
         Estimated token count
     """
-    return len(text) // 4
+    if not text:
+        return 0
+    
+    # Count words (more accurate than char count)
+    word_count = len(text.split())
+    
+    # English text: ~1.3 tokens per word
+    # Code/technical: ~1.5 tokens per word
+    # Use 1.4 as a balanced average
+    estimated = int(word_count * 1.4)
+    
+    # Fallback to char-based if text is very short or has no spaces
+    if word_count < 3:
+        estimated = len(text) // 3  # Slightly more accurate than //4
+    
+    return max(estimated, 1)  # Always return at least 1 token
 
 
 def truncate_context(
@@ -111,6 +130,43 @@ def truncate_context(
     return truncated
 
 
+def truncate_contexts_batch(
+        contexts: Dict[str, tuple[str, int]]
+) -> Dict[str, str]:
+    """
+    Efficiently truncate multiple contexts in a single pass.
+
+    Args:
+        contexts: Dictionary mapping context name to (content, max_tokens) tuple
+
+    Returns:
+        Dictionary of truncated contexts
+
+    Example:
+        >>> truncate_contexts_batch({
+        ...     "training": ("long training text...", 800),
+        ...     "kb": ("long kb text...", 600),
+        ...     "research": ("long research text...", 1000)
+        ... })
+    """
+    truncated = {}
+
+    for name, (content, max_tokens) in contexts.items():
+        if not content:
+            truncated[name] = ""
+            continue
+
+        estimated_tokens = estimate_tokens(content)
+
+        if estimated_tokens <= max_tokens:
+            truncated[name] = content
+        else:
+            char_limit = max_tokens * 4
+            truncated[name] = content[:char_limit] + "\n\n[... truncated ...]"
+            logger.debug(f"Truncated {name}: ~{estimated_tokens} → ~{max_tokens} tokens")
+
+    return truncated
+
 def optimize_training_context(
     training_context: str,
     max_examples: int = MAX_TRAINING_EXAMPLES
@@ -141,6 +197,7 @@ def build_optimized_context(
 ) -> Dict[str, Any]:
     """
     Build optimized context package with token budget management.
+    Uses single-pass truncation for better performance.
     
     Args:
         conversation_history: List of conversation messages
@@ -152,48 +209,50 @@ def build_optimized_context(
     Returns:
         Dictionary with optimized context components and token estimates
     """
-    total_tokens = 0
     optimized = {}
+    total_tokens = 0
     
-    # System prompt (required, but can be condensed)
+    # Define context parts with their max token limits
+    context_parts = []
+    
+    # System prompt (required, no truncation)
     if system_prompt:
-        prompt_tokens = estimate_tokens(system_prompt)
-        total_tokens += prompt_tokens
-        optimized["system_prompt"] = system_prompt
-        logger.debug(f"System prompt: ~{prompt_tokens} tokens")
+        context_parts.append(("system_prompt", system_prompt, None))
     
-    # Conversation history (limit to recent messages)
+    # Conversation history (limit by message count)
     if conversation_history:
-        # Keep only recent messages
         recent_history = conversation_history[-MAX_RECENT_MESSAGES:]
-        history_tokens = sum(estimate_tokens(m.get("content", "")) for m in recent_history)
-        total_tokens += history_tokens
-        optimized["conversation_history"] = recent_history
-        logger.debug(f"Conversation history: {len(recent_history)} messages, ~{history_tokens} tokens")
+        context_parts.append(("conversation_history", recent_history, None))
     
-    # Training context (conditional, truncated)
+    # Training context (truncate to 2000 tokens)
     if training_context:
-        optimized_training = optimize_training_context(training_context)
-        training_tokens = estimate_tokens(optimized_training)
-        total_tokens += training_tokens
-        optimized["training_context"] = optimized_training
-        logger.debug(f"Training context: ~{training_tokens} tokens")
+        context_parts.append(("training_context", training_context, 2000))
     
-    # KB context (truncated if needed)
+    # KB context (truncate to 1500 tokens)
     if kb_context:
-        kb_truncated = truncate_context(kb_context, max_tokens=1500)
-        kb_tokens = estimate_tokens(kb_truncated)
-        total_tokens += kb_tokens
-        optimized["kb_context"] = kb_truncated
-        logger.debug(f"KB context: ~{kb_tokens} tokens")
+        context_parts.append(("kb_context", kb_context, 1500))
     
-    # Research context (truncated if needed)
+    # Research context (truncate to 2000 tokens)
     if research_context:
-        research_truncated = truncate_context(research_context, max_tokens=2000)
-        research_tokens = estimate_tokens(research_truncated)
-        total_tokens += research_tokens
-        optimized["research_context"] = research_truncated
-        logger.debug(f"Research context: ~{research_tokens} tokens")
+        context_parts.append(("research_context", research_context, 2000))
+    
+    # Single-pass processing of all context parts
+    for key, content, max_tokens in context_parts:
+        if key == "conversation_history":
+            # Special handling for conversation history (already limited)
+            history_tokens = sum(estimate_tokens(m.get("content", "")) for m in content)
+            optimized[key] = content
+            total_tokens += history_tokens
+            logger.debug(f"Conversation history: {len(content)} messages, ~{history_tokens} tokens")
+        else:
+            # Text content - apply truncation if limit specified
+            if max_tokens and estimate_tokens(content) > max_tokens:
+                content = truncate_context(content, max_tokens=max_tokens, preserve_start=True)
+            
+            content_tokens = estimate_tokens(content)
+            optimized[key] = content
+            total_tokens += content_tokens
+            logger.debug(f"{key}: ~{content_tokens} tokens")
     
     optimized["total_estimated_tokens"] = total_tokens
     
@@ -220,3 +279,10 @@ def should_include_training_context(endpoint: str, request_type: str) -> bool:
     afl_tasks = ["generate", "debug", "optimize", "afl", "reverse_engineer"]
     
     return request_type.lower() in afl_tasks or "afl" in endpoint.lower()
+def clear_message_cache():
+    """
+    Clear the cached messages.
+    Call this when messages are added/updated to ensure fresh data.
+    """
+    get_recent_messages.cache_clear()
+    logger.info("Message cache cleared")

@@ -24,9 +24,7 @@ class Settings(BaseSettings):
     finnhub_api_key: str = "d5ron0pr01qj5oil831gd5ron0pr01qj5oil8320"
     fred_api_key: str = "816c11e0be7c37119557a6e09de63de5"
     newsapi_key: str = "d0338b913ab7406d92b5e332c96146d3"
-    openbb_api_key: str = ""
-    sec_api_key: str = ""
-    
+
     # Admin configuration
     # Comma-separated list of admin emails
     admin_emails: str = "sohaib.ali@potomac.com"

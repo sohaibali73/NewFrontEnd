@@ -7,7 +7,7 @@ The Researcher Tool provides comprehensive market research and intelligence capa
 ## Base URL
 
 ```
-https://your-domain.com/api/researcher
+https://potomac-analyst-workbench-production.up.railway.app/docs#/researcher
 ```
 
 ## Authentication

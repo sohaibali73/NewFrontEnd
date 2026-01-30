@@ -67,7 +67,7 @@ class StrategyType(Enum):
 class BacktestSettings:
     """Backtest configuration settings."""
     initial_equity: float = 100000
-    position_size: str = "-10"
+    position_size: str = "100"
     position_size_type: str = "spsPercentOfEquity"
     max_positions: int = 10
     commission: float = 0.001
@@ -113,6 +113,10 @@ class ClaudeAFLEngine:
         "Filter", "PositionSize", "PositionScore"
     }
 
+    # Class-level training context cache (shared across instances)
+    _training_cache = {}
+    _training_cache_time = {}
+    _TRAINING_CACHE_TTL = 3600  # 1 hour cache
     def __init__(self, api_key: str = None, model: str = None, use_condensed_prompts: bool = True):
         """
         Initialize the AFL engine.
@@ -180,30 +184,36 @@ class ClaudeAFLEngine:
             system_prompt = get_base_prompt()
             system_prompt += "\n\n" + get_generate_prompt(strategy_type.value)
 
+        # Build context parts efficiently (single-pass truncation)
+        from core.context_manager import truncate_context
+        context_parts = []
+        
         # Include training context (learned rules, patterns, corrections) - CONDITIONAL & OPTIMIZED
         if include_training:
             training_context = self._get_training_context()
             if training_context:
-                # Truncate training context to prevent bloat (more aggressive if condensed)
-                from core.context_manager import truncate_context
                 max_training_tokens = CONDENSED_CONTEXT_LIMITS["training_context_max_tokens"] if self.use_condensed_prompts else 2000
-                training_context = truncate_context(training_context, max_tokens=max_training_tokens)
-                system_prompt += f"\n\nLEARNED RULES:\n{training_context}"
+                context_parts.append(("LEARNED RULES", training_context, max_training_tokens))
 
         # Include user answers if provided
         if user_answers:
             answer_context = self._format_user_answers(user_answers)
-            system_prompt += f"\n\n{answer_context}"
+            context_parts.append(("USER ANSWERS", answer_context, None))  # Don't truncate user answers
 
+        # Include KB context
         if kb_context:
-            # Optimize KB context size
-            from core.context_manager import truncate_context
             max_kb_tokens = CONDENSED_CONTEXT_LIMITS["kb_context_max_tokens"] if self.use_condensed_prompts else 1500
-            kb_context = truncate_context(kb_context, max_tokens=max_kb_tokens)
-            system_prompt += f"\n\nKB CONTEXT:\n{kb_context}"
+            context_parts.append(("KB CONTEXT", kb_context, max_kb_tokens))
 
+        # Include settings
         if settings:
-            system_prompt += f"\n\n## BACKTEST SETTINGS TO APPLY:\n{settings.to_afl()}"
+            context_parts.append(("BACKTEST SETTINGS", settings.to_afl(), None))
+
+        # Apply truncation once to all parts
+        for label, content, max_tokens in context_parts:
+            if max_tokens:
+                content = truncate_context(content, max_tokens=max_tokens)
+            system_prompt += f"\n\n{label}:\n{content}" if label != "USER ANSWERS" else f"\n\n{content}"
 
         # Build messages with limited history
         messages = []
@@ -448,7 +458,7 @@ class ClaudeAFLEngine:
             system_prompt = f"{get_base_prompt()}\n\n{get_chat_prompt()}"
             
         if context:
-            # Truncate KB context to prevent overload (more aggressive if condensed)
+            # Truncate KB context efficiently
             from core.context_manager import truncate_context
             max_kb_tokens = CONDENSED_CONTEXT_LIMITS["kb_context_max_tokens"] if self.use_condensed_prompts else 1500
             context = truncate_context(context, max_tokens=max_kb_tokens)
@@ -613,12 +623,18 @@ class ClaudeAFLEngine:
 
         return max(0.0, min(1.0, score))
 
+    # Class-level cache for training context
+    _training_cache = {}
+    _training_cache_time = {}
+    _TRAINING_CACHE_TTL = 3600  # 1 hour cache
+    
     def _get_training_context(self, category: str = "afl", limit: int = 5) -> str:
         """
-        Get training context from the training manager.
+        Get training context from the training manager with caching.
         
         This retrieves all learned rules, patterns, examples, and corrections
-        that admins have added to train the AI.
+        that admins have added to train the AI. Results are cached for 1 hour
+        to avoid repeated database queries.
         
         Args:
             category: Category to filter training data (default: "afl")
@@ -630,15 +646,35 @@ class ClaudeAFLEngine:
         if not TRAINING_ENABLED or get_training_manager is None:
             return ""
         
+        # Check cache first
+        cache_key = f"{category}_{limit}"
+        current_time = time.time()
+        
+        if cache_key in self._training_cache:
+            cache_age = current_time - self._training_cache_time.get(cache_key, 0)
+            if cache_age < self._TRAINING_CACHE_TTL:
+                logger.debug(f"Using cached training context ({cache_age:.0f}s old)")
+                return self._training_cache[cache_key]
+        
+        # Cache miss or expired - fetch from database
         try:
             training_manager = get_training_manager()
-            # Pass limit to reduce training examples
             context = training_manager.get_training_context(category=category, limit=limit)
             
             if context:
                 logger.debug(f"Loaded training context: {len(context)} chars (limit: {limit} examples)")
+                # Cache the result
+                self._training_cache[cache_key] = context
+                self._training_cache_time[cache_key] = current_time
             
             return context
         except Exception as e:
             logger.warning(f"Could not load training context: {e}")
             return ""
+    
+    @classmethod
+    def clear_training_cache(cls):
+        """Clear the training context cache (call when training data is updated)"""
+        cls._training_cache.clear()
+        cls._training_cache_time.clear()
+        logger.info("Training context cache cleared")

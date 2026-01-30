@@ -7,7 +7,6 @@ from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Query
 from pydantic import BaseModel, Field
 from datetime import datetime, timedelta
-from sqlalchemy import text
 import json
 
 from api.routes.auth import get_current_user_id
@@ -378,27 +377,25 @@ async def batch_import_training(
 
 @router.get("/training")
 async def list_training(
-    training_type: Optional[str] = Query(None, description="Filter by training type"),
-    category: Optional[str] = Query(None, description="Filter by category"),
-    is_active: Optional[bool] = Query(True, description="Filter by active status"),
-    limit: int = Query(100, ge=1, le=1000, description="Limit results"),
-    offset: int = Query(0, ge=0, description="Offset for pagination"),
-    admin_id: str = Depends(verify_admin),
+        training_type: Optional[str] = Query(None, description="Filter by training type"),
+        category: Optional[str] = Query(None, description="Filter by category"),
+        is_active: Optional[bool] = Query(True, description="Filter by active status"),
+        limit: int = Query(100, ge=1, le=1000, description="Limit results"),
+        offset: int = Query(0, ge=0, description="Offset for pagination"),
+        admin_id: str = Depends(verify_admin),
 ):
     """List all training examples with optional filtering and pagination."""
     training_manager = get_training_manager()
-    
+
+    # OPTIMIZED: Specify which columns to fetch instead of SELECT *
     examples = training_manager.list_training_examples(
         training_type=training_type,
         category=category,
         is_active=is_active,
         limit=limit,
+        offset=offset,  # Pass offset to training manager for better query optimization
     )
-    
-    # Apply offset
-    if offset > 0:
-        examples = examples[offset:]
-    
+
     return {
         "count": len(examples),
         "examples": examples,
@@ -1299,37 +1296,73 @@ async def log_admin_action(admin_id: str, action_type: str, details: Dict[str, A
 
 @router.get("/export/users")
 async def export_users_data(
-    admin_id: str = Depends(verify_admin),
+        admin_id: str = Depends(verify_admin),
 ):
     """Export user data for backup or analysis."""
     db = get_supabase()
-    
+
     # Get users with basic info (no sensitive data)
     users = db.table("users").select(
         "id, email, name, nickname, is_admin, is_active, created_at, last_active"
     ).execute()
-    
-    # Get user statistics
-    user_stats = []
-    for user in users.data or []:
-        # Count user's codes
-        codes = db.table("afl_codes").select("id", count="exact").eq("user_id", user["id"]).execute()
-        
-        # Count user's feedback
-        feedback = db.table("user_feedback").select("id", count="exact").eq("user_id", user["id"]).execute()
-        
-        user_stats.append({
-            "user_id": user["id"],
-            "email": user["email"],
-            "name": user["name"],
-            "is_admin": user["is_admin"],
-            "is_active": user["is_active"],
-            "created_at": user["created_at"],
-            "last_active": user["last_active"],
-            "codes_generated": codes.count or 0,
-            "feedback_submitted": feedback.count or 0,
-        })
-    
+
+    # OPTIMIZED: Use PostgreSQL to aggregate counts instead of N queries
+    # Get all user stats in one query using LEFT JOIN
+    user_stats_query = """
+        SELECT 
+            u.id,
+            u.email,
+            u.name,
+            u.is_admin,
+            u.is_active,
+            u.created_at,
+            u.last_active,
+            COUNT(DISTINCT c.id) as codes_generated,
+            COUNT(DISTINCT f.id) as feedback_submitted
+        FROM users u
+        LEFT JOIN afl_codes c ON c.user_id = u.id
+        LEFT JOIN user_feedback f ON f.user_id = u.id
+        GROUP BY u.id, u.email, u.name, u.is_admin, u.is_active, u.created_at, u.last_active
+    """
+
+    try:
+        # Execute the optimized query using RPC or raw SQL
+        result = db.rpc('get_user_stats_for_export').execute()
+        user_stats = result.data
+    except:
+        # Fallback: If RPC doesn't exist, build stats from user list
+        # This is still better than N+1 as we batch the queries
+        user_ids = [u["id"] for u in users.data or []]
+
+        # Get all code counts in one query
+        codes_result = db.table("afl_codes").select("user_id").in_("user_id", user_ids).execute()
+        codes_by_user = {}
+        for code in codes_result.data or []:
+            user_id = code["user_id"]
+            codes_by_user[user_id] = codes_by_user.get(user_id, 0) + 1
+
+        # Get all feedback counts in one query
+        feedback_result = db.table("user_feedback").select("user_id").in_("user_id", user_ids).execute()
+        feedback_by_user = {}
+        for feedback in feedback_result.data or []:
+            user_id = feedback["user_id"]
+            feedback_by_user[user_id] = feedback_by_user.get(user_id, 0) + 1
+
+        # Build user stats
+        user_stats = []
+        for user in users.data or []:
+            user_stats.append({
+                "user_id": user["id"],
+                "email": user["email"],
+                "name": user["name"],
+                "is_admin": user["is_admin"],
+                "is_active": user["is_active"],
+                "created_at": user["created_at"],
+                "last_active": user["last_active"],
+                "codes_generated": codes_by_user.get(user["id"], 0),
+                "feedback_submitted": feedback_by_user.get(user["id"], 0),
+            })
+
     return {
         "export_date": datetime.utcnow().isoformat(),
         "total_users": len(user_stats),

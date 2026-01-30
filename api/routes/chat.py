@@ -210,14 +210,13 @@ Use these tools proactively when they would help provide better answers. For exa
         # Track tool usage for the response
         tools_used = []
         
-        # Initial API call with tools
+        # Initial API call with tools (non-streaming for simpler handling)
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=4096,
             system=system_prompt,
             messages=messages,
             tools=tools,
-            stream=True
         )
 
         # Handle tool use loop (max 5 iterations to prevent infinite loops)
@@ -273,14 +272,13 @@ Use these tools proactively when they would help provide better answers. For exa
                 "content": tool_results
             })
 
-            # Get next response
+            # Get next response (non-streaming)
             response = client.messages.create(
                 model="claude-sonnet-4-20250514",
                 max_tokens=4096,
                 system=system_prompt,
                 messages=messages,
                 tools=tools,
-                stream=True
             )
 
         # Extract final text content from response

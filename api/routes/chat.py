@@ -216,7 +216,7 @@ Use these tools proactively when they would help provide better answers. For exa
             max_tokens=4096,
             system=system_prompt,
             messages=messages,
-            tools=tools
+            tools=tools,
             stream=True
         )
 
@@ -279,8 +279,9 @@ Use these tools proactively when they would help provide better answers. For exa
                 max_tokens=4096,
                 system=system_prompt,
                 messages=messages,
-                tools=tools
+                tools=tools,
                 stream=True
+            )
 
         # Extract final text content from response
         assistant_content = ""

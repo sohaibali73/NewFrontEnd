@@ -1,14 +1,15 @@
 """AFL code generation routes."""
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from enum import Enum
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from pydantic import Field
 import json
 import logging
+import base64
 
 from api.dependencies import get_current_user_id, get_user_api_keys
 from core.claude_engine import ClaudeAFLEngine, StrategyType, BacktestSettings
@@ -36,6 +37,8 @@ class GenerateRequest(BaseModel):
     conversation_id: Optional[str] = None
     answers: Optional[Dict[str, str]] = None  # {"strategy_type": "standalone", "trade_timing": "close"}
     stream: Optional[bool] = Field(False, description="Enable streaming responses")
+    uploaded_file_ids: Optional[List[str]] = None  # File references for context
+    kb_context: Optional[str] = None  # Additional knowledge base context
 
 
 class OptimizeRequest(BaseModel):
@@ -102,6 +105,16 @@ async def _generate_simple(
         if request.settings:
             settings = BacktestSettings(**request.settings)
 
+        # Build file context from uploaded files
+        file_context = ""
+        if request.uploaded_file_ids:
+            file_context = _build_file_context(db, user_id, request.uploaded_file_ids)
+        
+        # Combine with existing KB context
+        combined_context = request.kb_context or ""
+        if file_context:
+            combined_context += "\n\nUPLOADED FILES:\n" + file_context
+
         # Check if streaming is requested
         if request.stream:
             # Return streaming response
@@ -143,11 +156,12 @@ async def _generate_simple(
                 }
             )
 
-        # Non-streaming generation
+        # Non-streaming generation with file context
         result = engine.generate_afl(
             request=request.prompt,
             strategy_type=strat_type,
             settings=settings,
+            kb_context=combined_context if combined_context else None,
             stream=False,
         )
 
@@ -535,3 +549,187 @@ async def delete_afl_history(
     db.table("afl_history").delete().eq("id", history_id).execute()
     
     return {"status": "deleted", "id": history_id}
+
+
+# ===== File Upload Endpoints =====
+
+@router.post("/upload")
+async def upload_afl_file(
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Upload a file for AFL generation context.
+    Supported: CSV, TXT, PDF, AFL files
+    """
+    db = get_supabase()
+    
+    # Validate file type
+    allowed_types = [
+        'text/csv',
+        'text/plain',
+        'application/pdf',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ]
+    
+    if file.content_type not in allowed_types and not file.filename.endswith('.afl'):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type: {file.content_type}. Allowed: CSV, TXT, PDF, AFL"
+        )
+    
+    # Validate file size (max 10MB)
+    max_size = 10 * 1024 * 1024  # 10MB
+    content = await file.read()
+    
+    if len(content) > max_size:
+        raise HTTPException(
+            status_code=400,
+            detail="File too large. Maximum size is 10MB"
+        )
+    
+    try:
+        # Process based on file type
+        file_data = {}
+        
+        if file.content_type == 'text/csv' or file.filename.endswith('.csv'):
+            # Parse CSV data
+            text_content = content.decode('utf-8', errors='ignore')
+            file_data = {
+                "filename": file.filename,
+                "content_type": "text/csv",
+                "text_content": text_content,
+                "preview": text_content[:500] + "..." if len(text_content) > 500 else text_content,
+            }
+            
+        elif file.content_type == 'application/pdf':
+            # Store PDF as base64
+            base64_content = base64.b64encode(content).decode('utf-8')
+            file_data = {
+                "filename": file.filename,
+                "content_type": "application/pdf",
+                "base64_content": base64_content,
+                "size_bytes": len(content),
+            }
+            
+        else:
+            # Text files (.txt, .afl)
+            text_content = content.decode('utf-8', errors='ignore')
+            file_data = {
+                "filename": file.filename,
+                "content_type": file.content_type or "text/plain",
+                "text_content": text_content,
+                "preview": text_content[:500] + "..." if len(text_content) > 500 else text_content,
+            }
+        
+        # Store in database
+        result = db.table("afl_uploaded_files").insert({
+            "user_id": user_id,
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "file_data": file_data,
+            "created_at": datetime.utcnow().isoformat(),
+        }).execute()
+        
+        logger.info(f"File uploaded successfully: {file.filename} by user {user_id}")
+        
+        return {
+            "file_id": result.data[0]["id"],
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "size_bytes": len(content),
+            "preview": file_data.get("preview", ""),
+        }
+        
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=400,
+            detail="Unable to decode file. Please ensure it's a valid text file."
+        )
+    except Exception as e:
+        logger.error(f"File upload error: {e}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@router.get("/files")
+async def get_uploaded_files(
+    user_id: str = Depends(get_current_user_id),
+    limit: int = 50,
+):
+    """Get all uploaded files for user."""
+    db = get_supabase()
+    
+    result = db.table("afl_uploaded_files").select(
+        "id, filename, content_type, created_at"
+    ).eq(
+        "user_id", user_id
+    ).order("created_at", desc=True).limit(limit).execute()
+    
+    return result.data
+
+
+@router.get("/files/{file_id}")
+async def get_file_details(
+    file_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Get detailed file information."""
+    db = get_supabase()
+    
+    result = db.table("afl_uploaded_files").select("*").eq("id", file_id).execute()
+    
+    if not result.data or result.data[0]["user_id"] != user_id:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    return result.data[0]
+
+
+@router.delete("/files/{file_id}")
+async def delete_uploaded_file(
+    file_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Delete an uploaded file."""
+    db = get_supabase()
+    
+    # Verify ownership
+    file = db.table("afl_uploaded_files").select("user_id").eq("id", file_id).execute()
+    
+    if not file.data or file.data[0]["user_id"] != user_id:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    db.table("afl_uploaded_files").delete().eq("id", file_id).execute()
+    
+    return {"status": "deleted", "file_id": file_id}
+
+
+# ===== Helper Function for File Context =====
+
+def _build_file_context(db, user_id: str, file_ids: List[str]) -> str:
+    """Build context string from uploaded files."""
+    if not file_ids:
+        return ""
+    
+    file_context = ""
+    files = db.table("afl_uploaded_files").select("*").in_(
+        "id", file_ids
+    ).eq("user_id", user_id).execute()
+    
+    for file in files.data:
+        file_data = file.get("file_data", {})
+        file_context += f"\n\n--- File: {file['filename']} ---\n"
+        
+        # Include text content or preview
+        if "text_content" in file_data:
+            # Truncate very long files to avoid token limits
+            text = file_data["text_content"]
+            if len(text) > 5000:
+                text = text[:5000] + "\n... (truncated for context)"
+            file_context += text
+        elif "preview" in file_data:
+            file_context += file_data["preview"]
+        else:
+            file_context += f"[PDF file: {file['filename']}]"
+    
+    return file_context

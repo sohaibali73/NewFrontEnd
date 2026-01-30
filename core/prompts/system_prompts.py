@@ -121,6 +121,27 @@ SignalText = IIf(Buy, 1, IIf(Sell, 2, 0));
 AddMultiTextColumn(SignalText, "None\\nBUY\\nSELL", "Signal", 1, colorDefault, colorDefault, 80);
 '''
 
+ARTIFACT_CREATION = '''
+## Artifact Creation
+When creating visual content, interactive components, or diagrams, use code blocks:
+
+- **React Components**: Use ```jsx for interactive UI with Tailwind CSS
+- **HTML**: Use ```html for static pages
+- **SVG**: Use ```svg for vector graphics
+- **Mermaid**: Use ```mermaid for diagrams
+
+Example:
+```jsx
+export default function Component() {{
+  return (
+    <div className="p-6 bg-blue-500 rounded-lg">
+      <h1 className="text-2xl font-bold text-white">Hello!</h1>
+    </div>
+  );
+}}
+```
+'''
+
 
 def get_base_prompt() -> str:
     """Get the base system prompt for all AFL operations."""
@@ -131,6 +152,8 @@ def get_base_prompt() -> str:
 {RESERVED_KEYWORDS}
 
 {PARAM_OPTIMIZE_TEMPLATE}
+
+{ARTIFACT_CREATION}
 
 ## MANDATORY RULES
 1. ALWAYS use correct function signatures - RSI(14) NOT RSI(Close, 14)

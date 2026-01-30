@@ -9,7 +9,7 @@ This backend is fully serverless - all data is stored in **Supabase** (cloud dat
 1. **Go to [Railway](https://railway.app)**
    - Sign up/login with GitHub
    - Click **"New Project"** → **"Deploy from GitHub repo"**
-   - Select: `sohaibali73/Potomac-Analyst-Workbench1`
+   - Select: `sohaibali73/Potomac-Analyst-Workbench
 
 2. **Configure Environment Variables:**
    Go to your project → **Variables** tab and add:

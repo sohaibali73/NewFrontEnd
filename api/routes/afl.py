@@ -1,6 +1,6 @@
 """AFL code generation routes."""
 
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from enum import Enum
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
@@ -29,11 +29,36 @@ class GenerationPhase(str, Enum):
     COMPLETE = "complete"
 
 
+class BacktestSettingsInput(BaseModel):
+    """User-provided backtest settings for AFL generation."""
+    initial_equity: float = 100000
+    position_size: str = "100"
+    position_size_type: str = "spsPercentOfEquity"
+    max_positions: int = 10
+    commission: float = 0.001
+    trade_delays: Tuple[int, int, int, int] = (0, 0, 0, 0)
+    margin_requirement: float = 100
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "initial_equity": 100000,
+                "position_size": "100",
+                "position_size_type": "spsPercentOfEquity",
+                "max_positions": 10,
+                "commission": 0.001,
+                "trade_delays": [0, 0, 0, 0],
+                "margin_requirement": 100
+            }
+        }
+
+
 class GenerateRequest(BaseModel):
     """Request model for AFL generation."""
     prompt: str = Field(..., min_length=10, max_length=1000, description="Strategy description")
     strategy_type: str = Field("standalone", description="Strategy type: standalone or composite")
-    settings: Optional[Dict[str, Any]] = None
+    settings: Optional[Dict[str, Any]] = None  # Legacy settings dict
+    backtest_settings: Optional[BacktestSettingsInput] = None  # Structured backtest settings
     conversation_id: Optional[str] = None
     answers: Optional[Dict[str, str]] = None  # {"strategy_type": "standalone", "trade_timing": "close"}
     stream: Optional[bool] = Field(False, description="Enable streaming responses")
@@ -100,9 +125,20 @@ async def _generate_simple(
         if request.strategy_type.lower() == "composite":
             strat_type = StrategyType.COMPOSITE
 
-        # Parse backtest settings if provided
+        # Convert BacktestSettingsInput to BacktestSettings if provided
         settings = None
-        if request.settings:
+        if request.backtest_settings:
+            settings = BacktestSettings(
+                initial_equity=request.backtest_settings.initial_equity,
+                position_size=request.backtest_settings.position_size,
+                position_size_type=request.backtest_settings.position_size_type,
+                max_positions=request.backtest_settings.max_positions,
+                commission=request.backtest_settings.commission,
+                trade_delays=request.backtest_settings.trade_delays,
+                margin_requirement=request.backtest_settings.margin_requirement,
+            )
+        elif request.settings:
+            # Legacy settings dict support
             settings = BacktestSettings(**request.settings)
 
         # Build file context from uploaded files
@@ -733,3 +769,183 @@ def _build_file_context(db, user_id: str, file_ids: List[str]) -> str:
             file_context += f"[PDF file: {file['filename']}]"
     
     return file_context
+
+
+# ===== Settings Presets Endpoints =====
+
+class SettingsPreset(BaseModel):
+    """Request model for saving settings preset."""
+    name: str = Field(..., min_length=1, max_length=100, description="Preset name")
+    settings: BacktestSettingsInput
+    is_default: Optional[bool] = Field(False, description="Set as default preset")
+
+
+@router.post("/settings/presets")
+async def save_settings_preset(
+    preset: SettingsPreset,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Save a settings preset for the user.
+    If is_default is True, unsets any existing default first.
+    """
+    db = get_supabase()
+    
+    try:
+        # If setting as default, unset other defaults first
+        if preset.is_default:
+            db.table("afl_settings_presets").update({
+                "is_default": False
+            }).eq("user_id", user_id).eq("is_default", True).execute()
+        
+        # Convert settings to dict for storage
+        settings_dict = {
+            "initial_equity": preset.settings.initial_equity,
+            "position_size": preset.settings.position_size,
+            "position_size_type": preset.settings.position_size_type,
+            "max_positions": preset.settings.max_positions,
+            "commission": preset.settings.commission,
+            "trade_delays": list(preset.settings.trade_delays),
+            "margin_requirement": preset.settings.margin_requirement,
+        }
+        
+        result = db.table("afl_settings_presets").insert({
+            "user_id": user_id,
+            "name": preset.name,
+            "settings": settings_dict,
+            "is_default": preset.is_default,
+            "created_at": datetime.utcnow().isoformat(),
+        }).execute()
+        
+        logger.info(f"Settings preset '{preset.name}' saved for user {user_id}")
+        
+        return {
+            "id": result.data[0]["id"],
+            "name": preset.name,
+            "settings": settings_dict,
+            "is_default": preset.is_default,
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to save settings preset: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to save preset: {str(e)}")
+
+
+@router.get("/settings/presets")
+async def get_settings_presets(
+    user_id: str = Depends(get_current_user_id),
+):
+    """Get all settings presets for the user."""
+    db = get_supabase()
+    
+    result = db.table("afl_settings_presets").select("*").eq(
+        "user_id", user_id
+    ).order("created_at", desc=True).execute()
+    
+    return result.data
+
+
+@router.get("/settings/presets/{preset_id}")
+async def get_settings_preset(
+    preset_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Get a specific settings preset."""
+    db = get_supabase()
+    
+    result = db.table("afl_settings_presets").select("*").eq("id", preset_id).execute()
+    
+    if not result.data or result.data[0]["user_id"] != user_id:
+        raise HTTPException(status_code=404, detail="Preset not found")
+    
+    return result.data[0]
+
+
+@router.put("/settings/presets/{preset_id}")
+async def update_settings_preset(
+    preset_id: str,
+    preset: SettingsPreset,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Update an existing settings preset."""
+    db = get_supabase()
+    
+    # Verify ownership
+    existing = db.table("afl_settings_presets").select("user_id").eq("id", preset_id).execute()
+    if not existing.data or existing.data[0]["user_id"] != user_id:
+        raise HTTPException(status_code=404, detail="Preset not found")
+    
+    try:
+        # If setting as default, unset other defaults first
+        if preset.is_default:
+            db.table("afl_settings_presets").update({
+                "is_default": False
+            }).eq("user_id", user_id).eq("is_default", True).neq("id", preset_id).execute()
+        
+        # Convert settings to dict
+        settings_dict = {
+            "initial_equity": preset.settings.initial_equity,
+            "position_size": preset.settings.position_size,
+            "position_size_type": preset.settings.position_size_type,
+            "max_positions": preset.settings.max_positions,
+            "commission": preset.settings.commission,
+            "trade_delays": list(preset.settings.trade_delays),
+            "margin_requirement": preset.settings.margin_requirement,
+        }
+        
+        result = db.table("afl_settings_presets").update({
+            "name": preset.name,
+            "settings": settings_dict,
+            "is_default": preset.is_default,
+            "updated_at": datetime.utcnow().isoformat(),
+        }).eq("id", preset_id).execute()
+        
+        return result.data[0]
+        
+    except Exception as e:
+        logger.error(f"Failed to update settings preset: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update preset: {str(e)}")
+
+
+@router.delete("/settings/presets/{preset_id}")
+async def delete_settings_preset(
+    preset_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Delete a settings preset."""
+    db = get_supabase()
+    
+    # Verify ownership
+    existing = db.table("afl_settings_presets").select("user_id").eq("id", preset_id).execute()
+    if not existing.data or existing.data[0]["user_id"] != user_id:
+        raise HTTPException(status_code=404, detail="Preset not found")
+    
+    db.table("afl_settings_presets").delete().eq("id", preset_id).execute()
+    
+    return {"status": "deleted", "preset_id": preset_id}
+
+
+@router.post("/settings/presets/{preset_id}/set-default")
+async def set_default_preset(
+    preset_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Set a preset as the default."""
+    db = get_supabase()
+    
+    # Verify ownership
+    existing = db.table("afl_settings_presets").select("*").eq("id", preset_id).execute()
+    if not existing.data or existing.data[0]["user_id"] != user_id:
+        raise HTTPException(status_code=404, detail="Preset not found")
+    
+    # Unset all other defaults
+    db.table("afl_settings_presets").update({
+        "is_default": False
+    }).eq("user_id", user_id).eq("is_default", True).execute()
+    
+    # Set this one as default
+    result = db.table("afl_settings_presets").update({
+        "is_default": True
+    }).eq("id", preset_id).execute()
+    
+    return result.data[0]

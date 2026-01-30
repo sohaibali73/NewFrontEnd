@@ -1,6 +1,7 @@
 """Reverse engineering workflow routes."""
 
 from typing import Optional
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
@@ -484,9 +485,24 @@ Production-ready AFL code with all sections."""
             "content": f"## Generated AFL Code\n\n```afl\n{afl_code}\n```",
         }).execute()
 
+        # Save to history (auto-save on completion)
+        try:
+            db.table("reverse_engineer_history").insert({
+                "user_id": user_id,
+                "strategy_name": strategy_data.get("name", "")[:100],  # Truncate for name
+                "research_summary": synthesis,
+                "generated_code": afl_code,
+                "schematic": schematic_data,
+                "timestamp": datetime.utcnow().isoformat(),
+            }).execute()
+        except Exception as e:
+            logger.warning(f"Failed to save reverse engineer history: {e}")
+            # Don't fail the request if history save fails
+
         return {
             "strategy_id": strategy_id,
-            "phase": "findings",
+            "phase": "coding",
+            "code": afl_code,
             "response": synthesis,
         }
 
@@ -507,3 +523,68 @@ async def get_strategy(
         raise HTTPException(status_code=404, detail="Strategy not found")
 
     return result.data[0]
+
+
+# ===== Reverse Engineer History Endpoints =====
+
+class ReverseEngineerHistoryEntry(BaseModel):
+    """Request model for reverse engineer history entry."""
+    strategy_name: str
+    research_summary: str
+    generated_code: str
+    schematic: Optional[dict] = None
+    timestamp: Optional[str] = None
+
+
+@router.post("/history")
+async def save_reverse_engineer_history(
+    entry: ReverseEngineerHistoryEntry,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Save reverse engineering session to history."""
+    db = get_supabase()
+    
+    result = db.table("reverse_engineer_history").insert({
+        "user_id": user_id,
+        "strategy_name": entry.strategy_name,
+        "research_summary": entry.research_summary,
+        "generated_code": entry.generated_code,
+        "schematic": entry.schematic,
+        "timestamp": entry.timestamp or datetime.utcnow().isoformat(),
+    }).execute()
+    
+    return result.data[0]
+
+
+@router.get("/history")
+async def get_reverse_engineer_history(
+    user_id: str = Depends(get_current_user_id),
+    limit: int = 50,
+):
+    """Get reverse engineering history for user."""
+    db = get_supabase()
+    
+    result = db.table("reverse_engineer_history").select("*").eq(
+        "user_id", user_id
+    ).order("timestamp", desc=True).limit(limit).execute()
+    
+    return result.data
+
+
+@router.delete("/history/{history_id}")
+async def delete_reverse_engineer_history(
+    history_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Delete a reverse engineer history entry."""
+    db = get_supabase()
+    
+    # Verify ownership
+    entry = db.table("reverse_engineer_history").select("user_id").eq("id", history_id).execute()
+    
+    if not entry.data or entry.data[0]["user_id"] != user_id:
+        raise HTTPException(status_code=404, detail="History entry not found")
+    
+    db.table("reverse_engineer_history").delete().eq("id", history_id).execute()
+    
+    return {"status": "deleted", "id": history_id}

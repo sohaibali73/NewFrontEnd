@@ -2,16 +2,20 @@
 
 from typing import Optional, Dict, Any
 from enum import Enum
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from pydantic import Field
 import json
+import logging
 
 from api.dependencies import get_current_user_id, get_user_api_keys
 from core.claude_engine import ClaudeAFLEngine, StrategyType, BacktestSettings
 from core.context_manager import build_optimized_context
 from db.supabase_client import get_supabase
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/afl", tags=["AFL Generation"])
 
@@ -161,8 +165,20 @@ async def _generate_simple(
             }).execute()
         except Exception as db_error:
             # Log but don't fail if DB save fails
-            import logging
-            logging.warning(f"Failed to save AFL code to database: {db_error}")
+            logger.warning(f"Failed to save AFL code to database: {db_error}")
+
+        # Save to history (auto-save on generation)
+        try:
+            db.table("afl_history").insert({
+                "user_id": user_id,
+                "strategy_description": request.prompt,
+                "generated_code": afl_code,
+                "strategy_type": request.strategy_type,
+                "timestamp": datetime.utcnow().isoformat(),
+            }).execute()
+        except Exception as e:
+            logger.warning(f"Failed to save AFL history: {e}")
+            # Don't fail the request if history save fails
 
         # Return response with 'code' field for frontend compatibility
         return {
@@ -456,3 +472,66 @@ async def delete_code(
     db.table("afl_codes").delete().eq("id", code_id).execute()
 
     return {"status": "deleted"}
+
+
+# ===== AFL History Endpoints =====
+
+class AFLHistoryEntry(BaseModel):
+    """Request model for AFL history entry."""
+    strategy_description: str
+    generated_code: str
+    strategy_type: str
+    timestamp: Optional[str] = None
+
+
+@router.post("/history")
+async def save_afl_history(
+    entry: AFLHistoryEntry,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Save AFL generation to history."""
+    db = get_supabase()
+    
+    result = db.table("afl_history").insert({
+        "user_id": user_id,
+        "strategy_description": entry.strategy_description,
+        "generated_code": entry.generated_code,
+        "strategy_type": entry.strategy_type,
+        "timestamp": entry.timestamp or datetime.utcnow().isoformat(),
+    }).execute()
+    
+    return result.data[0]
+
+
+@router.get("/history")
+async def get_afl_history(
+    user_id: str = Depends(get_current_user_id),
+    limit: int = 50,
+):
+    """Get AFL generation history for user."""
+    db = get_supabase()
+    
+    result = db.table("afl_history").select("*").eq(
+        "user_id", user_id
+    ).order("timestamp", desc=True).limit(limit).execute()
+    
+    return result.data
+
+
+@router.delete("/history/{history_id}")
+async def delete_afl_history(
+    history_id: str,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Delete an AFL history entry."""
+    db = get_supabase()
+    
+    # Verify ownership
+    entry = db.table("afl_history").select("user_id").eq("id", history_id).execute()
+    
+    if not entry.data or entry.data[0]["user_id"] != user_id:
+        raise HTTPException(status_code=404, detail="History entry not found")
+    
+    db.table("afl_history").delete().eq("id", history_id).execute()
+    
+    return {"status": "deleted", "id": history_id}

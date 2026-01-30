@@ -13,6 +13,7 @@ from core.claude_engine import ClaudeAFLEngine
 from core.context_manager import build_optimized_context
 from core.prompts import get_base_prompt, get_chat_prompt
 from core.tools import get_all_tools, handle_tool_call
+from core.artifact_parser import ArtifactParser
 from db.supabase_client import get_supabase
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
@@ -287,22 +288,32 @@ Use these tools proactively when they would help provide better answers. For exa
             if hasattr(block, 'text'):
                 assistant_content += block.text
 
-        # Save assistant message
+        # Parse response for artifacts BEFORE saving
+        parsed_message = ArtifactParser.prepare_message_with_artifacts(assistant_content)
+
+        # Save assistant message with artifact metadata
         db.table("messages").insert({
             "conversation_id": conversation_id,
             "role": "assistant",
-            "content": assistant_content,
+            "content": parsed_message['text'],  # Text without code blocks
+            "metadata": {
+                "artifacts": parsed_message['artifacts'],  # Store artifacts separately
+                "has_artifacts": parsed_message['has_artifacts']
+            }
         }).execute()
 
-        # Update conversation
+        # Update conversation timestamp
         db.table("conversations").update({
             "updated_at": "now()",
         }).eq("id", conversation_id).execute()
 
+        # Return response with artifact data
         return {
             "conversation_id": conversation_id,
-            "response": assistant_content,
+            "response": parsed_message['text'],
             "tools_used": tools_used if tools_used else None,
+            "artifact": parsed_message['artifacts'][0] if parsed_message['artifacts'] else None,  # First artifact
+            "all_artifacts": parsed_message['artifacts'],  # All artifacts for history
         }
 
     except Exception as e:

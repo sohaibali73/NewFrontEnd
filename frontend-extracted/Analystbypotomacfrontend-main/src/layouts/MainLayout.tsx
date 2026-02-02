@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import logo from 'figma:asset/5ce167767639106e26c3015beb74a7ba651e69bf.png';
+import logo from '@/assets/yellowlogo.png';
 
 const navItems = [
   { name: 'DASHBOARD', href: '/dashboard', icon: LayoutDashboard },

@@ -25,7 +25,7 @@ import {
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import apiClient from '@/lib/api';
-import logo from 'figma:asset/5ce167767639106e26c3015beb74a7ba651e69bf.png';
+import logo from '@/assets/yellowlogo.png';
 import Editor from '@monaco-editor/react';
 
 interface ChatMessage {

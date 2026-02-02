@@ -1,14 +1,16 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Plus, MessageSquare, Paperclip, Copy, Check, Trash2, Clock, X, ChevronLeft, ChevronRight, Sparkles, Code, TrendingUp, Lightbulb, Maximize2, Minimize2, Play } from 'lucide-react';
+import { Send, Plus, MessageSquare, Paperclip, Copy, Check, Trash2, Clock, X, ChevronLeft, ChevronRight, Sparkles, Code, TrendingUp, Lightbulb, Maximize2, Minimize2, Play, Square, RefreshCw } from 'lucide-react';
 import apiClient from '@/lib/api';
-import { Conversation, Message } from '@/types/api';
+import { Conversation, Message, MessagePart, TextPart, ToolPart, Artifact } from '@/types/api';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useResponsive } from '@/hooks/useResponsive';
+import { useStreamingChat } from '@/hooks/useStreamingChat';
 import mermaid from 'mermaid';
+import { ReactComponent } from '@/components/generative-ui/ReactComponent';
 
-// Import logo properly from assets
-import logo from 'figma:asset/5ce167767639106e26c3015beb74a7ba651e69bf.png';
+// Import logo from assets
+import logo from '@/assets/yellowlogo.png';
 
 // Initialize mermaid
 mermaid.initialize({
@@ -21,33 +23,6 @@ mermaid.initialize({
     curve: 'basis',
   },
 });
-
-// AI SDK style Part types for Generative UI
-interface TextPart {
-  type: 'text';
-  text: string;
-}
-
-interface ToolPart {
-  type: `tool-${'mermaid' | 'react' | 'html' | 'svg' | 'code' | 'afl'}`;
-  state: 'input-available' | 'output-available' | 'output-error';
-  output?: {
-    code: string;
-    language?: string;
-    id: string;
-  };
-  errorText?: string;
-}
-
-type MessagePart = TextPart | ToolPart;
-
-// Legacy Artifact types (for backward compatibility)
-interface Artifact {
-  type: 'mermaid' | 'react' | 'html' | 'svg' | 'code';
-  code: string;
-  language?: string;
-  id: string;
-}
 
 export function ChatPage() {
   const { resolvedTheme, accentColor } = useTheme();
@@ -65,9 +40,11 @@ export function ChatPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(isMobile);
   const [backendAvailable, setBackendAvailable] = useState(true);
   const [showBackendError, setShowBackendError] = useState(false);
+  const [useStreaming, setUseStreaming] = useState(true); // Enable streaming by default
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Theme-aware colors
   const colors = {
@@ -141,14 +118,233 @@ export function ChatPage() {
     }
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
-    
-    const userMessage = input;
-    const tempId = `temp-${Date.now()}`;
-    setInput('');
-    setLoading(true);
+  // Stop streaming
+  const handleStop = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+  }, []);
 
+  // Streaming message handler
+  const handleSendStreaming = async (userMessage: string) => {
+    const tempUserId = `user-${Date.now()}`;
+    const tempAssistantId = `assistant-${Date.now()}`;
+    
+    // Add user message
+    setMessages(prev => [...prev, {
+      id: tempUserId,
+      conversation_id: selectedConversation?.id || 'pending',
+      role: 'user',
+      content: userMessage,
+      created_at: new Date().toISOString(),
+    }]);
+    
+    // Add streaming placeholder for assistant
+    setMessages(prev => [...prev, {
+      id: tempAssistantId,
+      conversation_id: selectedConversation?.id || 'pending',
+      role: 'assistant',
+      content: '',
+      created_at: new Date().toISOString(),
+      metadata: { parts: [], isStreaming: true },
+    }]);
+    
+    // Create abort controller
+    abortControllerRef.current = new AbortController();
+    
+    let accumulatedText = '';
+    let currentParts: MessagePart[] = [];
+    let newConversationId = selectedConversation?.id;
+    
+    try {
+      await apiClient.sendMessageStream(userMessage, selectedConversation?.id, {
+        signal: abortControllerRef.current.signal,
+        
+        onText: (text) => {
+          accumulatedText += text;
+          // Update message with streaming text
+          setMessages(prev => {
+            const updated = [...prev];
+            const lastIdx = updated.length - 1;
+            if (lastIdx >= 0 && updated[lastIdx].id === tempAssistantId) {
+              updated[lastIdx] = {
+                ...updated[lastIdx],
+                content: accumulatedText,
+                metadata: {
+                  ...updated[lastIdx].metadata,
+                  parts: [...currentParts, { type: 'text' as const, text: accumulatedText }],
+                },
+              };
+            }
+            return updated;
+          });
+        },
+        
+        onToolCall: (toolCallId, toolName, args) => {
+          // Show loading state for tool
+          if (toolName.startsWith('render_')) {
+            const componentType = toolName.replace('render_', '');
+            currentParts.push({
+              type: `tool-${componentType}` as any,
+              state: 'input-available',
+            } as ToolPart);
+            
+            setMessages(prev => {
+              const updated = [...prev];
+              const lastIdx = updated.length - 1;
+              if (lastIdx >= 0 && updated[lastIdx].id === tempAssistantId) {
+                updated[lastIdx] = {
+                  ...updated[lastIdx],
+                  metadata: {
+                    ...updated[lastIdx].metadata,
+                    parts: [...currentParts],
+                  },
+                };
+              }
+              return updated;
+            });
+          }
+        },
+        
+        onToolResult: (toolCallId, result) => {
+          // Update with tool result (Generative UI component)
+          if (result && result.type && result.type.startsWith('tool-')) {
+            // Remove loading state
+            currentParts = currentParts.filter(p => p.state !== 'input-available');
+            
+            currentParts.push({
+              type: result.type as any,
+              state: result.state || 'output-available',
+              output: result.output,
+            } as ToolPart);
+            
+            setMessages(prev => {
+              const updated = [...prev];
+              const lastIdx = updated.length - 1;
+              if (lastIdx >= 0 && updated[lastIdx].id === tempAssistantId) {
+                const artifacts = (updated[lastIdx].metadata as any)?.artifacts || [];
+                if (result.output) {
+                  artifacts.push({
+                    type: result.type.replace('tool-', ''),
+                    code: result.output.code,
+                    language: result.output.language,
+                    id: result.output.id,
+                  });
+                }
+                updated[lastIdx] = {
+                  ...updated[lastIdx],
+                  metadata: {
+                    ...updated[lastIdx].metadata,
+                    parts: [...currentParts],
+                    artifacts,
+                  },
+                };
+              }
+              return updated;
+            });
+          }
+        },
+        
+        onData: (data) => {
+          if (data.conversation_id) {
+            newConversationId = data.conversation_id;
+          }
+          
+          setMessages(prev => {
+            const updated = [...prev];
+            const lastIdx = updated.length - 1;
+            if (lastIdx >= 0 && updated[lastIdx].id === tempAssistantId) {
+              updated[lastIdx] = {
+                ...updated[lastIdx],
+                conversation_id: data.conversation_id || updated[lastIdx].conversation_id,
+                tools_used: data.tools_used,
+                metadata: {
+                  ...updated[lastIdx].metadata,
+                  has_artifacts: data.has_artifacts,
+                },
+              };
+            }
+            // Update user message conversation_id too
+            const userMsgIdx = updated.findIndex(m => m.id === tempUserId);
+            if (userMsgIdx >= 0 && data.conversation_id) {
+              updated[userMsgIdx] = {
+                ...updated[userMsgIdx],
+                conversation_id: data.conversation_id,
+              };
+            }
+            return updated;
+          });
+        },
+        
+        onError: (error) => {
+          setMessages(prev => {
+            const updated = [...prev];
+            const lastIdx = updated.length - 1;
+            if (lastIdx >= 0 && updated[lastIdx].id === tempAssistantId) {
+              updated[lastIdx] = {
+                ...updated[lastIdx],
+                content: `⚠️ Error: ${error}`,
+                metadata: { error: true },
+              };
+            }
+            return updated;
+          });
+        },
+        
+        onFinish: (finishReason, usage) => {
+          // Final update - mark streaming as complete
+          setMessages(prev => {
+            const updated = [...prev];
+            const lastIdx = updated.length - 1;
+            if (lastIdx >= 0 && updated[lastIdx].id === tempAssistantId) {
+              const metadata = updated[lastIdx].metadata || {};
+              delete (metadata as any).isStreaming;
+              updated[lastIdx] = {
+                ...updated[lastIdx],
+                metadata,
+              };
+            }
+            return updated;
+          });
+        },
+      });
+      
+      // Update conversation if new
+      if (newConversationId && newConversationId !== selectedConversation?.id) {
+        setSelectedConversation(prev => prev 
+          ? { ...prev, id: newConversationId! } 
+          : { id: newConversationId!, title: userMessage.slice(0, 50), user_id: '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+        );
+        await loadConversations();
+      }
+      
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        console.error('Streaming error:', err);
+        setMessages(prev => {
+          const updated = [...prev];
+          const lastIdx = updated.length - 1;
+          if (lastIdx >= 0 && updated[lastIdx].id === tempAssistantId) {
+            updated[lastIdx] = {
+              ...updated[lastIdx],
+              content: `⚠️ Failed to send message: ${err instanceof Error ? err.message : 'Unknown error'}. Please try again.`,
+              metadata: { error: true },
+            };
+          }
+          return updated;
+        });
+      }
+    } finally {
+      abortControllerRef.current = null;
+    }
+  };
+
+  // Non-streaming message handler (fallback)
+  const handleSendNonStreaming = async (userMessage: string) => {
+    const tempId = `temp-${Date.now()}`;
+    
     // Optimistic update for user message
     const optimisticUserMsg: Message = {
       id: tempId,
@@ -183,8 +379,8 @@ export function ChatPage() {
             created_at: new Date().toISOString(),
             tools_used: apiResponse.tools_used || undefined,
             metadata: {
-              parts: apiResponse.parts || [],  // AI SDK Generative UI parts
-              artifacts: apiResponse.all_artifacts || [],  // Legacy support
+              parts: apiResponse.parts || [],
+              artifacts: apiResponse.all_artifacts || [],
               has_artifacts: (apiResponse.all_artifacts || []).length > 0,
             },
           }
@@ -224,6 +420,22 @@ export function ChatPage() {
           }
         ];
       });
+    }
+  };
+
+  const handleSend = async () => {
+    if (!input.trim() || loading) return;
+    
+    const userMessage = input;
+    setInput('');
+    setLoading(true);
+
+    try {
+      if (useStreaming) {
+        await handleSendStreaming(userMessage);
+      } else {
+        await handleSendNonStreaming(userMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -786,7 +998,18 @@ export function ChatPage() {
                 );
               }
               
-              // Code blocks (AFL, React, HTML, SVG, etc.)
+              // React/JSX components - render as interactive components
+              if (toolType === 'react' || toolType === 'jsx' || toolType === 'chart') {
+                return (
+                  <ReactComponent
+                    key={`react-${index}`}
+                    code={toolPart.output.code}
+                    id={codeId}
+                  />
+                );
+              }
+              
+              // Code blocks (AFL, HTML, SVG, etc.)
               return (
                 <div
                   key={`code-${index}`}
@@ -1609,35 +1832,66 @@ export function ChatPage() {
                     >
                       <Paperclip size={16} color={colors.textMuted} />
                     </button>
-                    <button
-                      onClick={handleSend}
-                      disabled={!input.trim() || loading}
-                      style={{
-                        width: '36px',
-                        height: '36px',
-                        backgroundColor: input.trim() && !loading ? '#FEC00F' : colors.inputBg,
-                        border: 'none',
-                        borderRadius: '10px',
-                        cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'all 0.2s ease',
-                        boxShadow: input.trim() && !loading ? '0 2px 8px rgba(254,192,15,0.3)' : 'none',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (input.trim() && !loading) {
+                    {/* Stop button - shown when streaming */}
+                    {loading && useStreaming ? (
+                      <button
+                        onClick={handleStop}
+                        style={{
+                          width: '36px',
+                          height: '36px',
+                          backgroundColor: '#EF4444',
+                          border: 'none',
+                          borderRadius: '10px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
+                        }}
+                        onMouseEnter={(e) => {
                           e.currentTarget.style.transform = 'scale(1.05)';
-                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(254,192,15,0.4)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'scale(1)';
-                        e.currentTarget.style.boxShadow = input.trim() && !loading ? '0 2px 8px rgba(254,192,15,0.3)' : 'none';
-                      }}
-                    >
-                      <Send size={16} color={input.trim() && !loading ? '#212121' : colors.textMuted} />
-                    </button>
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.4)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'scale(1)';
+                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(239, 68, 68, 0.3)';
+                        }}
+                        title="Stop generating"
+                      >
+                        <Square size={14} color="#ffffff" fill="#ffffff" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleSend}
+                        disabled={!input.trim() || loading}
+                        style={{
+                          width: '36px',
+                          height: '36px',
+                          backgroundColor: input.trim() && !loading ? '#FEC00F' : colors.inputBg,
+                          border: 'none',
+                          borderRadius: '10px',
+                          cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.2s ease',
+                          boxShadow: input.trim() && !loading ? '0 2px 8px rgba(254,192,15,0.3)' : 'none',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (input.trim() && !loading) {
+                            e.currentTarget.style.transform = 'scale(1.05)';
+                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(254,192,15,0.4)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'scale(1)';
+                          e.currentTarget.style.boxShadow = input.trim() && !loading ? '0 2px 8px rgba(254,192,15,0.3)' : 'none';
+                        }}
+                      >
+                        <Send size={16} color={input.trim() && !loading ? '#212121' : colors.textMuted} />
+                      </button>
+                    )}
                   </div>
                 </div>
                 <p style={{

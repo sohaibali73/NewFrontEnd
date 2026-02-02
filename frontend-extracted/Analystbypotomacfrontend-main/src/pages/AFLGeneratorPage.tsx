@@ -1,10 +1,11 @@
-import React, { useState, useRef } from 'react';
-import { Sparkles, Copy, Check, Download, Bug, Lightbulb, Zap, Loader2, MessageSquare, Paperclip, Upload, X, FileText, Maximize2, Minimize2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, DollarSign, Receipt, TrendingUp, Settings, ArrowUp, ArrowDown } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Sparkles, Copy, Check, Download, Bug, Lightbulb, Zap, Loader2, MessageSquare, Paperclip, Upload, X, FileText, Maximize2, Minimize2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, DollarSign, Receipt, TrendingUp, Settings, ArrowUp, ArrowDown, BarChart3, GitBranch, Activity } from 'lucide-react';
 import apiClient from '@/lib/api';
 import FeedbackModal from '@/components/FeedbackModal';
 import Editor from '@monaco-editor/react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useResponsive } from '@/hooks/useResponsive';
+import mermaid from 'mermaid';
 
 export function AFLGeneratorPage() {
   const { resolvedTheme } = useTheme();
@@ -57,6 +58,170 @@ export function AFLGeneratorPage() {
   const chatFileInputRef = useRef<HTMLInputElement>(null);
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(isMobile);
+
+  // Visual Artifacts state (AI SDK Generative UI style)
+  const [strategyArtifact, setStrategyArtifact] = useState<{
+    flowchart?: string;
+    indicators?: Array<{name: string; type: string; params: Record<string, any>}>;
+    signals?: Array<{type: 'buy' | 'sell' | 'short' | 'cover'; condition: string}>;
+    riskManagement?: {stopLoss?: string; takeProfit?: string; positionSize?: string};
+  } | null>(null);
+  const [showArtifacts, setShowArtifacts] = useState(true);
+  const mermaidRef = useRef<HTMLDivElement>(null);
+
+  // Initialize mermaid
+  useEffect(() => {
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: isDark ? 'dark' : 'default',
+      securityLevel: 'loose',
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis',
+      },
+    });
+  }, [isDark]);
+
+  // Render mermaid flowchart when artifact changes
+  useEffect(() => {
+    if (strategyArtifact?.flowchart && mermaidRef.current) {
+      const renderMermaid = async () => {
+        try {
+          mermaidRef.current!.innerHTML = '';
+          const { svg } = await mermaid.render(`mermaid-${Date.now()}`, strategyArtifact.flowchart!);
+          mermaidRef.current!.innerHTML = svg;
+        } catch (err) {
+          console.error('Mermaid render error:', err);
+        }
+      };
+      renderMermaid();
+    }
+  }, [strategyArtifact?.flowchart]);
+
+  // Helper to format error messages properly
+  const formatErrorMessage = (err: unknown): string => {
+    if (err instanceof Error) {
+      return err.message;
+    }
+    if (typeof err === 'string') {
+      return err;
+    }
+    if (err && typeof err === 'object') {
+      // Handle various error object shapes
+      const errorObj = err as Record<string, any>;
+      if (errorObj.detail) {
+        if (typeof errorObj.detail === 'string') {
+          return errorObj.detail;
+        }
+        // Handle nested detail object
+        return JSON.stringify(errorObj.detail);
+      }
+      if (errorObj.message) {
+        return String(errorObj.message);
+      }
+      if (errorObj.error) {
+        return String(errorObj.error);
+      }
+      // Last resort - stringify the object
+      try {
+        return JSON.stringify(err);
+      } catch {
+        return 'An unknown error occurred';
+      }
+    }
+    return 'Failed to generate code';
+  };
+
+  // Parse AFL code to extract strategy components for visual artifacts
+  const parseCodeForArtifacts = (code: string) => {
+    const indicators: Array<{name: string; type: string; params: Record<string, any>}> = [];
+    const signals: Array<{type: 'buy' | 'sell' | 'short' | 'cover'; condition: string}> = [];
+    const riskManagement: {stopLoss?: string; takeProfit?: string; positionSize?: string} = {};
+
+    // Extract indicator definitions
+    const indicatorPatterns = [
+      { regex: /(\w+)\s*=\s*MA\s*\(\s*(\w+)\s*,\s*(\d+)\s*\)/gi, type: 'MA' },
+      { regex: /(\w+)\s*=\s*EMA\s*\(\s*(\w+)\s*,\s*(\d+)\s*\)/gi, type: 'EMA' },
+      { regex: /(\w+)\s*=\s*RSI\s*\(\s*(\d+)\s*\)/gi, type: 'RSI' },
+      { regex: /(\w+)\s*=\s*MACD\s*\(\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*(\d+))?\s*\)/gi, type: 'MACD' },
+      { regex: /(\w+)\s*=\s*ATR\s*\(\s*(\d+)\s*\)/gi, type: 'ATR' },
+      { regex: /(\w+)\s*=\s*ADX\s*\(\s*(\d+)\s*\)/gi, type: 'ADX' },
+      { regex: /(\w+)\s*=\s*BBandTop\s*\(\s*(\w+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/gi, type: 'BBandTop' },
+      { regex: /(\w+)\s*=\s*BBandBot\s*\(\s*(\w+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/gi, type: 'BBandBot' },
+    ];
+
+    indicatorPatterns.forEach(({ regex, type }) => {
+      let match;
+      while ((match = regex.exec(code)) !== null) {
+        indicators.push({
+          name: match[1],
+          type,
+          params: { period: match[3] || match[2] }
+        });
+      }
+    });
+
+    // Extract signals
+    const buyMatch = code.match(/Buy\s*=\s*([^;]+)/i);
+    const sellMatch = code.match(/Sell\s*=\s*([^;]+)/i);
+    const shortMatch = code.match(/Short\s*=\s*([^;]+)/i);
+    const coverMatch = code.match(/Cover\s*=\s*([^;]+)/i);
+
+    if (buyMatch) signals.push({ type: 'buy', condition: buyMatch[1].trim() });
+    if (sellMatch) signals.push({ type: 'sell', condition: sellMatch[1].trim() });
+    if (shortMatch) signals.push({ type: 'short', condition: shortMatch[1].trim() });
+    if (coverMatch) signals.push({ type: 'cover', condition: coverMatch[1].trim() });
+
+    // Extract risk management
+    const stopLossMatch = code.match(/ApplyStop\s*\([^)]*stoploss[^)]*,\s*([\d.]+)/i) || 
+                          code.match(/StopLoss\s*=\s*([\d.%]+)/i);
+    const takeProfitMatch = code.match(/ApplyStop\s*\([^)]*profit[^)]*,\s*([\d.]+)/i) ||
+                            code.match(/TakeProfit\s*=\s*([\d.%]+)/i);
+    const positionSizeMatch = code.match(/SetPositionSize\s*\(\s*([\d.]+)/i);
+
+    if (stopLossMatch) riskManagement.stopLoss = stopLossMatch[1];
+    if (takeProfitMatch) riskManagement.takeProfit = takeProfitMatch[1];
+    if (positionSizeMatch) riskManagement.positionSize = positionSizeMatch[1];
+
+    // Generate flowchart
+    let flowchart = `flowchart TD
+    subgraph INDICATORS["=Ê Indicators"]
+`;
+    indicators.forEach((ind, i) => {
+      flowchart += `        IND${i}["${ind.name}<br/>${ind.type}(${ind.params.period})"]\n`;
+    });
+    flowchart += `    end
+    
+    subgraph SIGNALS["<¯ Trading Signals"]
+`;
+    signals.forEach((sig, i) => {
+      const icon = sig.type === 'buy' ? '=â' : sig.type === 'sell' ? '=4' : sig.type === 'short' ? '=à' : '=5';
+      flowchart += `        SIG${i}["${icon} ${sig.type.toUpperCase()}"]\n`;
+    });
+    flowchart += `    end
+    
+    subgraph RISK["  Risk Management"]
+`;
+    if (riskManagement.stopLoss) flowchart += `        STOP["Stop Loss: ${riskManagement.stopLoss}%"]\n`;
+    if (riskManagement.takeProfit) flowchart += `        PROFIT["Take Profit: ${riskManagement.takeProfit}%"]\n`;
+    if (riskManagement.positionSize) flowchart += `        SIZE["Position: ${riskManagement.positionSize}%"]\n`;
+    flowchart += `    end
+    
+    INDICATORS --> SIGNALS
+    SIGNALS --> RISK
+    
+    style INDICATORS fill:#1E3A5F,stroke:#FEC00F,color:#FFF
+    style SIGNALS fill:#2D4A3E,stroke:#22C55E,color:#FFF
+    style RISK fill:#4A2D2D,stroke:#DC2626,color:#FFF`;
+
+    return {
+      flowchart,
+      indicators,
+      signals,
+      riskManagement: Object.keys(riskManagement).length > 0 ? riskManagement : undefined
+    };
+  };
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {

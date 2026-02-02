@@ -47,6 +47,9 @@ import {
   KnowledgeSearchResult,
   KnowledgeCategory,
   TrainingTypeInfo,
+  // Generative UI types (Vercel AI SDK style)
+  MessagePart,
+  Artifact,
 } from '@/types/api';
 
 // API Base URL - use environment variable or production URL
@@ -246,10 +249,139 @@ class APIClient {
 
   async sendMessage(content: string, conversationId?: string) {
     // AI response needs longer timeout - 2 minutes
-    return this.request<{ conversation_id: string; response: string; tools_used?: any[] }>('/chat/message', 'POST', {
+    // Returns Vercel AI SDK style response with parts for Generative UI rendering
+    return this.request<{
+      conversation_id: string;
+      response: string;
+      tools_used?: any[];
+      parts?: MessagePart[];      // AI SDK Generative UI parts array
+      all_artifacts?: Artifact[]; // Legacy artifact support
+    }>('/chat/message', 'POST', {
       content,
       conversation_id: conversationId,
     }, false, 120000);
+  }
+
+  /**
+   * Send a message with streaming response using Vercel AI SDK Data Stream Protocol.
+   * 
+   * This method returns a ReadableStream that emits chunks in the AI SDK format:
+   * - Text chunks (0:)
+   * - Tool calls (9:)
+   * - Tool results (a:)
+   * - Custom data (2:)
+   * - Finish message (d:)
+   * 
+   * Use the useStreamingChat hook for automatic stream parsing.
+   */
+  async sendMessageStream(
+    content: string,
+    conversationId?: string,
+    options?: {
+      onText?: (text: string) => void;
+      onToolCall?: (toolCallId: string, toolName: string, args: any) => void;
+      onToolResult?: (toolCallId: string, result: any) => void;
+      onData?: (data: any) => void;
+      onError?: (error: string) => void;
+      onFinish?: (finishReason: string, usage: { promptTokens: number; completionTokens: number }) => void;
+      signal?: AbortSignal;
+    }
+  ): Promise<{ conversationId: string }> {
+    const token = this.getToken();
+    
+    const response = await fetch(`${API_BASE_URL}/chat/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        content,
+        conversation_id: conversationId,
+      }),
+      signal: options?.signal,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+
+    const newConversationId = response.headers.get('X-Conversation-Id') || conversationId || '';
+
+    // Parse the stream
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('No response body');
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    const parseChunk = (chunk: string): { type: string; data: any } | null => {
+      const match = chunk.match(/^([0-9a-e]):(.+)$/);
+      if (!match) return null;
+      
+      const [, typeCode, jsonData] = match;
+      const typeMap: Record<string, string> = {
+        '0': 'text',
+        '2': 'data',
+        '3': 'error',
+        '9': 'tool_call',
+        'a': 'tool_result',
+        'd': 'finish_message',
+        'e': 'finish_step',
+      };
+      
+      try {
+        return { type: typeMap[typeCode] || 'unknown', data: JSON.parse(jsonData) };
+      } catch {
+        return null;
+      }
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const parsed = parseChunk(line);
+        if (!parsed) continue;
+
+        switch (parsed.type) {
+          case 'text':
+            options?.onText?.(parsed.data);
+            break;
+          case 'tool_call':
+            options?.onToolCall?.(parsed.data.toolCallId, parsed.data.toolName, parsed.data.args);
+            break;
+          case 'tool_result':
+            options?.onToolResult?.(parsed.data.toolCallId, parsed.data.result);
+            break;
+          case 'data':
+            options?.onData?.(Array.isArray(parsed.data) ? parsed.data[0] : parsed.data);
+            break;
+          case 'error':
+            options?.onError?.(parsed.data);
+            break;
+          case 'finish_message':
+            options?.onFinish?.(parsed.data.finishReason, parsed.data.usage);
+            break;
+        }
+      }
+    }
+
+    return { conversationId: newConversationId };
+  }
+
+  /**
+   * Get the streaming endpoint URL for direct use with fetch or EventSource
+   */
+  getStreamEndpoint(): string {
+    return `${API_BASE_URL}/chat/stream`;
   }
 
   async uploadFile(conversationId: string, formData: FormData) {

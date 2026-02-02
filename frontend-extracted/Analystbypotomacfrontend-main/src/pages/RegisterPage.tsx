@@ -15,7 +15,7 @@ import {
   Shield,
   BarChart3,
 } from 'lucide-react';
-import logo from 'figma:asset/5ce167767639106e26c3015beb74a7ba651e69bf.png';
+import logo from '@/assets/yellowlogo.png';
 
 // API Base URL - using dummy backend URL
 const API_BASE_URL = 'http://0.0.0.0:8000';

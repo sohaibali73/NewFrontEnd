@@ -24,6 +24,41 @@ export interface Message {
   role: 'user' | 'assistant';
   created_at: string;
   tools_used?: ToolUsage[];
+  metadata?: {
+    parts?: MessagePart[];
+    artifacts?: Artifact[];
+    has_artifacts?: boolean;
+    error?: boolean;
+  };
+}
+
+// AI SDK style Part types for Generative UI
+export interface TextPart {
+  type: 'text';
+  text: string;
+}
+
+export interface ToolPart {
+  type: `tool-${'mermaid' | 'react' | 'jsx' | 'chart' | 'html' | 'svg' | 'code' | 'afl'}`;
+  state: 'input-available' | 'output-available' | 'output-error';
+  output?: {
+    code: string;
+    language?: string;
+    id: string;
+  };
+  errorText?: string;
+}
+
+export type MessagePart = TextPart | ToolPart;
+
+// Artifact type for code/diagram rendering
+export interface Artifact {
+  type: 'mermaid' | 'react' | 'html' | 'svg' | 'code';
+  code: string;
+  language?: string;
+  id: string;
+  start?: number;
+  end?: number;
 }
 
 export interface ToolUsage {

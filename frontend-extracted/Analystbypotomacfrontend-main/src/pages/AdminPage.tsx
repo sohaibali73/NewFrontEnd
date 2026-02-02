@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ReactNode } from 'react';
 import {
   BarChart3,
   Settings,
@@ -16,6 +16,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useTabs } from '@/contexts/TabContext';
 import { apiClient } from '@/lib/api';
+import { AdminStatus, AdminUser, TrainingData, UserFeedback, TrainingSuggestion, AnalyticsOverview } from '@/types/api';
 
 
 const styles = {
@@ -113,37 +114,80 @@ const styles = {
   },
 };
 
-const Tabs = ({ value, onValueChange, children }) => {
-  return React.Children.map(children, child => {
-    if (child.type === TabsList || child.type === TabsContent) {
-      return React.cloneElement(child, { activeTab: value, onTabChange: onValueChange });
-    }
-    return child;
-  });
+// Local Tab Components with proper TypeScript types
+interface TabsProps {
+  value: string;
+  onValueChange: (value: string) => void;
+  children: ReactNode;
+}
+
+interface TabsListProps {
+  children: ReactNode;
+  style?: React.CSSProperties;
+  activeTab?: string;
+  onTabChange?: (value: string) => void;
+}
+
+interface TabsTriggerProps {
+  value: string;
+  children: ReactNode;
+  style?: React.CSSProperties;
+  activeTab?: string;
+  onTabChange?: (value: string) => void;
+}
+
+interface TabsContentProps {
+  value: string;
+  children: ReactNode;
+  activeTab?: string;
+}
+
+interface AlertProps {
+  children: ReactNode;
+  style?: React.CSSProperties;
+}
+
+const Tabs: React.FC<TabsProps> = ({ value, onValueChange, children }) => {
+  return (
+    <>
+      {React.Children.map(children, child => {
+        if (React.isValidElement(child) && (child.type === TabsList || child.type === TabsContent)) {
+          return React.cloneElement(child as React.ReactElement<TabsListProps | TabsContentProps>, { 
+            activeTab: value, 
+            onTabChange: onValueChange 
+          });
+        }
+        return child;
+      })}
+    </>
+  );
 };
 
-const TabsList = ({ children, style, activeTab, onTabChange }) => (
+const TabsList: React.FC<TabsListProps> = ({ children, style, activeTab, onTabChange }) => (
   <div style={style}>
-    {React.Children.map(children, child => 
-      React.cloneElement(child, { activeTab, onTabChange })
-    )}
+    {React.Children.map(children, child => {
+      if (React.isValidElement(child)) {
+        return React.cloneElement(child as React.ReactElement<TabsTriggerProps>, { activeTab, onTabChange });
+      }
+      return child;
+    })}
   </div>
 );
 
-const TabsTrigger = ({ value, children, style, activeTab, onTabChange }) => (
-  <button onClick={() => onTabChange(value)} style={style}>
+const TabsTrigger: React.FC<TabsTriggerProps> = ({ value, children, style, activeTab, onTabChange }) => (
+  <button onClick={() => onTabChange?.(value)} style={style}>
     {children}
   </button>
 );
 
-const TabsContent = ({ value, children, activeTab }) => 
+const TabsContent: React.FC<TabsContentProps> = ({ value, children, activeTab }) => 
   activeTab === value ? <div>{children}</div> : null;
 
-const Alert = ({ children, style }) => (
+const Alert: React.FC<AlertProps> = ({ children, style }) => (
   <div style={style}>{children}</div>
 );
 
-const AlertDescription = ({ children, style }) => (
+const AlertDescription: React.FC<AlertProps> = ({ children, style }) => (
   <div style={style}>{children}</div>
 );
 

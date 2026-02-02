@@ -248,7 +248,7 @@ export function AFLGeneratorPage() {
         }
       }, 100);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate code');
+      setError(formatErrorMessage(err));
     } finally {
       setLoading(false);
     }

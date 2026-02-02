@@ -354,13 +354,88 @@ Provide: Strategy overview, key components, parameters with confidence, implemen
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def generate_mermaid_from_schematic(schematic: dict) -> str:
+    """Generate a Mermaid flowchart diagram from a strategy schematic."""
+    try:
+        strategy_name = schematic.get("strategy_name", "Trading Strategy")
+        components = schematic.get("components", [])
+        connections = schematic.get("connections", [])
+        entry_logic = schematic.get("entry_logic", {})
+        exit_logic = schematic.get("exit_logic", {})
+        
+        # Build the Mermaid diagram
+        mermaid = ["flowchart TD"]
+        
+        # Group components by type
+        indicators = [c for c in components if c.get("type") == "indicator"]
+        entries = [c for c in components if c.get("type") == "entry"]
+        exits = [c for c in components if c.get("type") == "exit"]
+        filters = [c for c in components if c.get("type") == "filter"]
+        
+        # Indicators subgraph
+        if indicators:
+            mermaid.append("    subgraph Indicators")
+            for ind in indicators:
+                ind_id = ind.get("id", "ind")
+                ind_name = ind.get("name", "Indicator")
+                params = ind.get("parameters", [])
+                param_str = ", ".join([f"{p.get('name', '')}: {p.get('default', '')}" for p in params[:2]])
+                mermaid.append(f'        {ind_id}["{ind_name}<br/>{param_str}"]')
+            mermaid.append("    end")
+        
+        # Entry Logic subgraph
+        mermaid.append("    subgraph Entry_Logic[Entry Logic]")
+        entry_long = entry_logic.get("long", "Long Entry Condition")
+        mermaid.append(f'        ENTRY_COND{{"Entry Condition<br/>{entry_long[:50]}..."}}')
+        mermaid.append('        BUY[("BUY SIGNAL")]')
+        mermaid.append("    end")
+        
+        # Exit Logic subgraph
+        mermaid.append("    subgraph Exit_Logic[Exit Logic]")
+        exit_long = exit_logic.get("long_exit", "Exit Condition")
+        mermaid.append(f'        EXIT_COND{{"Exit Condition<br/>{exit_long[:50]}..."}}')
+        mermaid.append('        SELL[("SELL SIGNAL")]')
+        mermaid.append("    end")
+        
+        # Connect indicators to entry
+        for ind in indicators:
+            mermaid.append(f"    {ind.get('id', 'ind')} --> ENTRY_COND")
+        
+        # Connect entry condition to buy
+        mermaid.append("    ENTRY_COND -->|Yes| BUY")
+        
+        # Connect to exit
+        mermaid.append("    BUY --> EXIT_COND")
+        mermaid.append("    EXIT_COND -->|Yes| SELL")
+        
+        # Add connections from schematic
+        for conn in connections:
+            from_id = conn.get("from", "")
+            to_id = conn.get("to", "")
+            label = conn.get("label", "")
+            if from_id and to_id:
+                mermaid.append(f"    {from_id} -->|{label}| {to_id}")
+        
+        # Styling
+        mermaid.append("")
+        mermaid.append("    style BUY fill:#22C55E,color:#fff,stroke:#16A34A")
+        mermaid.append("    style SELL fill:#EF4444,color:#fff,stroke:#DC2626")
+        for ind in indicators:
+            mermaid.append(f"    style {ind.get('id', 'ind')} fill:#FEC00F,color:#000,stroke:#EAB308")
+        
+        return "\n".join(mermaid)
+    except Exception as e:
+        logger.warning(f"Failed to generate Mermaid diagram: {e}")
+        return ""
+
+
 @router.post("/schematic/{strategy_id}")
 async def generate_schematic(
         strategy_id: str,
         user_id: str = Depends(get_current_user_id),
         api_keys: dict = Depends(get_user_api_keys),
 ):
-    """Generate strategy schematic."""
+    """Generate strategy schematic with Mermaid diagram."""
     db = get_supabase()
 
     strategy = db.table("strategies").select("*").eq("id", strategy_id).execute()
@@ -376,30 +451,63 @@ async def generate_schematic(
         import anthropic
         client = anthropic.Anthropic(api_key=api_keys["claude"])
 
+        # Enhanced prompt that requests both JSON schematic AND Mermaid diagram
         prompt = f"""{get_schematic_prompt()}
 
 Strategy: {strategy_data.get('source_query', '')}
 Research: {synthesis}
+
+ADDITIONALLY, after the JSON schematic, provide a Mermaid flowchart diagram wrapped in ```mermaid code block that visualizes the strategy flow.
+The Mermaid diagram should show:
+- Indicators and their parameters
+- Entry conditions and BUY signal
+- Exit conditions and SELL signal
+- Color code: BUY in green (#22C55E), SELL in red (#EF4444), Indicators in yellow (#FEC00F)
 """
 
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=4000,
+            max_tokens=5000,
             messages=[{"role": "user", "content": prompt}],
         )
 
         raw = response.content[0].text
 
         # Parse JSON from response
+        schematic = {}
+        mermaid_diagram = ""
+        
         try:
+            # Extract JSON schematic
             if "```json" in raw:
-                raw = raw.split("```json")[1].split("```")[0]
+                json_part = raw.split("```json")[1].split("```")[0]
+                schematic = json.loads(json_part)
             elif "```" in raw:
-                raw = raw.split("```")[1].split("```")[0]
-
-            schematic = json.loads(raw)
-        except:
+                # Try to find JSON in first code block
+                parts = raw.split("```")
+                for i, part in enumerate(parts):
+                    if i % 2 == 1:  # Odd indices are code blocks
+                        try:
+                            schematic = json.loads(part.strip())
+                            break
+                        except json.JSONDecodeError:
+                            continue
+            
+            # Extract Mermaid diagram if present
+            if "```mermaid" in raw:
+                mermaid_diagram = raw.split("```mermaid")[1].split("```")[0].strip()
+            
+            # If no Mermaid diagram was generated by Claude, create one from schematic
+            if not mermaid_diagram and schematic and "components" in schematic:
+                mermaid_diagram = generate_mermaid_from_schematic(schematic)
+                
+        except Exception as parse_error:
+            logger.warning(f"Schematic parse error: {parse_error}")
             schematic = {"raw": raw, "error": "Could not parse JSON"}
+
+        # Add Mermaid diagram to schematic data
+        if mermaid_diagram:
+            schematic["mermaid_diagram"] = mermaid_diagram
 
         # Update strategy
         db.table("strategies").update({
@@ -407,10 +515,26 @@ Research: {synthesis}
             "schematic_data": schematic,
         }).eq("id", strategy_id).execute()
 
+        # Save the schematic with Mermaid diagram as a message
+        schematic_message = f"## Strategy Schematic\n\n"
+        if mermaid_diagram:
+            schematic_message += f"```mermaid\n{mermaid_diagram}\n```\n\n"
+        schematic_message += f"**Strategy:** {schematic.get('strategy_name', 'Unknown')}\n"
+        schematic_message += f"**Type:** {schematic.get('strategy_type', 'Unknown')}\n"
+        schematic_message += f"**Timeframe:** {schematic.get('timeframe', 'Unknown')}\n"
+        
+        if strategy_data.get("conversation_id"):
+            db.table("messages").insert({
+                "conversation_id": strategy_data["conversation_id"],
+                "role": "assistant",
+                "content": schematic_message,
+            }).execute()
+
         return {
             "strategy_id": strategy_id,
             "phase": "schematic",
             "schematic": schematic,
+            "mermaid_diagram": mermaid_diagram,
         }
 
     except Exception as e:

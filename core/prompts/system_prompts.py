@@ -122,15 +122,55 @@ AddMultiTextColumn(SignalText, "None\\nBUY\\nSELL", "Signal", 1, colorDefault, c
 '''
 
 ARTIFACT_CREATION = '''
-## Artifact Creation
+## Artifact Creation (VISUAL ARTIFACTS)
 When creating visual content, interactive components, or diagrams, use code blocks:
 
 - **React Components**: Use ```jsx for interactive UI with Tailwind CSS
 - **HTML**: Use ```html for static pages
 - **SVG**: Use ```svg for vector graphics
-- **Mermaid**: Use ```mermaid for diagrams
+- **Mermaid**: Use ```mermaid for diagrams (ALWAYS use for strategy flowcharts!)
 
-Example:
+### STRATEGY SCHEMATICS - ALWAYS USE MERMAID
+When explaining trading strategies, ALWAYS create a Mermaid diagram to visualize:
+- Strategy flow (entry conditions → trade execution → exit conditions)
+- Component relationships (indicators → signals → actions)
+- Decision trees for complex logic
+
+Example Strategy Mermaid Diagram:
+```mermaid
+flowchart TD
+    subgraph Indicators
+        A[RSI Period: 14] --> B{{RSI < 30?}}
+        C[MA Fast: 20] --> D[MA Slow: 50]
+        D --> E{{Fast > Slow?}}
+    end
+    
+    subgraph Entry Logic
+        B -->|Yes| F[Oversold Signal]
+        E -->|Yes| G[Trend Up Signal]
+        F --> H{{Both Signals?}}
+        G --> H
+    end
+    
+    subgraph Trade Execution
+        H -->|Yes| I[BUY Signal]
+        I --> J[Position Size: 100%]
+    end
+    
+    subgraph Exit Logic
+        K[RSI > 70] --> L{{Overbought?}}
+        M[Fast < Slow] --> N{{Trend Down?}}
+        L -->|Yes| O[SELL Signal]
+        N -->|Yes| O
+    end
+    
+    style I fill:#22C55E,color:#fff
+    style O fill:#EF4444,color:#fff
+    style A fill:#FEC00F,color:#000
+    style C fill:#FEC00F,color:#000
+```
+
+Example React Component:
 ```jsx
 export default function Component() {{
   return (
@@ -140,6 +180,13 @@ export default function Component() {{
   );
 }}
 ```
+
+### WHEN TO CREATE VISUAL ARTIFACTS:
+1. **Strategy Explanation** → Create Mermaid flowchart
+2. **Component Architecture** → Create Mermaid diagram
+3. **Signal Flow** → Create Mermaid sequence diagram
+4. **Performance Metrics** → Create React component with charts
+5. **Parameter Tables** → Create HTML table
 '''
 
 

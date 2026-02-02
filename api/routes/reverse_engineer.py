@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Reverse engineering workflow routes."""
 
 from typing import Optional
@@ -29,8 +30,8 @@ router = APIRouter(prefix="/reverse-engineer", tags=["Reverse Engineer"])
 
 class StartRequest(BaseModel):
     query: Optional[str] = None
-    message: Optional[str] = None  # Alternative field name
-    description: Optional[str] = None  # Alternative field name from frontend
+    message: Optional[str] = None
+    description: Optional[str] = None
     
     @field_validator('query', 'message', 'description', mode='before')
     @classmethod
@@ -40,7 +41,6 @@ class StartRequest(BaseModel):
         return v
     
     def get_query(self) -> str:
-        """Get the query string from any of the accepted fields."""
         result = self.query or self.message or self.description or ""
         if not result:
             raise ValueError("One of 'query', 'message', or 'description' field is required")
@@ -51,20 +51,18 @@ class StartRequest(BaseModel):
 
 class ContinueRequest(BaseModel):
     strategy_id: Optional[str] = None
-    strategyId: Optional[str] = None  # camelCase alternative
-    id: Optional[str] = None  # Another alternative
+    strategyId: Optional[str] = None
+    id: Optional[str] = None
     message: Optional[str] = None
-    content: Optional[str] = None  # Alternative field name
+    content: Optional[str] = None
     
     def get_strategy_id(self) -> str:
-        """Get strategy ID from any of the accepted fields."""
         result = self.strategy_id or self.strategyId or self.id
         if not result:
             raise ValueError("One of 'strategy_id', 'strategyId', or 'id' is required")
         return result
     
     def get_message(self) -> str:
-        """Get message from any of the accepted fields."""
         result = self.message or self.content or ""
         if not result:
             raise ValueError("One of 'message' or 'content' is required")
@@ -85,13 +83,11 @@ async def start_reverse_engineer(
     if not api_keys.get("claude"):
         raise HTTPException(status_code=400, detail="Claude API key not configured")
 
-    # Get query from either field
     try:
         query = data.get_query()
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
-    # Create conversation (only use standard columns)
     conv_result = db.table("conversations").insert({
         "user_id": user_id,
         "title": f"RE: {query[:40]}..." if len(query) > 40 else f"RE: {query}",
@@ -99,7 +95,6 @@ async def start_reverse_engineer(
     }).execute()
     conversation_id = conv_result.data[0]["id"]
 
-    # Create strategy record
     strategy_result = db.table("strategies").insert({
         "user_id": user_id,
         "conversation_id": conversation_id,
@@ -109,33 +104,28 @@ async def start_reverse_engineer(
     }).execute()
     strategy_id = strategy_result.data[0]["id"]
 
-    # Generate clarification questions
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=api_keys["claude"])
 
-        # Use condensed clarification prompt for performance
         prompt = get_condensed_clarification_prompt(query)
 
-        # Enable web search tool for real-time research (reduced max_tokens for faster response)
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=1500,  # Reduced from 2000 for faster responses
+            max_tokens=1500,
             messages=[{"role": "user", "content": prompt}],
             tools=[{
                 "type": "web_search_20250305",
                 "name": "web_search",
-                "max_uses": 3  # Reduced from 5 for faster responses
+                "max_uses": 3
             }]
         )
 
-        # Extract text content from response
         clarification = ""
         for block in response.content:
             if hasattr(block, 'text'):
                 clarification += block.text
 
-        # Save messages
         db.table("messages").insert([
             {"conversation_id": conversation_id, "role": "user", "content": query},
             {"conversation_id": conversation_id, "role": "assistant", "content": clarification},
@@ -161,14 +151,12 @@ async def continue_conversation(
     db = get_supabase()
 
     try:
-        # Get values from request (supporting multiple field names)
         try:
             strategy_id = data.get_strategy_id()
             message = data.get_message()
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
         
-        # Get strategy
         logger.info(f"Looking up strategy: {strategy_id}")
         strategy = db.table("strategies").select("*").eq("id", strategy_id).execute()
         if not strategy.data:
@@ -182,19 +170,16 @@ async def continue_conversation(
             raise HTTPException(status_code=400, detail="Strategy has no conversation")
 
         logger.info(f"Saving user message to conversation: {conversation_id}")
-        # Save user message
         db.table("messages").insert({
             "conversation_id": conversation_id,
             "role": "user",
             "content": message,
         }).execute()
 
-        # Get history with optimization (limit to recent messages)
         logger.info("Fetching conversation history")
         messages = get_recent_messages(conversation_id, limit=10)
         logger.info(f"Retrieved {len(messages)} recent messages")
 
-        # Generate response
         import anthropic
         
         if not api_keys.get("claude"):
@@ -203,11 +188,9 @@ async def continue_conversation(
         client = anthropic.Anthropic(api_key=api_keys["claude"])
 
         phase = strategy_data.get("status", "clarification")
-        # Safely get research_data - handle None case
         research_data = strategy_data.get("research_data") or {}
         synthesis = research_data.get("synthesis", "") if isinstance(research_data, dict) else ""
         
-        # Conduct live research if in clarification phase and no research yet
         research_context = ""
         if phase == "clarification" and not synthesis:
             logger.info("Conducting live web research...")
@@ -215,52 +198,44 @@ async def continue_conversation(
                 researcher = StrategyResearcher(tavily_api_key=api_keys.get("tavily"))
                 research_context = researcher.research_strategy(strategy_data.get("source_query", ""))
                 logger.info(f"Research completed: {len(research_context)} chars")
-                # Truncate research context for performance
                 research_context = truncate_context(research_context, max_tokens=CONDENSED_CONTEXT_LIMITS["research_context_max_tokens"])
             except Exception as e:
                 logger.warning(f"Research failed: {e}")
                 research_context = ""
         
-        # Combine synthesis with live research (truncated)
         full_context = synthesis
         if research_context:
             full_context = f"{synthesis}\n\n## Live Research Results:\n{research_context}" if synthesis else research_context
         
-        # Truncate full context to prevent overload
         full_context = truncate_context(full_context, max_tokens=CONDENSED_CONTEXT_LIMITS["total_context_budget"] // 2)
 
         logger.info(f"Generating response for phase: {phase}")
-        # Use condensed prompt for better performance
         prompt = get_condensed_reverse_engineer_prompt(phase)
         
-        # Add strategy query and context
         system_prompt = f'''{prompt}
 
 Strategy: {strategy_data.get("source_query", "")}
 
 Context: {full_context[:2000] if full_context else "No context yet"}'''
 
-        # Enable web search tool for real-time research (reduced max_uses)
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=3000,  # Reduced from 4000 for faster responses
+            max_tokens=3000,
             system=system_prompt,
             messages=messages,
             tools=[{
                 "type": "web_search_20250305",
                 "name": "web_search",
-                "max_uses": 3  # Reduced from 5 for faster responses
+                "max_uses": 3
             }]
         )
 
-        # Extract text content from response
         assistant_response = ""
         for block in response.content:
             if hasattr(block, 'text'):
                 assistant_response += block.text
         logger.info(f"Got response from Claude: {len(assistant_response)} chars")
 
-        # Save response
         db.table("messages").insert({
             "conversation_id": conversation_id,
             "role": "assistant",
@@ -290,31 +265,26 @@ async def conduct_research(
     """Conduct web research on the strategy."""
     db = get_supabase()
 
-    # Get strategy
     strategy = db.table("strategies").select("*").eq("id", strategy_id).execute()
     if not strategy.data:
         raise HTTPException(status_code=404, detail="Strategy not found")
 
     strategy_data = strategy.data[0]
 
-    # Conduct research
     research_context = ""
     if api_keys.get("tavily"):
         try:
             researcher = StrategyResearcher()
             researcher.client.api_key = api_keys["tavily"]
             research_context = researcher.research_strategy(strategy_data["source_query"])
-            # Truncate research for performance
             research_context = truncate_context(research_context, max_tokens=CONDENSED_CONTEXT_LIMITS["research_context_max_tokens"])
         except Exception as e:
             research_context = f"Research unavailable: {str(e)}"
 
-    # Synthesize with Claude using condensed prompt
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=api_keys["claude"])
 
-        # Condensed synthesis prompt
         synthesis_prompt = f"""Synthesize research for: {strategy_data['source_query']}
 
 Research: {research_context[:3000]}
@@ -323,13 +293,12 @@ Provide: Strategy overview, key components, parameters with confidence, implemen
 
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=2500,  # Reduced from 4000 for faster responses
+            max_tokens=2500,
             messages=[{"role": "user", "content": synthesis_prompt}],
         )
 
         synthesis = response.content[0].text
 
-        # Update strategy
         db.table("strategies").update({
             "status": "findings",
             "research_data": {
@@ -338,7 +307,6 @@ Provide: Strategy overview, key components, parameters with confidence, implemen
             },
         }).eq("id", strategy_id).execute()
 
-        # Save as message
         db.table("messages").insert({
             "conversation_id": strategy_data["conversation_id"],
             "role": "assistant",
@@ -363,16 +331,13 @@ def generate_mermaid_from_schematic(schematic: dict) -> str:
         entry_logic = schematic.get("entry_logic", {})
         exit_logic = schematic.get("exit_logic", {})
         
-        # Build the Mermaid diagram
         mermaid = ["flowchart TD"]
         
-        # Group components by type
         indicators = [c for c in components if c.get("type") == "indicator"]
         entries = [c for c in components if c.get("type") == "entry"]
         exits = [c for c in components if c.get("type") == "exit"]
         filters = [c for c in components if c.get("type") == "filter"]
         
-        # Indicators subgraph
         if indicators:
             mermaid.append("    subgraph Indicators")
             for ind in indicators:
@@ -383,32 +348,25 @@ def generate_mermaid_from_schematic(schematic: dict) -> str:
                 mermaid.append(f'        {ind_id}["{ind_name}<br/>{param_str}"]')
             mermaid.append("    end")
         
-        # Entry Logic subgraph
         mermaid.append("    subgraph Entry_Logic[Entry Logic]")
         entry_long = entry_logic.get("long", "Long Entry Condition")
         mermaid.append(f'        ENTRY_COND{{"Entry Condition<br/>{entry_long[:50]}..."}}')
         mermaid.append('        BUY[("BUY SIGNAL")]')
         mermaid.append("    end")
         
-        # Exit Logic subgraph
         mermaid.append("    subgraph Exit_Logic[Exit Logic]")
         exit_long = exit_logic.get("long_exit", "Exit Condition")
         mermaid.append(f'        EXIT_COND{{"Exit Condition<br/>{exit_long[:50]}..."}}')
         mermaid.append('        SELL[("SELL SIGNAL")]')
         mermaid.append("    end")
         
-        # Connect indicators to entry
         for ind in indicators:
             mermaid.append(f"    {ind.get('id', 'ind')} --> ENTRY_COND")
         
-        # Connect entry condition to buy
         mermaid.append("    ENTRY_COND -->|Yes| BUY")
-        
-        # Connect to exit
         mermaid.append("    BUY --> EXIT_COND")
         mermaid.append("    EXIT_COND -->|Yes| SELL")
         
-        # Add connections from schematic
         for conn in connections:
             from_id = conn.get("from", "")
             to_id = conn.get("to", "")
@@ -416,7 +374,6 @@ def generate_mermaid_from_schematic(schematic: dict) -> str:
             if from_id and to_id:
                 mermaid.append(f"    {from_id} -->|{label}| {to_id}")
         
-        # Styling
         mermaid.append("")
         mermaid.append("    style BUY fill:#22C55E,color:#fff,stroke:#16A34A")
         mermaid.append("    style SELL fill:#EF4444,color:#fff,stroke:#DC2626")
@@ -427,6 +384,38 @@ def generate_mermaid_from_schematic(schematic: dict) -> str:
     except Exception as e:
         logger.warning(f"Failed to generate Mermaid diagram: {e}")
         return ""
+
+
+FALLBACK_MERMAID = '''flowchart TD
+    subgraph Indicators["Indicators"]
+        IND1["Technical Indicator"]
+    end
+    
+    subgraph Entry_Logic["Entry Logic"]
+        ENTRY{{"Entry Condition"}}
+        BUY(("BUY"))
+    end
+    
+    subgraph Exit_Logic["Exit Logic"]
+        EXIT{{"Exit Condition"}}
+        SELL(("SELL"))
+    end
+    
+    IND1 --> ENTRY
+    ENTRY -->|Signal| BUY
+    BUY --> EXIT
+    EXIT -->|Signal| SELL
+    
+    style BUY fill:#22C55E,color:#fff,stroke:#16A34A
+    style SELL fill:#EF4444,color:#fff,stroke:#DC2626
+    style IND1 fill:#FEC00F,color:#000'''
+
+SIMPLE_FALLBACK_MERMAID = '''flowchart TD
+    A["Strategy Analysis"] --> B{{"Analysis"}}
+    B --> C(("BUY"))
+    B --> D(("SELL"))
+    style C fill:#22C55E,color:#fff
+    style D fill:#EF4444,color:#fff'''
 
 
 @router.post("/schematic/{strategy_id}")
@@ -443,11 +432,9 @@ async def generate_schematic(
         raise HTTPException(status_code=404, detail="Strategy not found")
 
     strategy_data = strategy.data[0]
-    # Safely handle None research_data
     research = strategy_data.get("research_data") or {}
     synthesis = research.get("synthesis", "") if isinstance(research, dict) else ""
     
-    # Truncate synthesis for faster processing
     if len(synthesis) > 2000:
         synthesis = synthesis[:2000] + "..."
 
@@ -455,7 +442,6 @@ async def generate_schematic(
         import anthropic
         client = anthropic.Anthropic(api_key=api_keys["claude"])
 
-        # Simplified prompt focused on Mermaid diagram generation
         strategy_name = strategy_data.get('source_query', 'Trading Strategy')
         prompt = f"""Create a visual schematic for this trading strategy.
 
@@ -512,84 +498,47 @@ Also provide a brief JSON summary:
 
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=2500,  # Reduced for faster response
+            max_tokens=2500,
             messages=[{"role": "user", "content": prompt}],
         )
 
         raw = response.content[0].text
 
-        # Parse JSON from response
         schematic = {}
         mermaid_diagram = ""
         
         try:
-            # Extract Mermaid diagram FIRST (most important)
             if "```mermaid" in raw:
                 mermaid_parts = raw.split("```mermaid")
                 if len(mermaid_parts) > 1:
                     mermaid_diagram = mermaid_parts[1].split("```")[0].strip()
-                    # Clean up any markdown issues
                     mermaid_diagram = mermaid_diagram.replace("\\n", "\n")
             
-            # Extract JSON schematic
             if "```json" in raw:
                 json_part = raw.split("```json")[1].split("```")[0]
                 schematic = json.loads(json_part)
             else:
-                # Create minimal schematic
                 schematic = {
                     "strategy_name": strategy_name,
                     "strategy_type": "unknown",
                     "timeframe": "unknown"
                 }
             
-            # If no Mermaid diagram was generated by Claude, create a simple one
             if not mermaid_diagram:
-                mermaid_diagram = f"""flowchart TD
-    subgraph Indicators["=Ê Indicators"]
-        IND1["Technical Indicator"]
-    end
-    
-    subgraph Entry_Logic["=â Entry Logic"]
-        ENTRY{{"Entry Condition"}}
-        BUY(("BUY"))
-    end
-    
-    subgraph Exit_Logic["=4 Exit Logic"]  
-        EXIT{{"Exit Condition"}}
-        SELL(("SELL"))
-    end
-    
-    IND1 --> ENTRY
-    ENTRY -->|Signal| BUY
-    BUY --> EXIT
-    EXIT -->|Signal| SELL
-    
-    style BUY fill:#22C55E,color:#fff,stroke:#16A34A
-    style SELL fill:#EF4444,color:#fff,stroke:#DC2626
-    style IND1 fill:#FEC00F,color:#000"""
+                mermaid_diagram = FALLBACK_MERMAID
                 
         except Exception as parse_error:
             logger.warning(f"Schematic parse error: {parse_error}")
             schematic = {"strategy_name": strategy_name, "error": "Could not parse response"}
-            # Provide fallback mermaid
-            mermaid_diagram = f"""flowchart TD
-    A["Strategy: {strategy_name[:30]}"] --> B{{"Analysis"}}
-    B --> C(("BUY"))
-    B --> D(("SELL"))
-    style C fill:#22C55E,color:#fff
-    style D fill:#EF4444,color:#fff"""
+            mermaid_diagram = SIMPLE_FALLBACK_MERMAID
 
-        # Add Mermaid diagram to schematic data
         schematic["mermaid_diagram"] = mermaid_diagram
 
-        # Update strategy
         db.table("strategies").update({
             "status": "schematic",
             "schematic_data": schematic,
         }).eq("id", strategy_id).execute()
 
-        # Save the schematic with Mermaid diagram as a message
         schematic_message = f"## Strategy Schematic\n\n"
         schematic_message += f"```mermaid\n{mermaid_diagram}\n```\n\n"
         schematic_message += f"**Strategy:** {schematic.get('strategy_name', 'Unknown')}\n"
@@ -603,13 +552,12 @@ Also provide a brief JSON summary:
                 "content": schematic_message,
             }).execute()
 
-        # Return response with all necessary fields for frontend
         return {
             "strategy_id": strategy_id,
             "phase": "schematic",
             "schematic": schematic,
             "mermaid_diagram": mermaid_diagram,
-            "response": schematic_message,  # For frontend compatibility
+            "response": schematic_message,
         }
 
     except Exception as e:
@@ -632,21 +580,17 @@ async def generate_code(
     strategy_data = strategy.data[0]
 
     try:
-        # Use condensed prompts for faster code generation
         engine = ClaudeAFLEngine(api_key=api_keys["claude"], use_condensed_prompts=True)
 
-        # Safely handle None values for research_data and schematic_data
         research_data = strategy_data.get("research_data") or {}
         synthesis = research_data.get("synthesis", "") if isinstance(research_data, dict) else ""
         
         schematic_data = strategy_data.get("schematic_data") or {}
         schematic_json = json.dumps(schematic_data, indent=2) if isinstance(schematic_data, dict) else "{}"
 
-        # Truncate synthesis and schematic for performance
         synthesis = truncate_context(synthesis, max_tokens=1000)
         schematic_json = truncate_context(schematic_json, max_tokens=800)
 
-        # Build condensed prompt
         prompt = f"""Generate AFL code:
 
 Name: {strategy_data.get('name', 'Unknown Strategy')}
@@ -662,13 +606,11 @@ Production-ready AFL code with all sections."""
 
         afl_code = result.get("afl_code", "")
 
-        # Update strategy
         db.table("strategies").update({
             "status": "coding",
             "afl_code": afl_code,
         }).eq("id", strategy_id).execute()
 
-        # Save to afl_codes
         db.table("afl_codes").insert({
             "user_id": user_id,
             "strategy_id": strategy_id,
@@ -678,18 +620,16 @@ Production-ready AFL code with all sections."""
             "quality_score": result.get("stats", {}).get("quality_score", 0),
         }).execute()
 
-        # Save as message
         db.table("messages").insert({
             "conversation_id": strategy_data["conversation_id"],
             "role": "assistant",
             "content": f"## Generated AFL Code\n\n```afl\n{afl_code}\n```",
         }).execute()
 
-        # Save to history (auto-save on completion)
         try:
             db.table("reverse_engineer_history").insert({
                 "user_id": user_id,
-                "strategy_name": strategy_data.get("name", "")[:100],  # Truncate for name
+                "strategy_name": strategy_data.get("name", "")[:100],
                 "research_summary": synthesis,
                 "generated_code": afl_code,
                 "schematic": schematic_data,
@@ -697,7 +637,6 @@ Production-ready AFL code with all sections."""
             }).execute()
         except Exception as e:
             logger.warning(f"Failed to save reverse engineer history: {e}")
-            # Don't fail the request if history save fails
 
         return {
             "strategy_id": strategy_id,
@@ -724,8 +663,6 @@ async def get_strategy(
 
     return result.data[0]
 
-
-# ===== Reverse Engineer History Endpoints =====
 
 class ReverseEngineerHistoryEntry(BaseModel):
     """Request model for reverse engineer history entry."""
@@ -779,7 +716,6 @@ async def delete_reverse_engineer_history(
     """Delete a reverse engineer history entry."""
     db = get_supabase()
     
-    # Verify ownership
     entry = db.table("reverse_engineer_history").select("user_id").eq("id", history_id).execute()
     
     if not entry.data or entry.data[0]["user_id"] != user_id:

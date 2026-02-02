@@ -379,13 +379,10 @@ async def stream_message(
         api_keys: dict = Depends(get_user_api_keys),
 ):
     """
-    OPTIMIZED: Stream a message response using Vercel AI SDK Data Stream Protocol.
+    Stream a message response using Vercel AI SDK Data Stream Protocol.
     
-    Features:
-    - Fast text streaming with minimal latency
-    - Automatic knowledge base context injection
-    - Cached tool results for repeated queries
-    - Efficient tool handling
+    FIXED: Now properly continues conversation after tool use by making
+    follow-up API calls with tool results.
     """
     db = get_supabase()
 
@@ -447,7 +444,7 @@ async def stream_message(
             pass  # KB not available, continue without
 
     async def generate_stream():
-        """Generate the streaming response with optimizations."""
+        """Generate the streaming response with proper tool continuation."""
         encoder = VercelAIStreamEncoder()
         builder = GenerativeUIStreamBuilder()
         accumulated_content = ""
@@ -457,150 +454,190 @@ async def stream_message(
             import anthropic
             client = anthropic.Anthropic(api_key=api_keys["claude"])
 
-            # Optimized system prompt - concise but comprehensive
+            # System prompt
             system_prompt = f"""{get_base_prompt()}
 
 {get_chat_prompt()}
 {kb_context}
 
 ## Tools Available (use when helpful):
+- **web_search**: Search the internet for current information
 - **get_stock_data**: Real-time stock prices (cached 5min)
 - **search_knowledge_base**: User's uploaded documents
 - **generate_afl_code**: Create AFL trading systems
 - **validate_afl/sanity_check_afl**: Verify AFL code
 - **execute_python**: Run calculations
 
-Be direct and helpful. Generate AFL code when asked."""
+Be direct and helpful. Generate AFL code when asked. After using tools, always provide a helpful response summarizing the results."""
 
             messages = history + [{"role": "user", "content": data.content}]
             tools = get_all_tools()
-
-            # Stream with reduced max_tokens for faster initial response
-            with client.messages.stream(
-                model="claude-sonnet-4-20250514",
-                max_tokens=3000,
-                system=system_prompt,
-                messages=messages,
-                tools=tools,
-            ) as stream:
-                pending_tool_calls = []
+            
+            max_iterations = 3
+            iteration = 0
+            
+            while iteration < max_iterations:
+                iteration += 1
+                tool_results_for_next_call = []
+                assistant_content_blocks = []
                 
-                for event in stream:
-                    if event.type == "content_block_start":
-                        if hasattr(event.content_block, 'type'):
-                            if event.content_block.type == "tool_use":
-                                # Start of tool call - emit loading state
-                                pending_tool_calls.append({
-                                    "id": event.content_block.id,
-                                    "name": event.content_block.name,
-                                    "input": ""
-                                })
-                                
-                    elif event.type == "content_block_delta":
-                        if hasattr(event.delta, 'type'):
-                            if event.delta.type == "text_delta":
-                                # Stream text chunk
-                                text = event.delta.text
-                                accumulated_content += text
-                                yield encoder.encode_text(text)
-                                
-                            elif event.delta.type == "input_json_delta":
-                                # Accumulate tool input
-                                if pending_tool_calls:
-                                    pending_tool_calls[-1]["input"] += event.delta.partial_json
+                # Stream the response
+                with client.messages.stream(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=3000,
+                    system=system_prompt,
+                    messages=messages,
+                    tools=tools,
+                ) as stream:
+                    pending_tool_calls = []
+                    
+                    for event in stream:
+                        if event.type == "content_block_start":
+                            if hasattr(event.content_block, 'type'):
+                                if event.content_block.type == "tool_use":
+                                    pending_tool_calls.append({
+                                        "id": event.content_block.id,
+                                        "name": event.content_block.name,
+                                        "input": ""
+                                    })
                                     
-                    elif event.type == "content_block_stop":
-                        # Check if we completed a tool call
-                        if pending_tool_calls and pending_tool_calls[-1].get("input"):
-                            tool_call = pending_tool_calls[-1]
-                            try:
-                                tool_input = json.loads(tool_call["input"]) if tool_call["input"] else {}
-                            except json.JSONDecodeError:
-                                tool_input = {}
-                            
-                            tool_call_id = tool_call["id"]
-                            tool_name = tool_call["name"]
-                            
-                            # Emit tool call
-                            yield encoder.encode_tool_call(tool_call_id, tool_name, tool_input)
-                            
-                            # Handle custom tool calls
-                            if tool_name in ["execute_python", "search_knowledge_base", "get_stock_data",
-                                             "validate_afl", "research_strategy", "search_sec_filings",
-                                             "get_market_context", "generate_afl_code", "debug_afl_code",
-                                             "optimize_afl_code", "explain_afl_code", "sanity_check_afl"]:
-                                result = handle_tool_call(
-                                    tool_name=tool_name,
-                                    tool_input=tool_input,
-                                    supabase_client=db,
-                                    api_key=api_keys.get("claude")
-                                )
+                        elif event.type == "content_block_delta":
+                            if hasattr(event.delta, 'type'):
+                                if event.delta.type == "text_delta":
+                                    text = event.delta.text
+                                    accumulated_content += text
+                                    yield encoder.encode_text(text)
+                                    
+                                elif event.delta.type == "input_json_delta":
+                                    if pending_tool_calls:
+                                        pending_tool_calls[-1]["input"] += event.delta.partial_json
+                                        
+                        elif event.type == "content_block_stop":
+                            if pending_tool_calls and pending_tool_calls[-1].get("input"):
+                                tool_call = pending_tool_calls[-1]
+                                try:
+                                    tool_input = json.loads(tool_call["input"]) if tool_call["input"] else {}
+                                except json.JSONDecodeError:
+                                    tool_input = {}
                                 
-                                tools_used.append({
-                                    "tool": tool_name,
-                                    "input": tool_input,
-                                })
+                                tool_call_id = tool_call["id"]
+                                tool_name = tool_call["name"]
                                 
-                                # Emit tool result
-                                yield encoder.encode_tool_result(tool_call_id, result)
-                            
-                            pending_tool_calls.pop()
+                                # Emit tool call to frontend
+                                yield encoder.encode_tool_call(tool_call_id, tool_name, tool_input)
+                                
+                                # Execute custom tool (not web_search - Claude handles that internally)
+                                if tool_name in ["execute_python", "search_knowledge_base", "get_stock_data",
+                                                 "validate_afl", "research_strategy", "search_sec_filings",
+                                                 "get_market_context", "generate_afl_code", "debug_afl_code",
+                                                 "optimize_afl_code", "explain_afl_code", "sanity_check_afl"]:
+                                    try:
+                                        result = handle_tool_call(
+                                            tool_name=tool_name,
+                                            tool_input=tool_input,
+                                            supabase_client=db,
+                                            api_key=api_keys.get("claude")
+                                        )
+                                    except Exception as tool_error:
+                                        result = json.dumps({"error": str(tool_error)})
+                                    
+                                    tools_used.append({
+                                        "tool": tool_name,
+                                        "input": tool_input,
+                                    })
+                                    
+                                    # Emit tool result to frontend
+                                    yield encoder.encode_tool_result(tool_call_id, result)
+                                    
+                                    # Store for continuation
+                                    tool_results_for_next_call.append({
+                                        "type": "tool_result",
+                                        "tool_use_id": tool_call_id,
+                                        "content": result
+                                    })
+                                    
+                                    # Store tool use block for messages
+                                    assistant_content_blocks.append({
+                                        "type": "tool_use",
+                                        "id": tool_call_id,
+                                        "name": tool_name,
+                                        "input": tool_input
+                                    })
+                                
+                                pending_tool_calls.pop()
 
-                # Get final message for usage stats
-                final_message = stream.get_final_message()
+                    # Get final message
+                    final_message = stream.get_final_message()
                 
-                # Parse for artifacts from accumulated content
-                artifacts = ArtifactParser.extract_artifacts(accumulated_content)
-                
-                # Stream artifacts as Generative UI components
-                for artifact in artifacts:
-                    artifact_type = artifact.get('type', 'code')
-                    code = artifact.get('code', '')
-                    language = artifact.get('language', artifact_type)
-                    artifact_id = artifact.get('id', f"artifact_{hash(code) % 10000}")
-                    
-                    # Emit as tool call + result (Generative UI pattern)
-                    yield builder.add_generative_ui_component(
-                        component_type=artifact_type,
-                        code=code,
-                        language=language,
-                        component_id=artifact_id
-                    )
-                
-                # Build parts for storage
-                parts = []
-                last_index = 0
-                
-                for artifact in artifacts:
-                    if artifact['start'] > last_index:
-                        text_content = accumulated_content[last_index:artifact['start']].strip()
-                        if text_content:
-                            parts.append({"type": "text", "text": text_content})
-                    
-                    parts.append({
-                        "type": f"tool-{artifact['type']}",
-                        "state": "output-available",
-                        "output": {
-                            "code": artifact['code'],
-                            "language": artifact.get('language', artifact['type']),
-                            "id": artifact['id']
-                        }
+                # Check if we need to continue (tool was used)
+                if final_message.stop_reason == "tool_use" and tool_results_for_next_call:
+                    # Add assistant's tool use to messages
+                    messages.append({
+                        "role": "assistant",
+                        "content": final_message.content
                     })
-                    last_index = artifact['end']
+                    # Add tool results
+                    messages.append({
+                        "role": "user",
+                        "content": tool_results_for_next_call
+                    })
+                    # Continue loop to get Claude's follow-up response
+                else:
+                    # No more tool use, we're done
+                    break
+            
+            # Parse for artifacts from accumulated content
+            artifacts = ArtifactParser.extract_artifacts(accumulated_content)
+            
+            # Stream artifacts as Generative UI components
+            for artifact in artifacts:
+                artifact_type = artifact.get('type', 'code')
+                code = artifact.get('code', '')
+                language = artifact.get('language', artifact_type)
+                artifact_id = artifact.get('id', f"artifact_{hash(code) % 10000}")
                 
-                if last_index < len(accumulated_content):
-                    remaining_text = accumulated_content[last_index:].strip()
-                    if remaining_text:
-                        parts.append({"type": "text", "text": remaining_text})
+                yield builder.add_generative_ui_component(
+                    component_type=artifact_type,
+                    code=code,
+                    language=language,
+                    component_id=artifact_id
+                )
+            
+            # Build parts for storage
+            parts = []
+            last_index = 0
+            
+            for artifact in artifacts:
+                if artifact['start'] > last_index:
+                    text_content = accumulated_content[last_index:artifact['start']].strip()
+                    if text_content:
+                        parts.append({"type": "text", "text": text_content})
                 
-                if not artifacts:
-                    parts.append({"type": "text", "text": accumulated_content})
-                
-                # Save assistant message
+                parts.append({
+                    "type": f"tool-{artifact['type']}",
+                    "state": "output-available",
+                    "output": {
+                        "code": artifact['code'],
+                        "language": artifact.get('language', artifact['type']),
+                        "id": artifact['id']
+                    }
+                })
+                last_index = artifact['end']
+            
+            if last_index < len(accumulated_content):
+                remaining_text = accumulated_content[last_index:].strip()
+                if remaining_text:
+                    parts.append({"type": "text", "text": remaining_text})
+            
+            if not artifacts and accumulated_content:
+                parts.append({"type": "text", "text": accumulated_content})
+            
+            # Save assistant message
+            if accumulated_content or tools_used:
                 db.table("messages").insert({
                     "conversation_id": conversation_id,
                     "role": "assistant",
-                    "content": accumulated_content,
+                    "content": accumulated_content or "(Tool results returned)",
                     "metadata": {
                         "parts": parts,
                         "artifacts": artifacts,
@@ -608,30 +645,33 @@ Be direct and helpful. Generate AFL code when asked."""
                         "tools_used": tools_used
                     }
                 }).execute()
-                
-                # Update conversation timestamp
-                db.table("conversations").update({
-                    "updated_at": "now()",
-                }).eq("id", conversation_id).execute()
-                
-                # Send usage data
-                usage = {
-                    "promptTokens": final_message.usage.input_tokens if final_message else 0,
-                    "completionTokens": final_message.usage.output_tokens if final_message else 0
-                }
-                
-                # Emit custom data with conversation info
-                yield encoder.encode_data({
-                    "conversation_id": conversation_id,
-                    "tools_used": tools_used,
-                    "has_artifacts": len(artifacts) > 0
-                })
-                
-                # Finish message
-                yield encoder.encode_finish_message("stop", usage)
+            
+            # Update conversation timestamp
+            db.table("conversations").update({
+                "updated_at": "now()",
+            }).eq("id", conversation_id).execute()
+            
+            # Send usage data
+            usage = {
+                "promptTokens": final_message.usage.input_tokens if final_message else 0,
+                "completionTokens": final_message.usage.output_tokens if final_message else 0
+            }
+            
+            # Emit custom data with conversation info
+            yield encoder.encode_data({
+                "conversation_id": conversation_id,
+                "tools_used": tools_used,
+                "has_artifacts": len(artifacts) > 0
+            })
+            
+            # Finish message
+            yield encoder.encode_finish_message("stop", usage)
                 
         except Exception as e:
-            yield encoder.encode_error(str(e))
+            import traceback
+            error_msg = f"{str(e)}\n{traceback.format_exc()[:500]}"
+            yield encoder.encode_text(f"\n\nError: {str(e)}")
+            yield encoder.encode_error(error_msg)
             yield encoder.encode_finish_message("error")
 
     return StreamingResponse(

@@ -8,6 +8,7 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useStreamingChat } from '@/hooks/useStreamingChat';
 import mermaid from 'mermaid';
 import { ReactComponent } from '@/components/generative-ui/ReactComponent';
+import { Weather } from '@/components/Weather';
 
 // Import logo from assets
 import logo from '@/assets/yellowlogo.png';
@@ -998,6 +999,16 @@ export function ChatPage() {
                 );
               }
               
+              // Weather component
+              if (toolType === 'displayWeather') {
+                return (
+                  <Weather
+                    key={`weather-${index}`}
+                    {...toolPart.output}
+                  />
+                );
+              }
+              
               // React/JSX components - render as interactive components
               if (toolType === 'react' || toolType === 'jsx' || toolType === 'chart') {
                 return (
@@ -1641,19 +1652,35 @@ export function ChatPage() {
                             lineHeight: 1.7,
                           }}>
                             {/* AI SDK Generative UI: Use parts-based rendering when available */}
-                            {(message.metadata as { parts?: MessagePart[] })?.parts?.length ? (
+                            {(message.metadata as { parts?: MessagePart[]; isStreaming?: boolean })?.isStreaming ? (
+                              // Show loading dots while streaming
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                {[0, 1, 2].map((i) => (
+                                  <div
+                                    key={i}
+                                    style={{
+                                      width: '10px',
+                                      height: '10px',
+                                      borderRadius: '50%',
+                                      backgroundColor: '#FEC00F',
+                                      animation: `bounce 1.4s ease-in-out ${i * 0.16}s infinite both`,
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            ) : (message.metadata as { parts?: MessagePart[] })?.parts?.length ? (
                               renderMessageParts(
                                 (message.metadata as { parts: MessagePart[] }).parts,
                                 message.id
                               )
-                            ) : (
+                            ) : message.content ? (
                               // Fallback to legacy content rendering
                               renderMessageContent(
                                 message.content, 
                                 message.id, 
                                 (message.metadata as { artifacts?: Artifact[] })?.artifacts
                               )
-                            )}
+                            ) : null}
                           </div>
                           
                           {/* Tool Usage Badges */}

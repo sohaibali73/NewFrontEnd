@@ -53,8 +53,10 @@ for module_path, router_name, display_name in ROUTERS:
         router = getattr(module, "router")
         app.include_router(router)
         logger.info(f"Loaded {display_name} router")
-    except ImportError as e:
-        logger.warning(f"Could not load {display_name} router: {e}")
+    except Exception as e:
+        import traceback
+        logger.error(f"Could not load {display_name} router: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
 @app.get("/")
 async def root():
     """Root endpoint."""
@@ -81,6 +83,23 @@ async def list_routes():
                 "name": route.name,
             })
     return {"routes": routes}
+
+@app.get("/debug/routers")
+async def debug_routers():
+    """Debug endpoint to check router loading status."""
+    import traceback
+    results = {}
+    for module_path, router_name, display_name in ROUTERS:
+        try:
+            module = __import__(module_path, fromlist=[router_name])
+            router = getattr(module, "router", None)
+            if router:
+                results[display_name] = {"status": "loaded", "routes_count": len(list(router.routes))}
+            else:
+                results[display_name] = {"status": "error", "message": "router attribute not found"}
+        except Exception as e:
+            results[display_name] = {"status": "error", "message": str(e), "traceback": traceback.format_exc()}
+    return {"router_status": results}
 
 if __name__ == "__main__":
     import uvicorn

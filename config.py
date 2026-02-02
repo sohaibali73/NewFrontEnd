@@ -25,6 +25,15 @@ class Settings(BaseSettings):
     fred_api_key: str = "816c11e0be7c37119557a6e09de63de5"
     newsapi_key: str = "d0338b913ab7406d92b5e332c96146d3"
 
+    # SMTP settings for password reset emails
+    smtp_server: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_sender_email: str = ""
+    smtp_password: str = ""
+    
+    # Frontend URL for password reset links
+    frontend_url: str = "https://potomac-analyst-workbench.vercel.app"
+
     # Admin configuration
     # Comma-separated list of admin emails
     admin_emails: str = "sohaib.ali@potomac.com"

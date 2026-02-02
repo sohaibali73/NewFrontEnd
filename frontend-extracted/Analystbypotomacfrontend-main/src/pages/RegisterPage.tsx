@@ -17,8 +17,8 @@ import {
 } from 'lucide-react';
 import logo from '@/assets/yellowlogo.png';
 
-// API Base URL - using dummy backend URL
-const API_BASE_URL = 'http://0.0.0.0:8000';
+// API Base URL - use environment variable or production URL
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'https://potomac-analyst-workbench-production.up.railway.app';
 
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -26,7 +26,7 @@ export function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showClaudeKey, setShowClaudeKey] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [isSmallMobile, setIsSmallMobile] = useState(window.innerWidth < 768);

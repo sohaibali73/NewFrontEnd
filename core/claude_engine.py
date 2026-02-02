@@ -92,7 +92,7 @@ class ClaudeAFLEngine:
 
     # Class constants
     MODEL = DEFAULT_MODEL
-    MAX_TOKENS = 8192
+    MAX_TOKENS = 4096  # Reduced from 8192 for faster responses
 
     # AFL function signatures for validation
     SINGLE_ARG_FUNCTIONS = {

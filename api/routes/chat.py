@@ -211,17 +211,17 @@ Use these tools proactively when they would help provide better answers. For exa
         # Track tool usage for the response
         tools_used = []
         
-        # Initial API call with tools (non-streaming for simpler handling)
+        # Initial API call with tools - reduced max_tokens for faster responses
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=4096,
+            max_tokens=3000,  # Reduced from 4096 for faster responses
             system=system_prompt,
             messages=messages,
             tools=tools,
         )
 
-        # Handle tool use loop (max 5 iterations to prevent infinite loops)
-        max_iterations = 5
+        # Handle tool use loop (max 3 iterations for faster responses)
+        max_iterations = 3
         iteration = 0
 
         while response.stop_reason == "tool_use" and iteration < max_iterations:

@@ -10,10 +10,10 @@ from db.supabase_client import get_supabase
 
 logger = logging.getLogger(__name__)
 
-# Configuration
-MAX_RECENT_MESSAGES = 100  # Keep only recent messages in context
-MAX_TRAINING_EXAMPLES = 5  # Reduced from 20
-MAX_CONTEXT_TOKENS = 8000  # Soft limit for total context
+# Configuration - OPTIMIZED FOR PERFORMANCE
+MAX_RECENT_MESSAGES = 10  # Reduced from 100 for faster responses
+MAX_TRAINING_EXAMPLES = 3  # Reduced from 5 for performance
+MAX_CONTEXT_TOKENS = 4000  # Reduced from 8000 for faster processing
 
 # Condensed context limits for performance optimization
 CONDENSED_CONTEXT_LIMITS = {

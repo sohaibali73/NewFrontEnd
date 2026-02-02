@@ -60,8 +60,9 @@ class APIClient {
   }
 
   async uploadFile(conversationId: string, formData: FormData) {
- return this.request(`/chat/conversations/${conversationId}/upload`, 'POST', formData, true);
-}
+    // File upload needs longer timeout for large files
+    return this.request(`/chat/conversations/${conversationId}/upload`, 'POST', formData, true, 60000);
+  }
 
   private setToken(token: string) {
     localStorage.setItem('auth_token', token);
@@ -159,22 +160,26 @@ class APIClient {
   // ==================== AFL ENDPOINTS ====================
 
   async generateAFL(request: AFLGenerateRequest) {
-    return this.request<AFLCode>('/afl/generate', 'POST', request);
+    // AFL generation needs longer timeout for AI response
+    return this.request<AFLCode>('/afl/generate', 'POST', request, false, 120000);
   }
 
   async optimizeAFL(code: string) {
-    return this.request<AFLCode>('/afl/optimize', 'POST', { code });
+    // Optimization needs longer timeout
+    return this.request<AFLCode>('/afl/optimize', 'POST', { code }, false, 90000);
   }
 
   async debugAFL(code: string, errorMessage?: string) {
+    // Debugging needs longer timeout
     return this.request<AFLCode>('/afl/debug', 'POST', {
       code,
       error_message: errorMessage,
-    });
+    }, false, 90000);
   }
 
   async explainAFL(code: string) {
-    return this.request<{ explanation: string }>('/afl/explain', 'POST', { code });
+    // Explanation needs longer timeout
+    return this.request<{ explanation: string }>('/afl/explain', 'POST', { code }, false, 60000);
   }
 
   async validateAFL(code: string) {
@@ -305,26 +310,31 @@ class APIClient {
   // ==================== REVERSE ENGINEER ENDPOINTS ====================
 
   async startReverseEngineering(description: string) {
-    return this.request<Strategy>('/reverse-engineer/start', 'POST', { description });
+    // Use 'query' field name which backend expects
+    return this.request<Strategy>('/reverse-engineer/start', 'POST', { query: description }, false, 90000);
   }
 
   async continueReverseEngineering(strategyId: string, content: string) {
+    // Use 'message' field name and longer timeout for AI response
     return this.request<Strategy>('/reverse-engineer/continue', 'POST', {
       strategy_id: strategyId,
-      content,
-    });
+      message: content,
+    }, false, 120000);
   }
 
   async researchStrategy(strategyId: string) {
-    return this.request<Strategy>(`/reverse-engineer/research/${strategyId}`, 'POST', {});
+    // Research can take time - 2 minute timeout
+    return this.request<Strategy>(`/reverse-engineer/research/${strategyId}`, 'POST', {}, false, 120000);
   }
 
   async generateStrategySchematic(strategyId: string) {
-    return this.request<Strategy>(`/reverse-engineer/schematic/${strategyId}`, 'POST', {});
+    // Schematic generation - 90 second timeout
+    return this.request<Strategy>(`/reverse-engineer/schematic/${strategyId}`, 'POST', {}, false, 90000);
   }
 
   async generateStrategyCode(strategyId: string) {
-    return this.request<Strategy>(`/reverse-engineer/generate-code/${strategyId}`, 'POST', {});
+    // Code generation - 2 minute timeout
+    return this.request<Strategy>(`/reverse-engineer/generate-code/${strategyId}`, 'POST', {}, false, 120000);
   }
 
   async getStrategy(strategyId: string) {

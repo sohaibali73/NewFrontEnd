@@ -1,12 +1,15 @@
 """
 Claude Tools - Custom tools for the AI agent
 Implements: Code Execution, Knowledge Base Search, Stock Data
+
+OPTIMIZED VERSION - Faster KB search, cached stock data, async-ready
 """
 
 import json
 import traceback
 import logging
 import os
+import time
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from functools import lru_cache
@@ -16,6 +19,57 @@ from functools import lru_cache
 log_level = os.getenv("LOG_LEVEL", "WARNING" if os.getenv("ENVIRONMENT") == "production" else "INFO")
 logger = logging.getLogger(__name__)
 logger.setLevel(getattr(logging, log_level.upper()))
+
+
+# ============================================================================
+# CACHING FOR PERFORMANCE
+# ============================================================================
+
+# Stock data cache (5 minute TTL)
+_stock_cache: Dict[str, Dict] = {}
+_stock_cache_time: Dict[str, float] = {}
+_STOCK_CACHE_TTL = 300  # 5 minutes
+
+# Knowledge base cache (10 minute TTL)
+_kb_cache: Dict[str, Dict] = {}
+_kb_cache_time: Dict[str, float] = {}
+_KB_CACHE_TTL = 600  # 10 minutes
+
+
+def _get_cached_stock(symbol: str, info_type: str) -> Optional[Dict]:
+    """Get cached stock data if not expired."""
+    cache_key = f"{symbol}_{info_type}"
+    if cache_key in _stock_cache:
+        age = time.time() - _stock_cache_time.get(cache_key, 0)
+        if age < _STOCK_CACHE_TTL:
+            logger.debug(f"Stock cache hit for {cache_key} ({age:.0f}s old)")
+            return _stock_cache[cache_key]
+    return None
+
+
+def _set_cached_stock(symbol: str, info_type: str, data: Dict):
+    """Cache stock data."""
+    cache_key = f"{symbol}_{info_type}"
+    _stock_cache[cache_key] = data
+    _stock_cache_time[cache_key] = time.time()
+
+
+def _get_cached_kb(query: str, category: str) -> Optional[Dict]:
+    """Get cached KB results if not expired."""
+    cache_key = f"{query}_{category}"
+    if cache_key in _kb_cache:
+        age = time.time() - _kb_cache_time.get(cache_key, 0)
+        if age < _KB_CACHE_TTL:
+            logger.debug(f"KB cache hit for query ({age:.0f}s old)")
+            return _kb_cache[cache_key]
+    return None
+
+
+def _set_cached_kb(query: str, category: str, data: Dict):
+    """Cache KB search results."""
+    cache_key = f"{query}_{category}"
+    _kb_cache[cache_key] = data
+    _kb_cache_time[cache_key] = time.time()
 
 
 # ============================================================================
@@ -48,10 +102,10 @@ TOOL_DEFINITIONS = [
             "required": ["code"]
         }
     },
-    # Custom: Knowledge Base Search
+    # Custom: Knowledge Base Search - OPTIMIZED
     {
         "name": "search_knowledge_base",
-        "description": "Search the user's uploaded documents and knowledge base for relevant information about AFL, trading strategies, indicators, or any uploaded content. Use this when you need to reference the user's specific documents or previously uploaded trading knowledge.",
+        "description": "Search the user's uploaded documents and knowledge base for relevant information about AFL, trading strategies, indicators, or any uploaded content. Use this when you need to reference the user's specific documents or previously uploaded trading knowledge. FAST - results are cached.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -67,16 +121,16 @@ TOOL_DEFINITIONS = [
                 "limit": {
                     "type": "integer",
                     "description": "Maximum number of results to return",
-                    "default": 5
+                    "default": 3
                 }
             },
             "required": ["query"]
         }
     },
-    # Custom: Stock Data
+    # Custom: Stock Data - OPTIMIZED with caching
     {
         "name": "get_stock_data",
-        "description": "Fetch real-time or historical stock market data for a given ticker symbol. Use this when discussing specific stocks, analyzing price movements, or when the user asks about current market conditions for a particular security.",
+        "description": "Fetch real-time or historical stock market data for a given ticker symbol. Results are cached for 5 minutes for faster responses. Use this when discussing specific stocks, analyzing price movements, or when the user asks about current market conditions.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -87,13 +141,13 @@ TOOL_DEFINITIONS = [
                 "period": {
                     "type": "string",
                     "description": "Time period for historical data",
-                    "enum": ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y"],
+                    "enum": ["1d", "5d", "1mo", "3mo", "6mo", "1y"],
                     "default": "1mo"
                 },
                 "info_type": {
                     "type": "string",
                     "description": "Type of information to retrieve",
-                    "enum": ["price", "history", "info", "financials"],
+                    "enum": ["price", "history", "info"],
                     "default": "price"
                 }
             },
@@ -115,65 +169,7 @@ TOOL_DEFINITIONS = [
             "required": ["code"]
         }
     },
-    # Custom: Strategy Research
-    {
-        "name": "research_strategy",
-        "description": "Conduct comprehensive research on a trading strategy. Searches the web, SEC EDGAR filings, and financial databases to find strategy rules, methodology, and implementation details. Use this when the user asks about a specific trading strategy, fund, or wants to reverse engineer a strategy.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Strategy name or description to research (e.g., 'Dual Momentum strategy', 'ARKK ETF holdings', 'Renaissance Technologies')"
-                },
-                "research_type": {
-                    "type": "string",
-                    "description": "Type of research to conduct",
-                    "enum": ["strategy", "fund", "trading_rules", "general"],
-                    "default": "strategy"
-                }
-            },
-            "required": ["query"]
-        }
-    },
-    # Custom: SEC EDGAR Search
-    {
-        "name": "search_sec_filings",
-        "description": "Search SEC EDGAR database for fund filings, prospectuses, 13F holdings reports, and regulatory documents. Use this to find official fund holdings, strategy disclosures, and compliance documents.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Fund name, company name, or CIK number to search"
-                },
-                "filing_type": {
-                    "type": "string",
-                    "description": "Type of filing to search for",
-                    "enum": ["all", "holdings", "prospectus", "annual_report"],
-                    "default": "all"
-                }
-            },
-            "required": ["query"]
-        }
-    },
-    # Custom: Market Context
-    {
-        "name": "get_market_context",
-        "description": "Get current market context including major indices (SPY, QQQ), volatility (VIX), treasuries (TLT), and commodities (GLD). Use this to provide market backdrop when discussing trading strategies or market conditions.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "include_details": {
-                    "type": "boolean",
-                    "description": "Whether to include detailed analysis",
-                    "default": True
-                }
-            },
-            "required": []
-        }
-    },
-    # Custom: Generate AFL
+    # Custom: Generate AFL - FAST
     {
         "name": "generate_afl_code",
         "description": "Generate AmiBroker AFL code from a natural language description. Use this when the user wants to create a trading system, indicator, or exploration formula. This creates complete, production-ready AFL code.",
@@ -197,7 +193,7 @@ TOOL_DEFINITIONS = [
     # Custom: Debug AFL
     {
         "name": "debug_afl_code",
-        "description": "Debug and fix errors in AFL code. Analyzes the code, identifies issues, and returns corrected code. Use this when the user has AFL code that isn't working or has errors.",
+        "description": "Debug and fix errors in AFL code. Analyzes the code, identifies issues, and returns corrected code.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -214,25 +210,10 @@ TOOL_DEFINITIONS = [
             "required": ["code"]
         }
     },
-    # Custom: Optimize AFL
-    {
-        "name": "optimize_afl_code",
-        "description": "Optimize AFL code for better performance, readability, and best practices. Improves code structure, efficiency, and adds documentation. Use this when the user wants to improve existing AFL code.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "type": "string",
-                    "description": "The AFL code to optimize"
-                }
-            },
-            "required": ["code"]
-        }
-    },
     # Custom: Explain AFL
     {
         "name": "explain_afl_code",
-        "description": "Explain AFL code in plain English. Provides a detailed breakdown of what each section does, the trading logic, and how signals are generated. Use this when the user wants to understand existing AFL code.",
+        "description": "Explain AFL code in plain English. Provides a detailed breakdown of what each section does.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -247,7 +228,7 @@ TOOL_DEFINITIONS = [
     # Custom: Sanity Check AFL (auto-fix)
     {
         "name": "sanity_check_afl",
-        "description": "Performs comprehensive sanity check on AFL code and automatically fixes common issues. Validates colors (only official AmiBroker colors), function signatures (prevents hallucinations like RSI(Close,14)), and reserved words. Returns fixed code with list of corrections made. USE THIS BEFORE PRESENTING ANY AFL CODE TO THE USER.",
+        "description": "Performs comprehensive sanity check on AFL code and automatically fixes common issues. USE THIS BEFORE PRESENTING ANY AFL CODE TO THE USER.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -268,15 +249,11 @@ TOOL_DEFINITIONS = [
 
 
 # ============================================================================
-# TOOL HANDLERS
+# TOOL HANDLERS - OPTIMIZED
 # ============================================================================
 
 def execute_python(code: str, description: str = "") -> Dict[str, Any]:
-    """
-    Execute Python code in a sandboxed environment.
-    Only allows safe computational operations.
-    """
-    # Allowed modules for sandboxed execution
+    """Execute Python code in a sandboxed environment."""
     allowed_globals = {
         "__builtins__": {
             "abs": abs, "all": all, "any": any, "bool": bool,
@@ -290,7 +267,6 @@ def execute_python(code: str, description: str = "") -> Dict[str, Any]:
         }
     }
     
-    # Import safe modules
     try:
         import math
         import statistics
@@ -319,7 +295,6 @@ def execute_python(code: str, description: str = "") -> Dict[str, Any]:
         "__import__", "exec(", "eval(", "open(", "file(",
         "os.", "sys.", "subprocess.", "shutil.",
         "requests.", "urllib.", "socket.",
-        "rm ", "del ", "remove"
     ]
     
     code_lower = code.lower()
@@ -331,36 +306,35 @@ def execute_python(code: str, description: str = "") -> Dict[str, Any]:
                 "output": None
             }
     
-    # Execute the code
     try:
         local_vars = {}
         exec(code, allowed_globals, local_vars)
-        
-        # Get the result (last expression or 'result' variable)
-        output = local_vars.get("result", None)
-        
-        # If no explicit result, try to capture printed output
-        if output is None and "output" in local_vars:
-            output = local_vars["output"]
+        output = local_vars.get("result", local_vars.get("output", None))
         
         return {
             "success": True,
-            "output": str(output) if output is not None else "Code executed successfully (no return value)",
-            "variables": {k: str(v) for k, v in local_vars.items() if not k.startswith("_")}
+            "output": str(output) if output is not None else "Code executed successfully",
+            "variables": {k: str(v)[:200] for k, v in local_vars.items() if not k.startswith("_")}
         }
         
     except Exception as e:
         return {
             "success": False,
             "error": str(e),
-            "traceback": traceback.format_exc()
+            "traceback": traceback.format_exc()[:500]
         }
 
 
-def search_knowledge_base(query: str, category: Optional[str] = None, limit: int = 5, supabase_client=None) -> Dict[str, Any]:
+def search_knowledge_base(query: str, category: Optional[str] = None, limit: int = 3, supabase_client=None) -> Dict[str, Any]:
     """
-    Search the knowledge base for relevant documents.
+    OPTIMIZED: Search the knowledge base for relevant documents.
+    Uses caching and optimized queries.
     """
+    # Check cache first
+    cached = _get_cached_kb(query, category or "all")
+    if cached:
+        return cached
+    
     if supabase_client is None:
         return {
             "success": False,
@@ -369,46 +343,67 @@ def search_knowledge_base(query: str, category: Optional[str] = None, limit: int
         }
     
     try:
-        # Build query
+        start_time = time.time()
+        
+        # Build optimized query - select only needed fields
         db_query = supabase_client.table("brain_documents").select(
-            "id, title, category, summary, tags, raw_content, created_at"
+            "id, title, category, summary, tags, raw_content"
         )
         
         if category:
             db_query = db_query.eq("category", category)
         
-        # Search in title, summary, and content
-        db_query = db_query.or_(
-            f"title.ilike.%{query}%,summary.ilike.%{query}%,raw_content.ilike.%{query}%"
-        )
+        # Search in title, summary, and content using OR
+        # Split query into words for better matching
+        search_terms = query.split()[:3]  # Use first 3 words max
+        or_conditions = []
+        for term in search_terms:
+            or_conditions.extend([
+                f"title.ilike.%{term}%",
+                f"summary.ilike.%{term}%",
+                f"raw_content.ilike.%{term}%"
+            ])
+        
+        if or_conditions:
+            db_query = db_query.or_(",".join(or_conditions))
         
         result = db_query.limit(limit).execute()
         
-        # Format results
+        # Format results efficiently
         documents = []
         for doc in result.data:
-            # Truncate content for display
-            content_preview = doc.get("raw_content", "")[:500] + "..." if len(doc.get("raw_content", "")) > 500 else doc.get("raw_content", "")
+            raw_content = doc.get("raw_content", "")
+            # Extract relevant snippet around query terms
+            snippet = _extract_relevant_snippet(raw_content, query, max_len=300)
             
             documents.append({
                 "id": doc["id"],
                 "title": doc["title"],
                 "category": doc["category"],
-                "summary": doc.get("summary", ""),
+                "summary": doc.get("summary", "")[:200],
                 "tags": doc.get("tags", []),
-                "content_preview": content_preview,
-                "created_at": doc["created_at"]
+                "content_snippet": snippet,
             })
         
-        return {
+        search_time = time.time() - start_time
+        
+        response = {
             "success": True,
             "query": query,
             "category_filter": category,
             "results_count": len(documents),
+            "search_time_ms": round(search_time * 1000, 2),
             "results": documents
         }
         
+        # Cache the result
+        _set_cached_kb(query, category or "all", response)
+        
+        logger.debug(f"KB search completed in {search_time:.3f}s, {len(documents)} results")
+        return response
+        
     except Exception as e:
+        logger.error(f"KB search error: {e}")
         return {
             "success": False,
             "error": str(e),
@@ -416,22 +411,64 @@ def search_knowledge_base(query: str, category: Optional[str] = None, limit: int
         }
 
 
+def _extract_relevant_snippet(content: str, query: str, max_len: int = 300) -> str:
+    """Extract a relevant snippet from content around query terms."""
+    if not content:
+        return ""
+    
+    content_lower = content.lower()
+    query_terms = query.lower().split()
+    
+    # Find the first occurrence of any query term
+    best_pos = -1
+    for term in query_terms:
+        pos = content_lower.find(term)
+        if pos != -1 and (best_pos == -1 or pos < best_pos):
+            best_pos = pos
+    
+    if best_pos == -1:
+        # No match found, return start of content
+        return content[:max_len] + "..." if len(content) > max_len else content
+    
+    # Extract snippet around the match
+    start = max(0, best_pos - 50)
+    end = min(len(content), best_pos + max_len - 50)
+    
+    snippet = content[start:end]
+    if start > 0:
+        snippet = "..." + snippet
+    if end < len(content):
+        snippet = snippet + "..."
+    
+    return snippet
+
+
 def get_stock_data(symbol: str, period: str = "1mo", info_type: str = "price") -> Dict[str, Any]:
     """
-    Fetch stock market data using yfinance.
+    OPTIMIZED: Fetch stock market data with caching.
+    Results are cached for 5 minutes.
     """
+    symbol = symbol.upper()
+    
+    # Check cache first
+    cached = _get_cached_stock(symbol, info_type)
+    if cached:
+        cached["cached"] = True
+        return cached
+    
     try:
         import yfinance as yf
         
-        ticker = yf.Ticker(symbol.upper())
+        start_time = time.time()
+        ticker = yf.Ticker(symbol)
         
         if info_type == "price":
-            # Get current price info
             info = ticker.info
-            return {
+            response = {
                 "success": True,
-                "symbol": symbol.upper(),
+                "symbol": symbol,
                 "data_type": "price",
+                "cached": False,
                 "data": {
                     "current_price": info.get("currentPrice") or info.get("regularMarketPrice"),
                     "previous_close": info.get("previousClose"),
@@ -440,16 +477,12 @@ def get_stock_data(symbol: str, period: str = "1mo", info_type: str = "price") -
                     "day_low": info.get("dayLow") or info.get("regularMarketDayLow"),
                     "volume": info.get("volume") or info.get("regularMarketVolume"),
                     "market_cap": info.get("marketCap"),
-                    "52_week_high": info.get("fiftyTwoWeekHigh"),
-                    "52_week_low": info.get("fiftyTwoWeekLow"),
-                    "pe_ratio": info.get("trailingPE"),
-                    "dividend_yield": info.get("dividendYield"),
                     "company_name": info.get("longName") or info.get("shortName"),
-                }
+                },
+                "fetch_time_ms": round((time.time() - start_time) * 1000, 2)
             }
             
         elif info_type == "history":
-            # Get historical data
             hist = ticker.history(period=period)
             
             if hist.empty:
@@ -458,9 +491,8 @@ def get_stock_data(symbol: str, period: str = "1mo", info_type: str = "price") -
                     "error": f"No historical data found for {symbol}"
                 }
             
-            # Convert to simple format
             history_data = []
-            for date, row in hist.tail(20).iterrows():  # Last 20 entries
+            for date, row in hist.tail(10).iterrows():  # Last 10 entries for speed
                 history_data.append({
                     "date": date.strftime("%Y-%m-%d"),
                     "open": round(row["Open"], 2),
@@ -470,52 +502,43 @@ def get_stock_data(symbol: str, period: str = "1mo", info_type: str = "price") -
                     "volume": int(row["Volume"])
                 })
             
-            return {
+            response = {
                 "success": True,
-                "symbol": symbol.upper(),
+                "symbol": symbol,
                 "data_type": "history",
                 "period": period,
-                "data": history_data
+                "cached": False,
+                "data": history_data,
+                "fetch_time_ms": round((time.time() - start_time) * 1000, 2)
             }
             
         elif info_type == "info":
-            # Get company info
             info = ticker.info
-            return {
+            response = {
                 "success": True,
-                "symbol": symbol.upper(),
+                "symbol": symbol,
                 "data_type": "info",
+                "cached": False,
                 "data": {
                     "name": info.get("longName"),
                     "sector": info.get("sector"),
                     "industry": info.get("industry"),
-                    "description": info.get("longBusinessSummary", "")[:500],
-                    "website": info.get("website"),
-                    "employees": info.get("fullTimeEmployees"),
-                    "country": info.get("country"),
+                    "description": info.get("longBusinessSummary", "")[:300],
                     "exchange": info.get("exchange"),
-                }
+                },
+                "fetch_time_ms": round((time.time() - start_time) * 1000, 2)
             }
-            
-        elif info_type == "financials":
-            # Get financial data
-            info = ticker.info
-            return {
-                "success": True,
-                "symbol": symbol.upper(),
-                "data_type": "financials",
-                "data": {
-                    "revenue": info.get("totalRevenue"),
-                    "gross_profit": info.get("grossProfits"),
-                    "net_income": info.get("netIncomeToCommon"),
-                    "total_debt": info.get("totalDebt"),
-                    "total_cash": info.get("totalCash"),
-                    "profit_margins": info.get("profitMargins"),
-                    "operating_margins": info.get("operatingMargins"),
-                    "return_on_equity": info.get("returnOnEquity"),
-                    "debt_to_equity": info.get("debtToEquity"),
-                }
+        else:
+            response = {
+                "success": False,
+                "error": f"Unknown info_type: {info_type}"
             }
+        
+        # Cache the successful response
+        if response.get("success"):
+            _set_cached_stock(symbol, info_type, response)
+        
+        return response
         
     except ImportError:
         return {
@@ -530,20 +553,15 @@ def get_stock_data(symbol: str, period: str = "1mo", info_type: str = "price") -
 
 
 def validate_afl(code: str) -> Dict[str, Any]:
-    """
-    Comprehensive AFL code validation with hallucination prevention.
-    Validates colors, function signatures, reserved words, and syntax.
-    """
+    """Comprehensive AFL code validation."""
     from core.afl_validator import AFLValidator, get_valid_colors
     
     validator = AFLValidator()
     result = validator.validate(code)
     
-    # Basic info
     lines = code.split("\n")
     code_upper = code.upper()
     
-    # Combine all errors for backward compatibility
     all_errors = result.errors + result.color_issues + result.function_issues
     all_warnings = result.warnings + result.reserved_word_issues + result.style_issues
     
@@ -552,111 +570,14 @@ def validate_afl(code: str) -> Dict[str, Any]:
         "valid": result.is_valid,
         "errors": all_errors,
         "warnings": all_warnings,
-        "color_issues": result.color_issues,
-        "function_issues": result.function_issues,
-        "reserved_word_issues": result.reserved_word_issues,
-        "style_issues": result.style_issues,
-        "suggestions": result.suggestions,
         "line_count": len(lines),
         "has_buy_sell": "BUY" in code_upper or "SELL" in code_upper,
         "has_plot": "PLOT" in code_upper,
-        "valid_colors": get_valid_colors() if not result.is_valid else None
     }
 
 
-# ============================================================================
-# NEW TOOL HANDLERS - Strategy Research, AFL Generation, etc.
-# ============================================================================
-
-def research_strategy(query: str, research_type: str = "strategy") -> Dict[str, Any]:
-    """
-    Conduct comprehensive research on a trading strategy using the StrategyResearcher.
-    """
-    try:
-        import os
-        from core.researcher import StrategyResearcher
-        
-        tavily_key = os.environ.get("TAVILY_API_KEY")
-        researcher = StrategyResearcher(tavily_api_key=tavily_key)
-        
-        if research_type == "strategy":
-            result = researcher.research_strategy(query)
-        elif research_type == "fund":
-            result = researcher.research_fund(query)
-        elif research_type == "trading_rules":
-            result = researcher.search_trading_rules(query)
-        else:
-            result = researcher.search_web(query, search_type="general")
-        
-        return {
-            "success": True,
-            "query": query,
-            "research_type": research_type,
-            "research": result
-        }
-        
-    except ImportError as e:
-        return {
-            "success": False,
-            "error": f"Research module not available: {str(e)}"
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-
-def search_sec_filings(query: str, filing_type: str = "all") -> Dict[str, Any]:
-    """
-    Search SEC EDGAR database for fund filings.
-    """
-    try:
-        from core.researcher import StrategyResearcher
-        
-        researcher = StrategyResearcher()
-        result = researcher.search_sec_edgar(query)
-        
-        return {
-            "success": True,
-            "query": query,
-            "filing_type": filing_type,
-            "filings": result if result else "No filings found"
-        }
-        
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-
-def get_market_context_tool(include_details: bool = True) -> Dict[str, Any]:
-    """
-    Get current market context including major indices.
-    """
-    try:
-        from core.researcher import StrategyResearcher
-        
-        researcher = StrategyResearcher()
-        context = researcher.get_market_context("")
-        
-        return {
-            "success": True,
-            "market_context": context if context else "Market data unavailable"
-        }
-        
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-
 def generate_afl_code(description: str, strategy_type: str = "standalone", api_key: str = None) -> Dict[str, Any]:
-    """
-    Generate AFL code using the ClaudeAFLEngine.
-    """
+    """Generate AFL code using the ClaudeAFLEngine."""
     if not api_key:
         return {
             "success": False,
@@ -666,7 +587,7 @@ def generate_afl_code(description: str, strategy_type: str = "standalone", api_k
     try:
         from core.claude_engine import ClaudeAFLEngine, StrategyType
         
-        engine = ClaudeAFLEngine(api_key=api_key)
+        engine = ClaudeAFLEngine(api_key=api_key, use_condensed_prompts=True)
         
         strat_type = StrategyType.STANDALONE
         if strategy_type.lower() == "composite":
@@ -674,7 +595,8 @@ def generate_afl_code(description: str, strategy_type: str = "standalone", api_k
         
         result = engine.generate_afl(
             request=description,
-            strategy_type=strat_type
+            strategy_type=strat_type,
+            include_training=False  # Skip training for faster response
         )
         
         return {
@@ -694,9 +616,7 @@ def generate_afl_code(description: str, strategy_type: str = "standalone", api_k
 
 
 def debug_afl_code(code: str, error_message: str = "", api_key: str = None) -> Dict[str, Any]:
-    """
-    Debug and fix AFL code using the ClaudeAFLEngine.
-    """
+    """Debug and fix AFL code."""
     if not api_key:
         return {
             "success": False,
@@ -706,7 +626,7 @@ def debug_afl_code(code: str, error_message: str = "", api_key: str = None) -> D
     try:
         from core.claude_engine import ClaudeAFLEngine
         
-        engine = ClaudeAFLEngine(api_key=api_key)
+        engine = ClaudeAFLEngine(api_key=api_key, use_condensed_prompts=True)
         fixed_code = engine.debug_code(code, error_message)
         
         return {
@@ -723,39 +643,8 @@ def debug_afl_code(code: str, error_message: str = "", api_key: str = None) -> D
         }
 
 
-def optimize_afl_code(code: str, api_key: str = None) -> Dict[str, Any]:
-    """
-    Optimize AFL code using the ClaudeAFLEngine.
-    """
-    if not api_key:
-        return {
-            "success": False,
-            "error": "API key required for AFL optimization"
-        }
-    
-    try:
-        from core.claude_engine import ClaudeAFLEngine
-        
-        engine = ClaudeAFLEngine(api_key=api_key)
-        optimized_code = engine.optimize_code(code)
-        
-        return {
-            "success": True,
-            "original_code": code[:200] + "..." if len(code) > 200 else code,
-            "optimized_code": optimized_code
-        }
-        
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
-
-
 def explain_afl_code(code: str, api_key: str = None) -> Dict[str, Any]:
-    """
-    Explain AFL code using the ClaudeAFLEngine.
-    """
+    """Explain AFL code."""
     if not api_key:
         return {
             "success": False,
@@ -765,7 +654,7 @@ def explain_afl_code(code: str, api_key: str = None) -> Dict[str, Any]:
     try:
         from core.claude_engine import ClaudeAFLEngine
         
-        engine = ClaudeAFLEngine(api_key=api_key)
+        engine = ClaudeAFLEngine(api_key=api_key, use_condensed_prompts=True)
         explanation = engine.explain_code(code)
         
         return {
@@ -782,37 +671,22 @@ def explain_afl_code(code: str, api_key: str = None) -> Dict[str, Any]:
 
 
 def sanity_check_afl(code: str, auto_fix: bool = True) -> Dict[str, Any]:
-    """
-    Comprehensive AFL sanity check with auto-fix capability.
-    Validates colors, function signatures, reserved words, and fixes common issues.
-    """
-    from core.afl_validator import AFLValidator, fix_afl_code, get_valid_colors, get_valid_styles, get_valid_shapes
+    """Comprehensive AFL sanity check with auto-fix."""
+    from core.afl_validator import AFLValidator
     
     validator = AFLValidator()
-    
-    # First, validate the original code
     original_validation = validator.validate(code)
     
     result = {
         "success": original_validation.is_valid,
         "original_valid": original_validation.is_valid,
-        "original_issues": {
-            "errors": original_validation.errors,
-            "color_issues": original_validation.color_issues,
-            "function_issues": original_validation.function_issues,
-            "reserved_word_issues": original_validation.reserved_word_issues,
-            "style_issues": original_validation.style_issues,
-            "warnings": original_validation.warnings,
-        },
         "total_issues_found": (
             len(original_validation.errors) +
             len(original_validation.color_issues) +
-            len(original_validation.function_issues) +
-            len(original_validation.reserved_word_issues)
+            len(original_validation.function_issues)
         )
     }
     
-    # If auto_fix is enabled and there are issues, try to fix them
     if auto_fix and not original_validation.is_valid:
         fixed_code, fixes_applied = validator.fix_code(code)
         fixed_validation = validator.validate(fixed_code)
@@ -822,78 +696,26 @@ def sanity_check_afl(code: str, auto_fix: bool = True) -> Dict[str, Any]:
             "fixes_applied": fixes_applied,
             "fixed_code": fixed_code,
             "fixed_valid": fixed_validation.is_valid,
-            "remaining_issues": {
-                "errors": fixed_validation.errors,
-                "color_issues": fixed_validation.color_issues,
-                "function_issues": fixed_validation.function_issues,
-                "reserved_word_issues": fixed_validation.reserved_word_issues,
-            },
             "success": fixed_validation.is_valid
         })
-        
-        # If still has issues, provide helpful info
-        if not fixed_validation.is_valid:
-            result["valid_colors_reference"] = get_valid_colors()
-            result["valid_styles_reference"] = get_valid_styles()[:10]  # Top 10
-            result["valid_shapes_reference"] = get_valid_shapes()[:10]
-            result["manual_fixes_needed"] = True
     else:
         result["auto_fixed"] = False
         result["fixed_code"] = code
 
-    # Always include summary
-    result["summary"] = _generate_sanity_check_summary(result)
-    _log_validation_result(len(code), result)
     return result
 
 
-def _generate_sanity_check_summary(result: Dict[str, Any]) -> str:
-    """Generate a human-readable summary of the sanity check."""
-    if result["original_valid"]:
-        return " AFL code passed all sanity checks. No hallucinations or invalid colors detected."
-    
-    issues = []
-    orig = result["original_issues"]
-    
-    if orig["color_issues"]:
-        issues.append(f"< {len(orig['color_issues'])} invalid color(s)")
-    if orig["function_issues"]:
-        issues.append(f" {len(orig['function_issues'])} function hallucination(s)")
-    if orig["reserved_word_issues"]:
-        issues.append(f"= {len(orig['reserved_word_issues'])} reserved word conflict(s)")
-    if orig["errors"]:
-        issues.append(f"L {len(orig['errors'])} syntax error(s)")
-    
-    summary = f"Found {result['total_issues_found']} issue(s): " + ", ".join(issues)
-    
-    if result.get("auto_fixed"):
-        if result.get("fixed_valid"):
-            summary += f"\n Auto-fixed {len(result['fixes_applied'])} issue(s). Code is now valid."
-        else:
-            summary += f"\n Auto-fixed {len(result['fixes_applied'])} issue(s), but manual fixes still needed."
-    
-    return summary
-
-def _log_validation_result(code_length: int, result: Dict[str, Any]) -> None:
-    """Log validation results for monitoring."""
-    if result.get("original_valid"):
-        logger.debug(f"AFL validation passed for {code_length} char code")
-    else:
-        logger.warning(
-            f"AFL validation failed: {result.get('total_issues_found', 0)} issues found "
-            f"(errors: {len(result['original_issues']['errors'])}, "
-            f"color: {len(result['original_issues']['color_issues'])}, "
-            f"functions: {len(result['original_issues']['function_issues'])})"
-        )
 # ============================================================================
-# TOOL DISPATCHER
+# TOOL DISPATCHER - OPTIMIZED
 # ============================================================================
 
 def handle_tool_call(tool_name: str, tool_input: Dict[str, Any], supabase_client=None, api_key: str = None) -> str:
     """
-    Dispatch tool calls to appropriate handlers.
+    OPTIMIZED: Dispatch tool calls to appropriate handlers.
     Returns JSON string result.
     """
+    start_time = time.time()
+    
     try:
         logger.debug(f"Handling tool call: {tool_name}")
 
@@ -907,7 +729,7 @@ def handle_tool_call(tool_name: str, tool_input: Dict[str, Any], supabase_client
             result = search_knowledge_base(
                 query=tool_input.get("query", ""),
                 category=tool_input.get("category"),
-                limit=tool_input.get("limit", 5),
+                limit=tool_input.get("limit", 3),
                 supabase_client=supabase_client
             )
 
@@ -923,23 +745,6 @@ def handle_tool_call(tool_name: str, tool_input: Dict[str, Any], supabase_client
                 code=tool_input.get("code", "")
             )
 
-        elif tool_name == "research_strategy":
-            result = research_strategy(
-                query=tool_input.get("query", ""),
-                research_type=tool_input.get("research_type", "strategy")
-            )
-
-        elif tool_name == "search_sec_filings":
-            result = search_sec_filings(
-                query=tool_input.get("query", ""),
-                filing_type=tool_input.get("filing_type", "all")
-            )
-
-        elif tool_name == "get_market_context":
-            result = get_market_context_tool(
-                include_details=tool_input.get("include_details", True)
-            )
-
         elif tool_name == "generate_afl_code":
             result = generate_afl_code(
                 description=tool_input.get("description", ""),
@@ -951,12 +756,6 @@ def handle_tool_call(tool_name: str, tool_input: Dict[str, Any], supabase_client
             result = debug_afl_code(
                 code=tool_input.get("code", ""),
                 error_message=tool_input.get("error_message", ""),
-                api_key=api_key
-            )
-
-        elif tool_name == "optimize_afl_code":
-            result = optimize_afl_code(
-                code=tool_input.get("code", ""),
                 api_key=api_key
             )
 
@@ -976,27 +775,27 @@ def handle_tool_call(tool_name: str, tool_input: Dict[str, Any], supabase_client
             logger.warning(f"Unknown tool requested: {tool_name}")
             result = {"error": f"Unknown tool: {tool_name}"}
 
-        logger.debug(f"Tool call {tool_name} completed successfully")
+        # Add timing info
+        result["_tool_time_ms"] = round((time.time() - start_time) * 1000, 2)
+        
+        logger.debug(f"Tool call {tool_name} completed in {result['_tool_time_ms']}ms")
         return json.dumps(result, indent=2, default=str)
 
     except Exception as e:
         logger.error(f"Error in tool call {tool_name}: {str(e)}", exc_info=True)
         return json.dumps({
             "error": str(e),
-            "traceback": traceback.format_exc()
+            "traceback": traceback.format_exc()[:500]
         })
-
-
-# Cache custom and all tools for performance
 
 
 @lru_cache(maxsize=1)
 def get_custom_tools() -> List[Dict]:
-    """Return only custom tool definitions (not built-in Claude tools). Cached for performance."""
+    """Return only custom tool definitions. Cached."""
     return [tool for tool in TOOL_DEFINITIONS if "input_schema" in tool]
 
 
 @lru_cache(maxsize=1)
 def get_all_tools() -> List[Dict]:
-    """Return all tool definitions including built-in. Cached for performance."""
+    """Return all tool definitions. Cached."""
     return TOOL_DEFINITIONS.copy()

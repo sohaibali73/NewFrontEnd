@@ -379,14 +379,13 @@ async def stream_message(
         api_keys: dict = Depends(get_user_api_keys),
 ):
     """
-    Stream a message response using Vercel AI SDK Data Stream Protocol.
+    OPTIMIZED: Stream a message response using Vercel AI SDK Data Stream Protocol.
     
-    This endpoint streams AI responses in real-time, supporting:
-    - Text streaming
-    - Tool calls (Generative UI)
-    - Tool results with component rendering
-    
-    Compatible with Vercel AI SDK's useChat hook.
+    Features:
+    - Fast text streaming with minimal latency
+    - Automatic knowledge base context injection
+    - Cached tool results for repeated queries
+    - Efficient tool handling
     """
     db = get_supabase()
 
@@ -397,7 +396,6 @@ async def stream_message(
     conversation_id = data.conversation_id
     
     if not conversation_id:
-        # Create new conversation with title from first message
         conv_result = db.table("conversations").insert({
             "user_id": user_id,
             "title": data.content[:50] + "..." if len(data.content) > 50 else data.content,
@@ -405,7 +403,6 @@ async def stream_message(
         }).execute()
         conversation_id = conv_result.data[0]["id"]
     else:
-        # Check if this is the first message in an existing conversation with default title
         conv_check = db.table("conversations").select("title").eq("id", conversation_id).execute()
         if conv_check.data:
             current_title = conv_check.data[0].get("title", "")
@@ -422,15 +419,35 @@ async def stream_message(
         "content": data.content,
     }).execute()
 
-    # Get conversation history
+    # Get conversation history (limit to last 10 for speed)
     history_result = db.table("messages").select("role, content").eq(
         "conversation_id", conversation_id
-    ).order("created_at").execute()
+    ).order("created_at").limit(20).execute()
 
-    history = [{"role": m["role"], "content": m["content"]} for m in history_result.data[:-1]]
+    history = [{"role": m["role"], "content": m["content"]} for m in history_result.data[:-1]][-10:]
+
+    # Pre-fetch knowledge base context for AFL-related queries
+    kb_context = ""
+    user_msg_lower = data.content.lower()
+    if any(kw in user_msg_lower for kw in ["afl", "trading", "strategy", "indicator", "backtest", "buy", "sell"]):
+        try:
+            kb_result = db.table("brain_documents").select(
+                "title, summary, raw_content"
+            ).limit(3).execute()
+            
+            if kb_result.data:
+                kb_snippets = []
+                for doc in kb_result.data:
+                    snippet = doc.get("summary", "") or doc.get("raw_content", "")[:300]
+                    if snippet:
+                        kb_snippets.append(f"- {doc['title']}: {snippet[:200]}")
+                if kb_snippets:
+                    kb_context = "\n\n## User's Knowledge Base (relevant documents):\n" + "\n".join(kb_snippets)
+        except Exception:
+            pass  # KB not available, continue without
 
     async def generate_stream():
-        """Generate the streaming response."""
+        """Generate the streaming response with optimizations."""
         encoder = VercelAIStreamEncoder()
         builder = GenerativeUIStreamBuilder()
         accumulated_content = ""
@@ -440,33 +457,28 @@ async def stream_message(
             import anthropic
             client = anthropic.Anthropic(api_key=api_keys["claude"])
 
-            # System prompt with tool awareness
+            # Optimized system prompt - concise but comprehensive
             system_prompt = f"""{get_base_prompt()}
 
 {get_chat_prompt()}
+{kb_context}
 
-## Available Tools
-You have access to powerful tools to help users:
+## Tools Available (use when helpful):
+- **get_stock_data**: Real-time stock prices (cached 5min)
+- **search_knowledge_base**: User's uploaded documents
+- **generate_afl_code**: Create AFL trading systems
+- **validate_afl/sanity_check_afl**: Verify AFL code
+- **execute_python**: Run calculations
 
-1. **Web Search** - Search the internet for real-time information, news, and data
-2. **Execute Python** - Run Python code for calculations, data analysis, and complex computations
-3. **Search Knowledge Base** - Search the user's uploaded documents and trading knowledge
-4. **Get Stock Data** - Fetch real-time and historical stock market data
-5. **Validate AFL** - Check AFL code for syntax errors before presenting it
-
-Use these tools proactively when they would help provide better answers.
-
-## Generative UI
-When generating code (React, AFL, charts), wrap them in proper code blocks so they can be rendered as interactive components.
-"""
+Be direct and helpful. Generate AFL code when asked."""
 
             messages = history + [{"role": "user", "content": data.content}]
             tools = get_all_tools()
 
-            # Stream the response
+            # Stream with reduced max_tokens for faster initial response
             with client.messages.stream(
                 model="claude-sonnet-4-20250514",
-                max_tokens=4096,
+                max_tokens=3000,
                 system=system_prompt,
                 messages=messages,
                 tools=tools,

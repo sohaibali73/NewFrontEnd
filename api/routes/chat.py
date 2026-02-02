@@ -288,17 +288,62 @@ Use these tools proactively when they would help provide better answers. For exa
             if hasattr(block, 'text'):
                 assistant_content += block.text
 
-        # Parse response for artifacts BEFORE saving
-        parsed_message = ArtifactParser.prepare_message_with_artifacts(assistant_content)
+        # Parse response for artifacts and build parts array (AI SDK style)
+        artifacts = ArtifactParser.extract_artifacts(assistant_content)
+        
+        # Build parts array following AI SDK Generative UI pattern
+        parts = []
+        last_index = 0
+        
+        for artifact in artifacts:
+            # Add text part before this artifact
+            if artifact['start'] > last_index:
+                text_content = assistant_content[last_index:artifact['start']].strip()
+                if text_content:
+                    parts.append({
+                        "type": "text",
+                        "text": text_content
+                    })
+            
+            # Add tool/artifact part with proper typing
+            artifact_type = artifact['type']
+            parts.append({
+                "type": f"tool-{artifact_type}",  # e.g., "tool-mermaid", "tool-react", "tool-code"
+                "state": "output-available",
+                "output": {
+                    "code": artifact['code'],
+                    "language": artifact.get('language', artifact_type),
+                    "id": artifact['id']
+                }
+            })
+            
+            last_index = artifact['end']
+        
+        # Add remaining text after last artifact
+        if last_index < len(assistant_content):
+            remaining_text = assistant_content[last_index:].strip()
+            if remaining_text:
+                parts.append({
+                    "type": "text",
+                    "text": remaining_text
+                })
+        
+        # If no artifacts found, entire content is text
+        if not artifacts:
+            parts.append({
+                "type": "text",
+                "text": assistant_content
+            })
 
-        # Save assistant message with artifact metadata
+        # Save assistant message with parts-based structure
         db.table("messages").insert({
             "conversation_id": conversation_id,
             "role": "assistant",
-            "content": parsed_message['text'],  # Text without code blocks
+            "content": assistant_content,  # Keep original for reference
             "metadata": {
-                "artifacts": parsed_message['artifacts'],  # Store artifacts separately
-                "has_artifacts": parsed_message['has_artifacts']
+                "parts": parts,  # AI SDK style parts array
+                "artifacts": artifacts,  # Legacy support
+                "has_artifacts": len(artifacts) > 0
             }
         }).execute()
 
@@ -307,13 +352,13 @@ Use these tools proactively when they would help provide better answers. For exa
             "updated_at": "now()",
         }).eq("id", conversation_id).execute()
 
-        # Return response with artifact data
+        # Return response with AI SDK style parts array
         return {
             "conversation_id": conversation_id,
-            "response": parsed_message['text'],
+            "response": assistant_content,  # Full content for backward compatibility
+            "parts": parts,  # AI SDK Generative UI parts array
             "tools_used": tools_used if tools_used else None,
-            "artifact": parsed_message['artifacts'][0] if parsed_message['artifacts'] else None,  # First artifact
-            "all_artifacts": parsed_message['artifacts'],  # All artifacts for history
+            "all_artifacts": artifacts,  # Legacy support
         }
 
     except Exception as e:

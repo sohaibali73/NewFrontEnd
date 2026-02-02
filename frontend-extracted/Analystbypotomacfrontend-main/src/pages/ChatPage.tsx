@@ -1,13 +1,53 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Send, Plus, MessageSquare, Paperclip, Copy, Check, Trash2, Clock, X, ChevronLeft, ChevronRight, Sparkles, Code, TrendingUp, Lightbulb } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Send, Plus, MessageSquare, Paperclip, Copy, Check, Trash2, Clock, X, ChevronLeft, ChevronRight, Sparkles, Code, TrendingUp, Lightbulb, Maximize2, Minimize2, Play } from 'lucide-react';
 import apiClient from '@/lib/api';
 import { Conversation, Message } from '@/types/api';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useResponsive } from '@/hooks/useResponsive';
+import mermaid from 'mermaid';
 
 // Import logo properly from assets
 import logo from 'figma:asset/5ce167767639106e26c3015beb74a7ba651e69bf.png';
+
+// Initialize mermaid
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'dark',
+  securityLevel: 'loose',
+  flowchart: {
+    useMaxWidth: true,
+    htmlLabels: true,
+    curve: 'basis',
+  },
+});
+
+// AI SDK style Part types for Generative UI
+interface TextPart {
+  type: 'text';
+  text: string;
+}
+
+interface ToolPart {
+  type: `tool-${'mermaid' | 'react' | 'html' | 'svg' | 'code' | 'afl'}`;
+  state: 'input-available' | 'output-available' | 'output-error';
+  output?: {
+    code: string;
+    language?: string;
+    id: string;
+  };
+  errorText?: string;
+}
+
+type MessagePart = TextPart | ToolPart;
+
+// Legacy Artifact types (for backward compatibility)
+interface Artifact {
+  type: 'mermaid' | 'react' | 'html' | 'svg' | 'code';
+  code: string;
+  language?: string;
+  id: string;
+}
 
 export function ChatPage() {
   const { resolvedTheme, accentColor } = useTheme();
@@ -123,7 +163,7 @@ export function ChatPage() {
     try {
       const apiResponse = await apiClient.sendMessage(userMessage, selectedConversation?.id);
       
-      // Remove optimistic message and add real messages
+      // Remove optimistic message and add real messages with AI SDK style parts
       setMessages(prev => {
         const filtered = prev.filter(m => m.id !== tempId);
         return [
@@ -142,6 +182,11 @@ export function ChatPage() {
             content: apiResponse.response,
             created_at: new Date().toISOString(),
             tools_used: apiResponse.tools_used || undefined,
+            metadata: {
+              parts: apiResponse.parts || [],  // AI SDK Generative UI parts
+              artifacts: apiResponse.all_artifacts || [],  // Legacy support
+              has_artifacts: (apiResponse.all_artifacts || []).length > 0,
+            },
           }
         ];
       });
@@ -293,17 +338,178 @@ export function ChatPage() {
     textareaRef.current?.focus();
   };
 
-  const renderMessageContent = (content: string | undefined | null, messageId: string) => {
+  // Mermaid diagram component
+  const MermaidDiagram: React.FC<{ code: string; id: string }> = ({ code, id }) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [rendered, setRendered] = useState(false);
+
+    useEffect(() => {
+      const renderDiagram = async () => {
+        if (containerRef.current && !rendered) {
+          try {
+            // Update mermaid theme based on current theme
+            mermaid.initialize({
+              startOnLoad: false,
+              theme: isDark ? 'dark' : 'default',
+              securityLevel: 'loose',
+              flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis',
+              },
+            });
+            
+            const { svg } = await mermaid.render(`mermaid-${id}`, code);
+            if (containerRef.current) {
+              containerRef.current.innerHTML = svg;
+              setRendered(true);
+            }
+          } catch (err) {
+            console.error('Mermaid render error:', err);
+            setError(err instanceof Error ? err.message : 'Failed to render diagram');
+          }
+        }
+      };
+      
+      renderDiagram();
+    }, [code, id, rendered, isDark]);
+
+    if (error) {
+      return (
+        <div style={{
+          backgroundColor: colors.codeBg,
+          borderRadius: '12px',
+          margin: '16px 0',
+          padding: '16px',
+          border: `1px solid ${colors.border}`,
+        }}>
+          <div style={{ color: '#EF4444', marginBottom: '8px', fontWeight: 600 }}>
+            Failed to render diagram
+          </div>
+          <pre style={{
+            fontFamily: "'Fira Code', monospace",
+            fontSize: '12px',
+            color: colors.textMuted,
+            whiteSpace: 'pre-wrap',
+          }}>
+            {code}
+          </pre>
+        </div>
+      );
+    }
+
+    return (
+      <div style={{
+        backgroundColor: colors.codeBg,
+        borderRadius: '12px',
+        margin: '16px 0',
+        overflow: 'hidden',
+        border: `1px solid ${colors.border}`,
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '10px 16px',
+          backgroundColor: isDark ? '#161B22' : '#e8e8e8',
+          borderBottom: `1px solid ${colors.border}`,
+        }}>
+          <span style={{
+            fontSize: '12px',
+            fontWeight: 600,
+            color: '#22C55E',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            fontFamily: "'Rajdhani', sans-serif",
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}>
+            <TrendingUp size={14} /> DIAGRAM
+          </span>
+          <button
+            onClick={() => handleCopyCode(code, `mermaid-${id}`)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              backgroundColor: copiedId === `mermaid-${id}` ? '#22C55E' : 'transparent',
+              border: `1px solid ${copiedId === `mermaid-${id}` ? '#22C55E' : colors.border}`,
+              borderRadius: '6px',
+              cursor: 'pointer',
+              color: copiedId === `mermaid-${id}` ? '#fff' : colors.textMuted,
+              fontSize: '12px',
+              fontWeight: 500,
+              transition: 'all 0.2s ease',
+            }}
+          >
+            {copiedId === `mermaid-${id}` ? <Check size={14} /> : <Copy size={14} />}
+            {copiedId === `mermaid-${id}` ? 'Copied!' : 'Copy Code'}
+          </button>
+        </div>
+        <div 
+          ref={containerRef}
+          style={{
+            padding: '20px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: '200px',
+            backgroundColor: isDark ? '#1a1a2e' : '#f8f9fa',
+          }}
+        >
+          {!rendered && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: colors.textMuted,
+            }}>
+              <div style={{
+                width: '20px',
+                height: '20px',
+                border: `2px solid ${colors.border}`,
+                borderTopColor: '#FEC00F',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite',
+              }} />
+              Rendering diagram...
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderMessageContent = (content: string | undefined | null, messageId: string, artifacts?: Artifact[]) => {
     if (!content) {
       return <span>No content</span>;
     }
     
-    const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
+    // Create a map of artifact types to their code for quick lookup
+    const artifactMap: { [key: string]: Artifact[] } = {};
+    if (artifacts && artifacts.length > 0) {
+      artifacts.forEach(artifact => {
+        if (!artifactMap[artifact.type]) {
+          artifactMap[artifact.type] = [];
+        }
+        artifactMap[artifact.type].push(artifact);
+      });
+    }
+    
+    // Track which artifact index we're on for each type
+    const artifactCounters: { [key: string]: number } = {};
+    
+    // Combined regex for both code blocks and artifact placeholders
+    const combinedRegex = /```(\w+)?\n([\s\S]*?)```|\[Artifact:\s*(\w+)\]/g;
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     let match;
 
-    while ((match = codeBlockRegex.exec(content)) !== null) {
+    while ((match = combinedRegex.exec(content)) !== null) {
+      // Add text before this match
       if (match.index > lastIndex) {
         const textContent = content.slice(lastIndex, match.index);
         parts.push(
@@ -313,75 +519,184 @@ export function ChatPage() {
         );
       }
 
-      const language = match[1] || 'code';
-      const code = match[2];
-      const codeId = `${messageId}-${match.index}`;
-      
-      parts.push(
-        <div
-          key={`code-${match.index}`}
-          style={{
-            backgroundColor: colors.codeBg,
-            borderRadius: '12px',
-            margin: '16px 0',
-            overflow: 'hidden',
-            border: `1px solid ${colors.border}`,
-          }}
-        >
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '10px 16px',
-            backgroundColor: isDark ? '#161B22' : '#e8e8e8',
-            borderBottom: `1px solid ${colors.border}`,
-          }}>
-            <span style={{
-              fontSize: '12px',
-              fontWeight: 600,
-              color: '#FEC00F',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              fontFamily: "'Rajdhani', sans-serif",
+      // Check if it's a code block (match[1] and match[2]) or artifact placeholder (match[3])
+      if (match[3]) {
+        // This is an artifact placeholder like [Artifact: mermaid]
+        const artifactType = match[3].toLowerCase();
+        const artifactIndex = artifactCounters[artifactType] || 0;
+        artifactCounters[artifactType] = artifactIndex + 1;
+        
+        // Look up the artifact code
+        const artifactList = artifactMap[artifactType];
+        if (artifactList && artifactList[artifactIndex]) {
+          const artifact = artifactList[artifactIndex];
+          const codeId = `${messageId}-artifact-${artifactIndex}`;
+          
+          if (artifactType === 'mermaid') {
+            parts.push(
+              <MermaidDiagram key={`mermaid-artifact-${match.index}`} code={artifact.code} id={codeId} />
+            );
+          } else {
+            // Render other artifact types as code blocks
+            parts.push(
+              <div
+                key={`artifact-${match.index}`}
+                style={{
+                  backgroundColor: colors.codeBg,
+                  borderRadius: '12px',
+                  margin: '16px 0',
+                  overflow: 'hidden',
+                  border: `1px solid ${colors.border}`,
+                }}
+              >
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 16px',
+                  backgroundColor: isDark ? '#161B22' : '#e8e8e8',
+                  borderBottom: `1px solid ${colors.border}`,
+                }}>
+                  <span style={{
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: '#FEC00F',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    fontFamily: "'Rajdhani', sans-serif",
+                  }}>
+                    {artifact.language || artifactType}
+                  </span>
+                  <button
+                    onClick={() => handleCopyCode(artifact.code, codeId)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 12px',
+                      backgroundColor: copiedId === codeId ? '#22C55E' : 'transparent',
+                      border: `1px solid ${copiedId === codeId ? '#22C55E' : colors.border}`,
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      color: copiedId === codeId ? '#fff' : colors.textMuted,
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    {copiedId === codeId ? <Check size={14} /> : <Copy size={14} />}
+                    {copiedId === codeId ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                <pre style={{
+                  margin: 0,
+                  padding: '16px',
+                  fontFamily: "'Fira Code', 'Monaco', monospace",
+                  fontSize: '13px',
+                  color: isDark ? '#e0e0e0' : '#333',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  lineHeight: 1.6,
+                  overflowX: 'auto',
+                }}>
+                  {artifact.code}
+                </pre>
+              </div>
+            );
+          }
+        } else {
+          // Artifact not found, show placeholder as text
+          parts.push(
+            <span key={`placeholder-${match.index}`} style={{ 
+              color: colors.textMuted, 
+              fontStyle: 'italic',
+              backgroundColor: colors.inputBg,
+              padding: '2px 8px',
+              borderRadius: '4px',
             }}>
-              {language}
+              [{artifactType} diagram]
             </span>
-            <button
-              onClick={() => handleCopyCode(code, codeId)}
+          );
+        }
+      } else {
+        // This is a code block
+        const language = match[1] || 'code';
+        const code = match[2];
+        const codeId = `${messageId}-${match.index}`;
+        
+        // Render Mermaid diagrams specially
+        if (language.toLowerCase() === 'mermaid') {
+          parts.push(
+            <MermaidDiagram key={`mermaid-${match.index}`} code={code} id={codeId} />
+          );
+        } else {
+          parts.push(
+            <div
+              key={`code-${match.index}`}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                backgroundColor: copiedId === codeId ? '#22C55E' : 'transparent',
-                border: `1px solid ${copiedId === codeId ? '#22C55E' : colors.border}`,
-                borderRadius: '6px',
-                cursor: 'pointer',
-                color: copiedId === codeId ? '#fff' : colors.textMuted,
-                fontSize: '12px',
-                fontWeight: 500,
-                transition: 'all 0.2s ease',
+                backgroundColor: colors.codeBg,
+                borderRadius: '12px',
+                margin: '16px 0',
+                overflow: 'hidden',
+                border: `1px solid ${colors.border}`,
               }}
             >
-              {copiedId === codeId ? <Check size={14} /> : <Copy size={14} />}
-              {copiedId === codeId ? 'Copied!' : 'Copy'}
-            </button>
-          </div>
-          <pre style={{
-            margin: 0,
-            padding: '16px',
-            fontFamily: "'Fira Code', 'Monaco', monospace",
-            fontSize: '13px',
-            color: isDark ? '#e0e0e0' : '#333',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            lineHeight: 1.6,
-            overflowX: 'auto',
-          }}>
-            {code}
-          </pre>
-        </div>
-      );
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '10px 16px',
+                backgroundColor: isDark ? '#161B22' : '#e8e8e8',
+                borderBottom: `1px solid ${colors.border}`,
+              }}>
+                <span style={{
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: '#FEC00F',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  fontFamily: "'Rajdhani', sans-serif",
+                }}>
+                  {language}
+                </span>
+                <button
+                  onClick={() => handleCopyCode(code, codeId)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    backgroundColor: copiedId === codeId ? '#22C55E' : 'transparent',
+                    border: `1px solid ${copiedId === codeId ? '#22C55E' : colors.border}`,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    color: copiedId === codeId ? '#fff' : colors.textMuted,
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {copiedId === codeId ? <Check size={14} /> : <Copy size={14} />}
+                  {copiedId === codeId ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+              <pre style={{
+                margin: 0,
+                padding: '16px',
+                fontFamily: "'Fira Code', 'Monaco', monospace",
+                fontSize: '13px',
+                color: isDark ? '#e0e0e0' : '#333',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                lineHeight: 1.6,
+                overflowX: 'auto',
+              }}>
+                {code}
+              </pre>
+            </div>
+          );
+        }
+      }
 
       lastIndex = match.index + match[0].length;
     }
@@ -408,6 +723,176 @@ export function ChatPage() {
     processedText = processedText.replace(/\n/g, '<br/>');
     
     return <span dangerouslySetInnerHTML={{ __html: processedText }} />;
+  };
+
+  // AI SDK style parts-based rendering (Generative UI pattern)
+  const renderMessageParts = (parts: MessagePart[], messageId: string) => {
+    return parts.map((part, index) => {
+      // Handle text parts
+      if (part.type === 'text') {
+        return (
+          <span key={`text-${index}`} style={{ whiteSpace: 'pre-wrap' }}>
+            {renderFormattedText(part.text)}
+          </span>
+        );
+      }
+
+      // Handle tool parts (Generative UI components)
+      if (part.type.startsWith('tool-')) {
+        const toolType = part.type.replace('tool-', '');
+        const toolPart = part as ToolPart;
+        
+        switch (toolPart.state) {
+          case 'input-available':
+            // Show loading state while tool is executing
+            return (
+              <div key={`tool-loading-${index}`} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '16px',
+                backgroundColor: colors.inputBg,
+                borderRadius: '12px',
+                margin: '16px 0',
+                border: `1px solid ${colors.border}`,
+              }}>
+                <div style={{
+                  width: '20px',
+                  height: '20px',
+                  border: `2px solid ${colors.border}`,
+                  borderTopColor: '#FEC00F',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                }} />
+                <span style={{ color: colors.textMuted }}>
+                  Generating {toolType}...
+                </span>
+              </div>
+            );
+          
+          case 'output-available':
+            // Render the appropriate component based on tool type
+            if (toolPart.output) {
+              const codeId = toolPart.output.id || `${messageId}-${index}`;
+              
+              // Mermaid diagrams
+              if (toolType === 'mermaid') {
+                return (
+                  <MermaidDiagram 
+                    key={`mermaid-${index}`} 
+                    code={toolPart.output.code} 
+                    id={codeId} 
+                  />
+                );
+              }
+              
+              // Code blocks (AFL, React, HTML, SVG, etc.)
+              return (
+                <div
+                  key={`code-${index}`}
+                  style={{
+                    backgroundColor: colors.codeBg,
+                    borderRadius: '12px',
+                    margin: '16px 0',
+                    overflow: 'hidden',
+                    border: `1px solid ${colors.border}`,
+                  }}
+                >
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 16px',
+                    backgroundColor: isDark ? '#161B22' : '#e8e8e8',
+                    borderBottom: `1px solid ${colors.border}`,
+                  }}>
+                    <span style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: toolType === 'afl' ? '#FEC00F' : '#60A5FA',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      fontFamily: "'Rajdhani', sans-serif",
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}>
+                      <Code size={14} /> {toolPart.output.language || toolType}
+                    </span>
+                    <button
+                      onClick={() => handleCopyCode(toolPart.output!.code, codeId)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        backgroundColor: copiedId === codeId ? '#22C55E' : 'transparent',
+                        border: `1px solid ${copiedId === codeId ? '#22C55E' : colors.border}`,
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        color: copiedId === codeId ? '#fff' : colors.textMuted,
+                        fontSize: '12px',
+                        fontWeight: 500,
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      {copiedId === codeId ? <Check size={14} /> : <Copy size={14} />}
+                      {copiedId === codeId ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                  <pre style={{
+                    margin: 0,
+                    padding: '16px',
+                    fontFamily: "'Fira Code', 'Monaco', monospace",
+                    fontSize: '13px',
+                    color: isDark ? '#e0e0e0' : '#333',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    lineHeight: 1.6,
+                    overflowX: 'auto',
+                  }}>
+                    {toolPart.output.code}
+                  </pre>
+                </div>
+              );
+            }
+            return null;
+          
+          case 'output-error':
+            // Show error state
+            return (
+              <div key={`tool-error-${index}`} style={{
+                padding: '16px',
+                backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)',
+                borderRadius: '12px',
+                margin: '16px 0',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+              }}>
+                <div style={{ 
+                  color: '#EF4444', 
+                  fontWeight: 600, 
+                  marginBottom: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}>
+                  ⚠️ Failed to generate {toolType}
+                </div>
+                {toolPart.errorText && (
+                  <div style={{ color: colors.textMuted, fontSize: '13px' }}>
+                    {toolPart.errorText}
+                  </div>
+                )}
+              </div>
+            );
+          
+          default:
+            return null;
+        }
+      }
+
+      return null;
+    });
   };
 
   return (
@@ -932,7 +1417,20 @@ export function ChatPage() {
                             fontSize: '15px',
                             lineHeight: 1.7,
                           }}>
-                            {renderMessageContent(message.content, message.id)}
+                            {/* AI SDK Generative UI: Use parts-based rendering when available */}
+                            {(message.metadata as { parts?: MessagePart[] })?.parts?.length ? (
+                              renderMessageParts(
+                                (message.metadata as { parts: MessagePart[] }).parts,
+                                message.id
+                              )
+                            ) : (
+                              // Fallback to legacy content rendering
+                              renderMessageContent(
+                                message.content, 
+                                message.id, 
+                                (message.metadata as { artifacts?: Artifact[] })?.artifacts
+                              )
+                            )}
                           </div>
                           
                           {/* Tool Usage Badges */}

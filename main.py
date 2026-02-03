@@ -38,6 +38,7 @@ app.add_middleware(
 ROUTERS = [
     ("api.routes.auth", "auth_router", "auth"),
     ("api.routes.chat", "chat_router", "chat"),
+    ("api.routes.ai", "ai_router", "ai"),  # New Vercel AI SDK compatible routes
     ("api.routes.afl", "afl_router", "afl"),
     ("api.routes.reverse_engineer", "re_router", "reverse_engineer"),
     ("api.routes.brain", "brain_router", "brain"),

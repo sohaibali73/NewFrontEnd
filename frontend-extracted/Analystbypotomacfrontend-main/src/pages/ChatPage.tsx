@@ -1652,8 +1652,8 @@ export function ChatPage() {
                             lineHeight: 1.7,
                           }}>
                             {/* AI SDK Generative UI: Use parts-based rendering when available */}
-                            {(message.metadata as { parts?: MessagePart[]; isStreaming?: boolean })?.isStreaming ? (
-                              // Show loading dots while streaming
+                            {(message.metadata as { parts?: MessagePart[]; isStreaming?: boolean })?.isStreaming && !message.content ? (
+                              // Show loading dots ONLY while streaming AND no content yet
                               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                 {[0, 1, 2].map((i) => (
                                   <div
@@ -1680,7 +1680,10 @@ export function ChatPage() {
                                 message.id, 
                                 (message.metadata as { artifacts?: Artifact[] })?.artifacts
                               )
-                            ) : null}
+                            ) : (
+                              // If no content and not streaming, show nothing (not "No content")
+                              null
+                            )}
                           </div>
                           
                           {/* Tool Usage Badges */}

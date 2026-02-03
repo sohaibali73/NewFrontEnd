@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     anthropic_api_key: str = "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"
     tavily_api_key: str = ""
     
+    # Vercel AI Gateway (optional - falls back to direct Anthropic API)
+    vercel_ai_gateway_url: str = ""  # e.g., "https://gateway.ai.vercel.app/v1"
+    
+    # Default AI model
+    default_ai_model: str = "claude-sonnet-4-20250514"
+    
     # Researcher tool API keys
     finnhub_api_key: str = "d5ron0pr01qj5oil831gd5ron0pr01qj5oil8320"
     fred_api_key: str = "816c11e0be7c37119557a6e09de63de5"

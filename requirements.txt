@@ -5,6 +5,7 @@ gunicorn
 
 # AI
 anthropic
+httpx  # For Vercel AI Gateway async HTTP client
 
 # Database
 supabase

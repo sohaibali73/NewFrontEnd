@@ -1,5 +1,7 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import {
   Code2,
   MessageCircle,
@@ -9,11 +11,11 @@ import {
   ArrowRight,
   Sparkles,
 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/src/contexts/AuthContext';
+import { useTheme } from '@/src/contexts/ThemeContext';
 
-export function DashboardPage() {
-  const navigate = useNavigate();
+export default function DashboardPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { resolvedTheme } = useTheme();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -119,7 +121,7 @@ export function DashboardPage() {
             Your AI-powered AFL code generation and trading strategy platform
           </p>
           <button
-            onClick={() => navigate('/afl-generator')}
+            onClick={() => router.push('/afl-generator')}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -186,7 +188,7 @@ export function DashboardPage() {
               return (
                 <div
                   key={feature.href}
-                  onClick={() => navigate(feature.href)}
+                  onClick={() => router.push(feature.href)}
                   style={{
                     backgroundColor: colors.cardBg,
                     border: `1px solid ${colors.border}`,

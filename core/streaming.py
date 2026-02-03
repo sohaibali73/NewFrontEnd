@@ -1,357 +1,508 @@
 """
-Vercel AI SDK Streaming Support
+Streaming utilities for Vercel AI SDK
+=====================================
+Implements the AI SDK Data Stream Protocol for real-time responses.
 
-This module implements the Vercel AI SDK Data Stream Protocol for streaming
-AI responses with support for:
-- Text streaming
-- Tool calls (Generative UI)
-- Tool results
-- Finish signals
+This module provides two streaming encoders:
+1. VercelAIStreamEncoder - Legacy SSE format (for existing /chat endpoints)
+2. VercelAIStreamProtocol - Native AI SDK Data Stream Protocol (new /api/ai endpoints)
 
-Protocol reference: https://sdk.vercel.ai/docs/ai-sdk-ui/stream-protocol
+See: https://sdk.vercel.ai/docs/ai-sdk-ui/stream-protocol
 """
 
 import json
-import asyncio
-from typing import AsyncGenerator, Dict, Any, List, Optional
-from enum import Enum
-from dataclasses import dataclass, asdict
-import uuid
+import logging
+from typing import Dict, Any, AsyncGenerator, Optional, List
+from anthropic import Anthropic
+
+logger = logging.getLogger(__name__)
 
 
-class StreamPartType(Enum):
-    """Vercel AI SDK stream part types."""
-    TEXT = "0"           # Text delta
-    TOOL_CALL = "9"      # Tool call (start)
-    TOOL_RESULT = "a"    # Tool result
-    DATA = "2"           # Custom data
-    ERROR = "3"          # Error
-    FINISH_MESSAGE = "d" # Finish message with metadata
-    FINISH_STEP = "e"    # Finish step
-
-
-@dataclass
-class ToolCall:
-    """Represents a tool call in progress."""
-    tool_call_id: str
-    tool_name: str
-    args: Dict[str, Any]
-    state: str = "partial-call"  # partial-call, call, result
-
-
-@dataclass
-class ToolResult:
-    """Represents a tool call result."""
-    tool_call_id: str
-    result: Any
-
+# ============================================================================
+# AI SDK Data Stream Protocol Encoder (Recommended for new integrations)
+# ============================================================================
 
 class VercelAIStreamEncoder:
-    """Encodes responses in Vercel AI SDK Data Stream Protocol format."""
+    """
+    Encode responses for Vercel AI SDK Data Stream Protocol.
+    
+    This is the format expected by useChat() and useCompletion() hooks.
+    Format: {type}:{JSON value}\n
+    
+    Type codes:
+    - 0: Text delta
+    - 2: Data array (custom data)
+    - 3: Error
+    - 7: Tool call streaming start
+    - 8: Tool call argument delta  
+    - 9: Complete tool call
+    - a: Tool result
+    - d: Finish message
+    - e: Finish step
+    - f: Start step
+    """
     
     @staticmethod
     def encode_text(text: str) -> str:
-        """Encode a text chunk."""
+        """
+        Encode text delta using AI SDK Data Stream Protocol.
+        
+        Args:
+            text: Text content to stream
+            
+        Returns:
+            Data stream protocol formatted string
+        """
+        if not text:
+            return ""
         return f"0:{json.dumps(text)}\n"
     
     @staticmethod
-    def encode_tool_call(tool_call_id: str, tool_name: str, args: Dict[str, Any]) -> str:
-        """Encode a tool call."""
-        data = {
-            "toolCallId": tool_call_id,
-            "toolName": tool_name,
-            "args": args
-        }
-        return f"9:{json.dumps(data)}\n"
+    def encode_tool_call(tool_id: str, tool_name: str, tool_input: Dict[str, Any]) -> str:
+        """
+        Encode complete tool call.
+        
+        Args:
+            tool_id: Unique ID for this tool call
+            tool_name: Name of the tool being called
+            tool_input: Input parameters for the tool
+            
+        Returns:
+            Data stream protocol formatted string
+        """
+        return f"9:{json.dumps({'toolCallId': tool_id, 'toolName': tool_name, 'args': tool_input})}\n"
     
     @staticmethod
-    def encode_tool_result(tool_call_id: str, result: Any) -> str:
-        """Encode a tool result."""
-        data = {
-            "toolCallId": tool_call_id,
-            "result": result
-        }
-        return f"a:{json.dumps(data)}\n"
+    def encode_tool_call_start(tool_id: str, tool_name: str) -> str:
+        """
+        Signal start of streaming tool call.
+        
+        Args:
+            tool_id: Unique ID for this tool call
+            tool_name: Name of the tool
+            
+        Returns:
+            Data stream protocol formatted string
+        """
+        return f"7:{json.dumps({'toolCallId': tool_id, 'toolName': tool_name})}\n"
+    
+    @staticmethod
+    def encode_tool_call_delta(tool_id: str, args_delta: str) -> str:
+        """
+        Stream tool call argument delta.
+        
+        Args:
+            tool_id: ID of the tool call
+            args_delta: JSON string delta for arguments
+            
+        Returns:
+            Data stream protocol formatted string
+        """
+        return f"8:{json.dumps({'toolCallId': tool_id, 'argsTextDelta': args_delta})}\n"
+    
+    @staticmethod
+    def encode_tool_result(tool_id: str, result: str) -> str:
+        """
+        Encode tool result.
+        
+        Args:
+            tool_id: ID of the tool call
+            result: Result from tool execution (string or JSON string)
+            
+        Returns:
+            Data stream protocol formatted string
+        """
+        return f"a:{json.dumps({'toolCallId': tool_id, 'result': result})}\n"
     
     @staticmethod
     def encode_data(data: Any) -> str:
-        """Encode custom data."""
-        return f"2:{json.dumps([data])}\n"
+        """
+        Encode custom data (sent as array).
+        
+        Args:
+            data: Data to send (will be wrapped in array if not already)
+            
+        Returns:
+            Data stream protocol formatted string
+        """
+        if not isinstance(data, list):
+            data = [data]
+        return f"2:{json.dumps(data)}\n"
     
     @staticmethod
-    def encode_error(error: str) -> str:
-        """Encode an error."""
-        return f"3:{json.dumps(error)}\n"
+    def encode_error(error_message: str) -> str:
+        """
+        Encode error message.
+        
+        Args:
+            error_message: Error description
+            
+        Returns:
+            Data stream protocol formatted string
+        """
+        return f"3:{json.dumps(error_message)}\n"
     
     @staticmethod
     def encode_finish_message(
-        finish_reason: str = "stop",
-        usage: Optional[Dict[str, int]] = None
+        stop_reason: str = "stop",
+        usage: Optional[Dict[str, int]] = None,
+        is_continued: bool = False
     ) -> str:
-        """Encode finish message with metadata."""
-        data = {
-            "finishReason": finish_reason,
-            "usage": usage or {"promptTokens": 0, "completionTokens": 0}
+        """
+        Encode finish message with reason and usage.
+        
+        Args:
+            stop_reason: Why the response stopped (stop, tool-calls, length, error)
+            usage: Token usage data with promptTokens and completionTokens
+            is_continued: Whether more content will follow
+            
+        Returns:
+            Data stream protocol formatted string
+        """
+        payload = {
+            "finishReason": stop_reason,
+            "usage": usage or {"promptTokens": 0, "completionTokens": 0},
+            "isContinued": is_continued
         }
-        return f"d:{json.dumps(data)}\n"
+        return f"d:{json.dumps(payload)}\n"
     
     @staticmethod
     def encode_finish_step(
-        finish_reason: str = "stop",
-        is_continue: bool = False
-    ) -> str:
-        """Encode finish step."""
-        data = {
-            "finishReason": finish_reason,
-            "isContinued": is_continue
-        }
-        return f"e:{json.dumps(data)}\n"
-
-
-class GenerativeUIStreamBuilder:
-    """Builds streaming responses with Generative UI tool parts."""
-    
-    def __init__(self):
-        self.encoder = VercelAIStreamEncoder()
-        self.tool_calls: List[ToolCall] = []
-        self.accumulated_text = ""
-        
-    def add_text(self, text: str) -> str:
-        """Add text to the stream."""
-        self.accumulated_text += text
-        return self.encoder.encode_text(text)
-    
-    def start_tool_call(self, tool_name: str, args: Dict[str, Any]) -> tuple[str, str]:
-        """
-        Start a tool call (for Generative UI component rendering).
-        Returns the encoded string and the tool_call_id.
-        """
-        tool_call_id = f"call_{uuid.uuid4().hex[:12]}"
-        tool_call = ToolCall(
-            tool_call_id=tool_call_id,
-            tool_name=tool_name,
-            args=args,
-            state="call"
-        )
-        self.tool_calls.append(tool_call)
-        return self.encoder.encode_tool_call(tool_call_id, tool_name, args), tool_call_id
-    
-    def complete_tool_call(self, tool_call_id: str, result: Any) -> str:
-        """Complete a tool call with its result."""
-        # Update state
-        for tc in self.tool_calls:
-            if tc.tool_call_id == tool_call_id:
-                tc.state = "result"
-                break
-        return self.encoder.encode_tool_result(tool_call_id, result)
-    
-    def add_generative_ui_component(
-        self, 
-        component_type: str, 
-        code: str, 
-        language: str = None,
-        component_id: str = None
+        stop_reason: str = "stop",
+        usage: Optional[Dict[str, int]] = None,
+        is_continued: bool = False
     ) -> str:
         """
-        Add a Generative UI component (rendered as tool result).
+        Encode finish step (for multi-step tool use).
         
         Args:
-            component_type: Type of component (react, mermaid, chart, code, etc.)
-            code: The code/content for the component
-            language: Optional language for code blocks
-            component_id: Optional unique ID for the component
-        
+            stop_reason: Why the step stopped
+            usage: Token usage data
+            is_continued: Whether more steps will follow
+            
         Returns:
-            Encoded stream data for the component
+            Data stream protocol formatted string
         """
-        tool_call_id = f"call_{uuid.uuid4().hex[:12]}"
-        component_id = component_id or f"artifact_{uuid.uuid4().hex[:8]}"
-        
-        # Encode as tool call with component type
-        tool_name = f"render_{component_type}"
-        args = {
-            "code": code,
-            "language": language or component_type,
-            "id": component_id
+        payload = {
+            "finishReason": stop_reason,
+            "usage": usage or {"promptTokens": 0, "completionTokens": 0},
+            "isContinued": is_continued
         }
-        
-        # Send tool call start
-        call_data = self.encoder.encode_tool_call(tool_call_id, tool_name, args)
-        
-        # Immediately send tool result (component is ready)
-        result_data = self.encoder.encode_tool_result(tool_call_id, {
-            "type": f"tool-{component_type}",
-            "state": "output-available",
-            "output": {
-                "code": code,
-                "language": language or component_type,
-                "id": component_id
-            }
-        })
-        
-        return call_data + result_data
+        return f"e:{json.dumps(payload)}\n"
     
-    def finish(self, finish_reason: str = "stop", usage: Dict[str, int] = None) -> str:
-        """Finish the stream."""
-        return self.encoder.encode_finish_message(finish_reason, usage)
+    @staticmethod
+    def encode_start_step(message_id: str) -> str:
+        """
+        Signal start of a new step.
+        
+        Args:
+            message_id: Unique message identifier
+            
+        Returns:
+            Data stream protocol formatted string
+        """
+        return f"f:{json.dumps({'messageId': message_id})}\n"
 
+
+# ============================================================================
+# Generative UI Stream Builder
+# ============================================================================
+
+class GenerativeUIStreamBuilder:
+    """
+    Build streaming Generative UI components.
+    
+    Supports streaming React components, charts, diagrams, and other
+    interactive elements that can be rendered by the frontend.
+    """
+    
+    @staticmethod
+    def add_generative_ui_component(
+        component_type: str,
+        code: str,
+        language: str = "jsx",
+        component_id: Optional[str] = None,
+        props: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Add a UI component to the stream.
+        
+        Args:
+            component_type: Type of component (react, chart, mermaid, html, svg)
+            code: Component code/content
+            language: Language for syntax highlighting
+            component_id: Unique component identifier
+            props: Additional component properties
+            
+        Returns:
+            Data stream protocol formatted string with component data
+        """
+        component_data = [{
+            "type": "artifact",
+            "artifactType": component_type,
+            "id": component_id or f"ui_{hash(code) % 100000}",
+            "language": language,
+            "content": code,
+            "props": props or {}
+        }]
+        return f"2:{json.dumps(component_data)}\n"
+    
+    @staticmethod
+    def add_react_component(
+        code: str,
+        component_name: str = "Component",
+        component_id: Optional[str] = None
+    ) -> str:
+        """Add a React component artifact."""
+        return GenerativeUIStreamBuilder.add_generative_ui_component(
+            component_type="react",
+            code=code,
+            language="jsx",
+            component_id=component_id,
+            props={"name": component_name}
+        )
+    
+    @staticmethod
+    def add_chart(
+        data: List[Dict],
+        chart_type: str = "line",
+        title: Optional[str] = None,
+        config: Optional[Dict] = None
+    ) -> str:
+        """Add a chart component."""
+        chart_data = [{
+            "type": "component",
+            "componentType": "chart",
+            "chartType": chart_type,
+            "data": data,
+            "title": title,
+            "config": config or {}
+        }]
+        return f"2:{json.dumps(chart_data)}\n"
+    
+    @staticmethod
+    def add_mermaid_diagram(code: str, title: Optional[str] = None) -> str:
+        """Add a Mermaid diagram."""
+        return GenerativeUIStreamBuilder.add_generative_ui_component(
+            component_type="mermaid",
+            code=code,
+            language="mermaid",
+            props={"title": title}
+        )
+    
+    @staticmethod
+    def add_code_block(
+        code: str,
+        language: str,
+        title: Optional[str] = None,
+        artifact_id: Optional[str] = None
+    ) -> str:
+        """Add a syntax-highlighted code block."""
+        return GenerativeUIStreamBuilder.add_generative_ui_component(
+            component_type="code",
+            code=code,
+            language=language,
+            component_id=artifact_id,
+            props={"title": title, "showLineNumbers": True}
+        )
+
+
+# ============================================================================
+# Claude Streaming Helper
+# ============================================================================
 
 async def stream_claude_response(
-    client,
-    messages: List[Dict[str, Any]],
+    client: Anthropic,
+    model: str,
     system_prompt: str,
-    tools: List[Dict] = None,
-    model: str = "claude-sonnet-4-20250514",
+    messages: list,
+    tools: Optional[list] = None,
     max_tokens: int = 4096,
-    on_tool_call: callable = None
 ) -> AsyncGenerator[str, None]:
     """
-    Stream Claude response in Vercel AI SDK format.
+    Stream a chat response from Anthropic API using AI SDK Data Stream Protocol.
     
     Args:
         client: Anthropic client
-        messages: Conversation messages
-        system_prompt: System prompt
-        tools: Available tools
         model: Model to use
-        max_tokens: Maximum tokens
-        on_tool_call: Callback for tool calls
+        system_prompt: System instructions
+        messages: Message history
+        tools: Available tools (optional)
+        max_tokens: Maximum tokens in response
         
     Yields:
-        Vercel AI SDK formatted stream chunks
+        AI SDK Data Stream Protocol formatted strings
     """
-    builder = GenerativeUIStreamBuilder()
     encoder = VercelAIStreamEncoder()
     
     try:
-        # Create streaming message
-        with client.messages.stream(
-            model=model,
-            max_tokens=max_tokens,
-            system=system_prompt,
-            messages=messages,
-            tools=tools or [],
-        ) as stream:
-            current_text = ""
-            pending_tool_calls = []
+        # Build request
+        request_kwargs = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": system_prompt,
+            "messages": messages,
+        }
+        
+        if tools:
+            request_kwargs["tools"] = tools
+        
+        # Stream response using sync client with streaming
+        with client.messages.stream(**request_kwargs) as stream:
+            accumulated_content = ""
+            current_tool = None
             
             for event in stream:
+                # Handle content block start
                 if event.type == "content_block_start":
-                    if hasattr(event.content_block, 'type'):
+                    if hasattr(event.content_block, "type"):
                         if event.content_block.type == "tool_use":
-                            # Start of tool call
-                            pending_tool_calls.append({
+                            current_tool = {
                                 "id": event.content_block.id,
                                 "name": event.content_block.name,
                                 "input": ""
-                            })
-                            
+                            }
+                            yield encoder.encode_tool_call_start(
+                                current_tool["id"],
+                                current_tool["name"]
+                            )
+                
+                # Handle content block delta
                 elif event.type == "content_block_delta":
-                    if hasattr(event.delta, 'type'):
+                    if hasattr(event.delta, "type"):
                         if event.delta.type == "text_delta":
-                            # Stream text
                             text = event.delta.text
-                            current_text += text
+                            accumulated_content += text
                             yield encoder.encode_text(text)
-                            
+                        
                         elif event.delta.type == "input_json_delta":
-                            # Accumulate tool input
-                            if pending_tool_calls:
-                                pending_tool_calls[-1]["input"] += event.delta.partial_json
-                                
+                            if current_tool:
+                                delta = event.delta.partial_json
+                                current_tool["input"] += delta
+                                yield encoder.encode_tool_call_delta(
+                                    current_tool["id"],
+                                    delta
+                                )
+                
+                # Handle content block stop
                 elif event.type == "content_block_stop":
-                    # Check if we completed a tool call
-                    if pending_tool_calls:
-                        tool_call = pending_tool_calls[-1]
+                    if current_tool and current_tool.get("input"):
+                        # Emit complete tool call
                         try:
-                            tool_input = json.loads(tool_call["input"]) if tool_call["input"] else {}
+                            args = json.loads(current_tool["input"])
                         except json.JSONDecodeError:
-                            tool_input = {}
+                            args = {}
                         
-                        tool_call_id = tool_call["id"]
-                        tool_name = tool_call["name"]
-                        
-                        # Encode tool call
-                        yield encoder.encode_tool_call(tool_call_id, tool_name, tool_input)
-                        
-                        # Handle tool call if callback provided
-                        if on_tool_call:
-                            result = await on_tool_call(tool_name, tool_input)
-                            yield encoder.encode_tool_result(tool_call_id, result)
-                        
-                        pending_tool_calls.pop()
-                        
-                elif event.type == "message_stop":
-                    # Message complete
-                    pass
+                        yield encoder.encode_tool_call(
+                            current_tool["id"],
+                            current_tool["name"],
+                            args
+                        )
+                        current_tool = None
             
             # Get final message for usage stats
             final_message = stream.get_final_message()
             usage = {
-                "promptTokens": final_message.usage.input_tokens if final_message else 0,
-                "completionTokens": final_message.usage.output_tokens if final_message else 0
+                "promptTokens": final_message.usage.input_tokens,
+                "completionTokens": final_message.usage.output_tokens,
             }
             
-            # Send finish
-            yield encoder.encode_finish_message("stop", usage)
+            # Determine finish reason
+            finish_reason = "stop"
+            if final_message.stop_reason == "tool_use":
+                finish_reason = "tool-calls"
+            elif final_message.stop_reason == "max_tokens":
+                finish_reason = "length"
             
+            yield encoder.encode_finish_message(finish_reason, usage)
+        
     except Exception as e:
+        logger.error(f"Streaming error: {e}", exc_info=True)
         yield encoder.encode_error(str(e))
-        yield encoder.encode_finish_message("error")
 
 
 async def stream_with_artifacts(
-    response_text: str,
-    artifacts: List[Dict[str, Any]]
+    client: Anthropic,
+    model: str,
+    system_prompt: str,
+    messages: list,
+    tools: Optional[list] = None,
+    max_tokens: int = 4096,
 ) -> AsyncGenerator[str, None]:
     """
-    Stream a pre-generated response with artifacts in Vercel AI SDK format.
+    Stream response with automatic artifact detection and streaming.
+    
+    Detects code artifacts (React, Mermaid, etc.) in the response and
+    streams them as Generative UI components.
     
     Args:
-        response_text: The text response (may contain artifact placeholders)
-        artifacts: List of artifacts to stream as UI components
+        client: Anthropic client
+        model: Model to use
+        system_prompt: System instructions
+        messages: Message history
+        tools: Available tools (optional)
+        max_tokens: Maximum tokens in response
         
     Yields:
-        Vercel AI SDK formatted stream chunks
+        AI SDK Data Stream Protocol formatted strings including artifacts
     """
+    from core.artifact_parser import ArtifactParser
+    
     encoder = VercelAIStreamEncoder()
-    builder = GenerativeUIStreamBuilder()
+    ui_builder = GenerativeUIStreamBuilder()
+    accumulated_content = ""
     
-    # Track artifact positions
-    artifact_map = {a['id']: a for a in artifacts}
-    
-    # Simple approach: stream text, then stream artifacts
-    # For a more sophisticated approach, parse and interleave
-    
-    # Stream the text content
-    # Remove artifact code blocks from text for cleaner streaming
-    import re
-    clean_text = re.sub(r'```\w*\n.*?```', '[ARTIFACT]', response_text, flags=re.DOTALL)
-    
-    # Stream text in chunks
-    chunk_size = 50  # Characters per chunk
-    for i in range(0, len(clean_text), chunk_size):
-        chunk = clean_text[i:i + chunk_size]
-        yield encoder.encode_text(chunk)
-        await asyncio.sleep(0.01)  # Small delay for realistic streaming
-    
-    yield encoder.encode_text("\n\n")
-    
-    # Stream artifacts as tool results (Generative UI components)
-    for artifact in artifacts:
-        artifact_type = artifact.get('type', 'code')
-        code = artifact.get('code', '')
-        language = artifact.get('language', artifact_type)
-        artifact_id = artifact.get('id', f"artifact_{uuid.uuid4().hex[:8]}")
+    try:
+        request_kwargs = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": system_prompt,
+            "messages": messages,
+        }
         
-        # Create tool call for the artifact
-        yield builder.add_generative_ui_component(
-            component_type=artifact_type,
-            code=code,
-            language=language,
-            component_id=artifact_id
-        )
-        await asyncio.sleep(0.05)
-    
-    # Finish
-    yield encoder.encode_finish_message("stop")
+        if tools:
+            request_kwargs["tools"] = tools
+        
+        with client.messages.stream(**request_kwargs) as stream:
+            for event in stream:
+                if event.type == "content_block_delta":
+                    if hasattr(event.delta, "type") and event.delta.type == "text_delta":
+                        text = event.delta.text
+                        accumulated_content += text
+                        yield encoder.encode_text(text)
+            
+            # Get final message
+            final_message = stream.get_final_message()
+            usage = {
+                "promptTokens": final_message.usage.input_tokens,
+                "completionTokens": final_message.usage.output_tokens,
+            }
+        
+        # Detect and stream artifacts
+        artifacts = ArtifactParser.extract_artifacts(accumulated_content)
+        
+        for artifact in artifacts:
+            artifact_type = artifact.get('type', 'code')
+            code = artifact.get('code', '')
+            language = artifact.get('language', artifact_type)
+            
+            if artifact_type == 'react' or language in ['jsx', 'tsx']:
+                yield ui_builder.add_react_component(
+                    code=code,
+                    component_name=artifact.get('id', 'Component'),
+                    component_id=artifact.get('id')
+                )
+            elif artifact_type == 'mermaid':
+                yield ui_builder.add_mermaid_diagram(code)
+            else:
+                yield ui_builder.add_code_block(
+                    code=code,
+                    language=language,
+                    artifact_id=artifact.get('id')
+                )
+        
+        yield encoder.encode_finish_message("stop", usage)
+        
+    except Exception as e:
+        logger.error(f"Streaming with artifacts error: {e}", exc_info=True)
+        yield encoder.encode_error(str(e))

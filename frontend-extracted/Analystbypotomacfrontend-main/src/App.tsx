@@ -21,6 +21,8 @@ import { CompanyResearch } from './pages/CompanyResearchPage';
 import { StrategyAnalysis } from './pages/StrategyAnalysis';
 import { PeerComparison } from './pages/PeerComparison';
 import TrainingPage from './pages/TrainingPage';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+
 
 function App() {
   return (

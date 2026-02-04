@@ -754,6 +754,8 @@ export const api = {
     getMessages: (conversationId: string) => apiClient.getMessages(conversationId),
     deleteConversation: (conversationId: string) => apiClient.deleteConversation(conversationId),
     sendMessage: (content: string, conversationId?: string) => apiClient.sendMessage(content, conversationId),
+    sendMessageStream: (content: string, conversationId?: string, options?: any) => apiClient.sendMessageStream(content, conversationId, options),
+    getStreamEndpoint: () => apiClient.getStreamEndpoint(),
     getTools: () => apiClient.getChatTools(),
   },
   brain: {

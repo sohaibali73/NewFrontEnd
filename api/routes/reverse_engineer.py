@@ -635,8 +635,18 @@ Production-ready AFL code with all sections."""
                 "schematic": schematic_data,
                 "timestamp": datetime.utcnow().isoformat(),
             }).execute()
+            logger.info(f"Reverse engineer history saved successfully for user {user_id}")
         except Exception as e:
-            logger.warning(f"Failed to save reverse engineer history: {e}")
+            error_detail = str(e)
+            if "PGRST205" in error_detail:
+                logger.error(
+                    f"reverse_engineer_history table not found in database. "
+                    f"Run migration 004_history_tables_FIXED.sql in Supabase. Error: {error_detail}"
+                )
+            elif "violates foreign key constraint" in error_detail:
+                logger.error(f"User {user_id} not found in users table. Error: {error_detail}")
+            else:
+                logger.warning(f"Failed to save reverse engineer history: {error_detail}")
 
         return {
             "strategy_id": strategy_id,

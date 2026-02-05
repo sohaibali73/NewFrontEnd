@@ -9,7 +9,8 @@ class Settings(BaseSettings):
 
     # Supabase
     supabase_url: str = "https://vekcfcmstpnxubxsaano.supabase.co"
-    supabase_key: str = "sb_publishable_Odig0gZO8mEwUYCbUyzbfQ_phRfwF1y"
+    supabase_key: str = "sb_publishable_Odig0gZO8mEwUYCbUyzbfQ_phRfwF1y"  # anon/public key
+    supabase_service_key: str = ""  # service_role key (required for backend operations with RLS)
 
     # Security
     secret_key: str = "change-this-in-production"

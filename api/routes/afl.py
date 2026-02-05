@@ -226,8 +226,18 @@ async def _generate_simple(
                 "strategy_type": request.strategy_type,
                 "timestamp": datetime.utcnow().isoformat(),
             }).execute()
+            logger.info(f"AFL history saved successfully for user {user_id}")
         except Exception as e:
-            logger.warning(f"Failed to save AFL history: {e}")
+            error_detail = str(e)
+            if "PGRST205" in error_detail:
+                logger.error(
+                    f"afl_history table not found in database. "
+                    f"Run migration 004_history_tables_FIXED.sql in Supabase. Error: {error_detail}"
+                )
+            elif "violates foreign key constraint" in error_detail:
+                logger.error(f"User {user_id} not found in users table. Error: {error_detail}")
+            else:
+                logger.warning(f"Failed to save AFL history: {error_detail}")
             # Don't fail the request if history save fails
 
         # Return response with 'code' field for frontend compatibility

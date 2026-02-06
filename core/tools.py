@@ -244,6 +244,180 @@ TOOL_DEFINITIONS = [
             },
             "required": ["code"]
         }
+    },
+    # Custom: Stock Chart Data (full OHLCV for candlestick rendering)
+    {
+        "name": "get_stock_chart",
+        "description": "Fetch full OHLCV (Open/High/Low/Close/Volume) candlestick data for rendering interactive stock charts. Returns more data points than get_stock_data and includes moving averages. Use when the user wants to SEE a chart or visualize price history.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "Stock ticker symbol (e.g., 'AAPL', 'GOOGL', 'MSFT')"
+                },
+                "period": {
+                    "type": "string",
+                    "description": "Time period for chart data",
+                    "enum": ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y"],
+                    "default": "3mo"
+                },
+                "interval": {
+                    "type": "string",
+                    "description": "Data interval/granularity",
+                    "enum": ["1m", "5m", "15m", "30m", "1h", "1d", "1wk"],
+                    "default": "1d"
+                },
+                "chart_type": {
+                    "type": "string",
+                    "description": "Type of chart to render",
+                    "enum": ["candlestick", "line", "area"],
+                    "default": "candlestick"
+                }
+            },
+            "required": ["symbol"]
+        }
+    },
+    # Custom: Technical Analysis
+    {
+        "name": "technical_analysis",
+        "description": "Perform comprehensive technical analysis on a stock. Returns RSI, MACD, Bollinger Bands, ADX, moving averages, support/resistance levels, and an overall signal. Use when the user asks about technical indicators, signals, or analysis for a stock.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "Stock ticker symbol (e.g., 'AAPL', 'GOOGL')"
+                },
+                "period": {
+                    "type": "string",
+                    "description": "Lookback period for analysis",
+                    "enum": ["1mo", "3mo", "6mo", "1y"],
+                    "default": "3mo"
+                }
+            },
+            "required": ["symbol"]
+        }
+    },
+    # Custom: Weather Data
+    {
+        "name": "get_weather",
+        "description": "Get current weather conditions and forecast for a location. Use when the user asks about weather, temperature, or atmospheric conditions for any city or location.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "City name or location (e.g., 'New York', 'London, UK', 'Tokyo')"
+                },
+                "units": {
+                    "type": "string",
+                    "description": "Temperature units",
+                    "enum": ["metric", "imperial"],
+                    "default": "imperial"
+                }
+            },
+            "required": ["location"]
+        }
+    },
+    # Custom: News Headlines
+    {
+        "name": "get_news",
+        "description": "Fetch recent news headlines with summaries and sentiment analysis. Use when the user asks about news, market sentiment, or current events related to stocks, sectors, or general topics.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query for news (e.g., 'AAPL earnings', 'Fed rate decision', 'tech sector')"
+                },
+                "category": {
+                    "type": "string",
+                    "description": "News category filter",
+                    "enum": ["market", "earnings", "economy", "technology", "politics", "general"],
+                    "default": "general"
+                },
+                "max_results": {
+                    "type": "integer",
+                    "description": "Maximum number of articles to return",
+                    "default": 5
+                }
+            },
+            "required": ["query"]
+        }
+    },
+    # Custom: Data Chart Builder
+    {
+        "name": "create_chart",
+        "description": "Create a data visualization chart. Returns structured data that the frontend renders as an interactive SVG chart. Supports bar, line, area, pie, donut, scatter, and horizontal bar charts. Use when the user wants to visualize data, compare values, show trends, or create any kind of chart/graph.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "chart_type": {
+                    "type": "string",
+                    "description": "Type of chart to create",
+                    "enum": ["bar", "horizontal_bar", "line", "area", "pie", "donut", "scatter"]
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Chart title"
+                },
+                "data": {
+                    "type": "array",
+                    "description": "Array of data points. Each item should have 'label' and 'value' keys. For scatter charts, use 'x' and 'y' instead.",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "x_label": {
+                    "type": "string",
+                    "description": "Label for X axis",
+                    "default": ""
+                },
+                "y_label": {
+                    "type": "string",
+                    "description": "Label for Y axis",
+                    "default": ""
+                },
+                "colors": {
+                    "type": "array",
+                    "description": "Optional array of hex color strings for the data series",
+                    "items": {"type": "string"}
+                }
+            },
+            "required": ["chart_type", "title", "data"]
+        }
+    },
+    # Custom: Code Sandbox (enhanced code execution with UI)
+    {
+        "name": "code_sandbox",
+        "description": "Create an interactive code sandbox with editable code, run capability, and output terminal. Returns the code, language, and execution result for rendering in a rich code editor UI. Use when the user wants to see, edit, and run code interactively - more visual than execute_python.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": "The code to put in the sandbox"
+                },
+                "language": {
+                    "type": "string",
+                    "description": "Programming language",
+                    "enum": ["python", "javascript", "afl", "sql", "r"],
+                    "default": "python"
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Title for the sandbox",
+                    "default": "Code Sandbox"
+                },
+                "run_immediately": {
+                    "type": "boolean",
+                    "description": "Whether to execute the code immediately and include output",
+                    "default": True
+                }
+            },
+            "required": ["code"]
+        }
     }
 ]
 
@@ -706,6 +880,658 @@ def sanity_check_afl(code: str, auto_fix: bool = True) -> Dict[str, Any]:
 
 
 # ============================================================================
+# NEW TOOL HANDLERS - Generative UI Tools
+# ============================================================================
+
+def get_stock_chart(symbol: str, period: str = "3mo", interval: str = "1d", chart_type: str = "candlestick") -> Dict[str, Any]:
+    """
+    Fetch full OHLCV candlestick data for interactive chart rendering.
+    Returns data formatted for the LiveStockChart frontend component.
+    """
+    symbol = symbol.upper()
+    
+    # Check cache (reuse stock cache with chart-specific key)
+    cache_key = f"chart_{period}_{interval}"
+    cached = _get_cached_stock(symbol, cache_key)
+    if cached:
+        cached["cached"] = True
+        return cached
+    
+    try:
+        import yfinance as yf
+        
+        start_time = time.time()
+        ticker = yf.Ticker(symbol)
+        
+        # Get historical data
+        hist = ticker.history(period=period, interval=interval)
+        
+        if hist.empty:
+            return {
+                "success": False,
+                "error": f"No chart data found for {symbol}"
+            }
+        
+        # Build OHLCV data points
+        data_points = []
+        for date, row in hist.iterrows():
+            data_points.append({
+                "date": date.strftime("%Y-%m-%d") if interval in ["1d", "1wk"] else date.strftime("%Y-%m-%d %H:%M"),
+                "open": round(float(row["Open"]), 2),
+                "high": round(float(row["High"]), 2),
+                "low": round(float(row["Low"]), 2),
+                "close": round(float(row["Close"]), 2),
+                "volume": int(row["Volume"])
+            })
+        
+        # Calculate simple moving averages for overlay
+        closes = [p["close"] for p in data_points]
+        sma20 = []
+        sma50 = []
+        for i in range(len(closes)):
+            if i >= 19:
+                sma20.append(round(sum(closes[i-19:i+1]) / 20, 2))
+            else:
+                sma20.append(None)
+            if i >= 49:
+                sma50.append(round(sum(closes[i-49:i+1]) / 50, 2))
+            else:
+                sma50.append(None)
+        
+        # Add SMAs to data points
+        for i, point in enumerate(data_points):
+            point["sma20"] = sma20[i]
+            point["sma50"] = sma50[i]
+        
+        # Get company info
+        try:
+            info = ticker.info
+            company_name = info.get("longName") or info.get("shortName") or symbol
+            current_price = info.get("currentPrice") or info.get("regularMarketPrice") or closes[-1]
+            previous_close = info.get("previousClose") or (closes[-2] if len(closes) > 1 else closes[-1])
+        except Exception:
+            company_name = symbol
+            current_price = closes[-1]
+            previous_close = closes[-2] if len(closes) > 1 else closes[-1]
+        
+        change = round(current_price - previous_close, 2)
+        change_percent = round((change / previous_close) * 100, 2) if previous_close else 0
+        
+        response = {
+            "success": True,
+            "tool": "get_stock_chart",
+            "symbol": symbol,
+            "company_name": company_name,
+            "chart_type": chart_type,
+            "period": period,
+            "interval": interval,
+            "current_price": current_price,
+            "change": change,
+            "change_percent": change_percent,
+            "data_points": len(data_points),
+            "data": data_points,
+            "cached": False,
+            "fetch_time_ms": round((time.time() - start_time) * 1000, 2)
+        }
+        
+        _set_cached_stock(symbol, cache_key, response)
+        return response
+        
+    except ImportError:
+        return {"success": False, "error": "yfinance library not available"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def technical_analysis(symbol: str, period: str = "3mo") -> Dict[str, Any]:
+    """
+    Perform comprehensive technical analysis on a stock.
+    Returns indicators formatted for the TechnicalAnalysis frontend component.
+    """
+    symbol = symbol.upper()
+    
+    # Check cache
+    cache_key = f"ta_{period}"
+    cached = _get_cached_stock(symbol, cache_key)
+    if cached:
+        cached["cached"] = True
+        return cached
+    
+    try:
+        import yfinance as yf
+        import numpy as np
+        
+        start_time = time.time()
+        ticker = yf.Ticker(symbol)
+        hist = ticker.history(period=period)
+        
+        if hist.empty or len(hist) < 20:
+            return {"success": False, "error": f"Insufficient data for technical analysis on {symbol}"}
+        
+        closes = hist["Close"].values.astype(float)
+        highs = hist["High"].values.astype(float)
+        lows = hist["Low"].values.astype(float)
+        volumes = hist["Volume"].values.astype(float)
+        
+        # --- RSI (14-period) ---
+        deltas = np.diff(closes)
+        gains = np.where(deltas > 0, deltas, 0)
+        losses = np.where(deltas < 0, -deltas, 0)
+        avg_gain = np.mean(gains[-14:])
+        avg_loss = np.mean(losses[-14:])
+        rs = avg_gain / avg_loss if avg_loss != 0 else 100
+        rsi = round(100 - (100 / (1 + rs)), 2)
+        
+        # --- MACD (12, 26, 9) ---
+        def ema(data, window):
+            alpha = 2 / (window + 1)
+            result = [data[0]]
+            for i in range(1, len(data)):
+                result.append(alpha * data[i] + (1 - alpha) * result[-1])
+            return np.array(result)
+        
+        ema12 = ema(closes, 12)
+        ema26 = ema(closes, 26)
+        macd_line = ema12 - ema26
+        signal_line = ema(macd_line, 9)
+        macd_histogram = macd_line - signal_line
+        
+        macd_val = round(float(macd_line[-1]), 4)
+        signal_val = round(float(signal_line[-1]), 4)
+        histogram_val = round(float(macd_histogram[-1]), 4)
+        
+        # --- Bollinger Bands (20, 2) ---
+        sma20 = np.mean(closes[-20:])
+        std20 = np.std(closes[-20:])
+        bb_upper = round(float(sma20 + 2 * std20), 2)
+        bb_middle = round(float(sma20), 2)
+        bb_lower = round(float(sma20 - 2 * std20), 2)
+        bb_width = round(float((bb_upper - bb_lower) / bb_middle * 100), 2)
+        
+        # --- ADX (14-period) ---
+        try:
+            tr_list = []
+            plus_dm_list = []
+            minus_dm_list = []
+            for i in range(1, len(closes)):
+                tr = max(highs[i] - lows[i], abs(highs[i] - closes[i-1]), abs(lows[i] - closes[i-1]))
+                tr_list.append(tr)
+                plus_dm = highs[i] - highs[i-1] if highs[i] - highs[i-1] > lows[i-1] - lows[i] and highs[i] - highs[i-1] > 0 else 0
+                minus_dm = lows[i-1] - lows[i] if lows[i-1] - lows[i] > highs[i] - highs[i-1] and lows[i-1] - lows[i] > 0 else 0
+                plus_dm_list.append(plus_dm)
+                minus_dm_list.append(minus_dm)
+            
+            atr14 = np.mean(tr_list[-14:])
+            plus_di = round(100 * np.mean(plus_dm_list[-14:]) / atr14, 2) if atr14 > 0 else 0
+            minus_di = round(100 * np.mean(minus_dm_list[-14:]) / atr14, 2) if atr14 > 0 else 0
+            dx = abs(plus_di - minus_di) / (plus_di + minus_di) * 100 if (plus_di + minus_di) > 0 else 0
+            adx = round(dx, 2)
+        except Exception:
+            adx = 0
+            plus_di = 0
+            minus_di = 0
+        
+        # --- Moving Averages ---
+        current_price = float(closes[-1])
+        sma_periods = [10, 20, 50, 100, 200]
+        moving_averages = []
+        for p in sma_periods:
+            if len(closes) >= p:
+                sma_val = round(float(np.mean(closes[-p:])), 2)
+                moving_averages.append({
+                    "period": p,
+                    "type": "SMA",
+                    "value": sma_val,
+                    "signal": "bullish" if current_price > sma_val else "bearish"
+                })
+        
+        # --- Support / Resistance ---
+        recent_lows = sorted(lows[-20:])[:3]
+        recent_highs = sorted(highs[-20:], reverse=True)[:3]
+        support_levels = [round(float(l), 2) for l in recent_lows]
+        resistance_levels = [round(float(h), 2) for h in recent_highs]
+        
+        # --- Overall Signal ---
+        bullish_signals = 0
+        bearish_signals = 0
+        
+        if rsi < 30: bullish_signals += 1
+        elif rsi > 70: bearish_signals += 1
+        
+        if macd_val > signal_val: bullish_signals += 1
+        else: bearish_signals += 1
+        
+        if current_price > bb_middle: bullish_signals += 1
+        else: bearish_signals += 1
+        
+        bull_ma = sum(1 for ma in moving_averages if ma["signal"] == "bullish")
+        bear_ma = sum(1 for ma in moving_averages if ma["signal"] == "bearish")
+        if bull_ma > bear_ma: bullish_signals += 1
+        else: bearish_signals += 1
+        
+        if bullish_signals > bearish_signals + 1:
+            overall_signal = "strong_buy"
+            signal_label = "Strong Buy"
+        elif bullish_signals > bearish_signals:
+            overall_signal = "buy"
+            signal_label = "Buy"
+        elif bearish_signals > bullish_signals + 1:
+            overall_signal = "strong_sell"
+            signal_label = "Strong Sell"
+        elif bearish_signals > bullish_signals:
+            overall_signal = "sell"
+            signal_label = "Sell"
+        else:
+            overall_signal = "neutral"
+            signal_label = "Neutral"
+        
+        # Get company name
+        try:
+            info = ticker.info
+            company_name = info.get("longName") or info.get("shortName") or symbol
+        except Exception:
+            company_name = symbol
+        
+        response = {
+            "success": True,
+            "tool": "technical_analysis",
+            "symbol": symbol,
+            "company_name": company_name,
+            "current_price": round(current_price, 2),
+            "overall_signal": overall_signal,
+            "signal_label": signal_label,
+            "signal_strength": max(bullish_signals, bearish_signals) / (bullish_signals + bearish_signals) * 100 if (bullish_signals + bearish_signals) > 0 else 50,
+            "indicators": {
+                "rsi": {"value": rsi, "signal": "oversold" if rsi < 30 else "overbought" if rsi > 70 else "neutral"},
+                "macd": {"value": macd_val, "signal": signal_val, "histogram": histogram_val, "trend": "bullish" if macd_val > signal_val else "bearish"},
+                "bollinger_bands": {"upper": bb_upper, "middle": bb_middle, "lower": bb_lower, "width": bb_width},
+                "adx": {"value": adx, "plus_di": plus_di, "minus_di": minus_di, "trend_strength": "strong" if adx > 25 else "weak"}
+            },
+            "moving_averages": moving_averages,
+            "support_levels": support_levels,
+            "resistance_levels": resistance_levels,
+            "cached": False,
+            "fetch_time_ms": round((time.time() - start_time) * 1000, 2)
+        }
+        
+        _set_cached_stock(symbol, cache_key, response)
+        return response
+        
+    except ImportError as e:
+        return {"success": False, "error": f"Required library not available: {e}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def get_weather(location: str, units: str = "imperial") -> Dict[str, Any]:
+    """
+    Get current weather and forecast for a location.
+    Uses wttr.in as a free, no-API-key weather service.
+    Returns data formatted for the WeatherCard frontend component.
+    """
+    try:
+        import urllib.request
+        import urllib.parse
+        
+        start_time = time.time()
+        
+        # Use wttr.in JSON API (no API key needed)
+        encoded_location = urllib.parse.quote(location)
+        url = f"https://wttr.in/{encoded_location}?format=j1"
+        
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            weather_data = json.loads(resp.read().decode())
+        
+        current = weather_data.get("current_condition", [{}])[0]
+        nearest_area = weather_data.get("nearest_area", [{}])[0]
+        forecasts = weather_data.get("weather", [])
+        
+        # Parse temperature based on units
+        if units == "metric":
+            temp = int(current.get("temp_C", 0))
+            feels_like = int(current.get("FeelsLikeC", 0))
+            temp_unit = "°C"
+        else:
+            temp = int(current.get("temp_F", 0))
+            feels_like = int(current.get("FeelsLikeF", 0))
+            temp_unit = "°F"
+        
+        # Parse condition
+        condition_desc = current.get("weatherDesc", [{}])[0].get("value", "Unknown")
+        
+        # Map condition to a simple type for the UI
+        condition_lower = condition_desc.lower()
+        if "sun" in condition_lower or "clear" in condition_lower:
+            condition = "sunny"
+        elif "cloud" in condition_lower or "overcast" in condition_lower:
+            condition = "cloudy"
+        elif "rain" in condition_lower or "drizzle" in condition_lower or "shower" in condition_lower:
+            condition = "rainy"
+        elif "snow" in condition_lower or "blizzard" in condition_lower or "sleet" in condition_lower:
+            condition = "snowy"
+        elif "thunder" in condition_lower or "storm" in condition_lower:
+            condition = "stormy"
+        elif "fog" in condition_lower or "mist" in condition_lower or "haze" in condition_lower:
+            condition = "foggy"
+        elif "partly" in condition_lower:
+            condition = "partly_cloudy"
+        else:
+            condition = "cloudy"
+        
+        # Build forecast
+        forecast_list = []
+        for day in forecasts[:5]:
+            if units == "metric":
+                high = int(day.get("maxtempC", 0))
+                low = int(day.get("mintempC", 0))
+            else:
+                high = int(day.get("maxtempF", 0))
+                low = int(day.get("mintempF", 0))
+            
+            day_date = day.get("date", "")
+            day_desc = day.get("hourly", [{}])[4].get("weatherDesc", [{}])[0].get("value", "") if day.get("hourly") else ""
+            
+            forecast_list.append({
+                "date": day_date,
+                "high": high,
+                "low": low,
+                "condition": day_desc
+            })
+        
+        # Get area name
+        area_name = nearest_area.get("areaName", [{}])[0].get("value", location)
+        region = nearest_area.get("region", [{}])[0].get("value", "")
+        country = nearest_area.get("country", [{}])[0].get("value", "")
+        
+        response = {
+            "success": True,
+            "tool": "get_weather",
+            "location": f"{area_name}, {region}" if region else f"{area_name}, {country}",
+            "temperature": temp,
+            "feels_like": feels_like,
+            "temp_unit": temp_unit,
+            "condition": condition,
+            "condition_text": condition_desc,
+            "humidity": int(current.get("humidity", 0)),
+            "wind_speed": int(current.get("windspeedMiles", 0)) if units == "imperial" else int(current.get("windspeedKmph", 0)),
+            "wind_unit": "mph" if units == "imperial" else "km/h",
+            "wind_direction": current.get("winddir16Point", ""),
+            "visibility": int(current.get("visibilityMiles", 10)) if units == "imperial" else int(current.get("visibility", 10)),
+            "visibility_unit": "mi" if units == "imperial" else "km",
+            "uv_index": int(current.get("uvIndex", 0)),
+            "pressure": float(current.get("pressure", 0)),
+            "forecast": forecast_list,
+            "fetch_time_ms": round((time.time() - start_time) * 1000, 2)
+        }
+        
+        return response
+        
+    except Exception as e:
+        return {"success": False, "error": f"Weather fetch failed: {str(e)}"}
+
+
+def get_news(query: str, category: str = "general", max_results: int = 5) -> Dict[str, Any]:
+    """
+    Fetch news headlines with summaries and basic sentiment.
+    Uses Tavily API if available, falls back to web search summary.
+    Returns data formatted for the NewsHeadlines frontend component.
+    """
+    try:
+        start_time = time.time()
+        
+        # Try Tavily API first (user has key in environment)
+        tavily_key = os.getenv("TAVILY_API_KEY")
+        
+        if tavily_key:
+            import urllib.request
+            
+            payload = json.dumps({
+                "api_key": tavily_key,
+                "query": f"{query} news {category}",
+                "search_depth": "basic",
+                "include_answer": True,
+                "max_results": max_results
+            })
+            
+            req = urllib.request.Request(
+                "https://api.tavily.com/search",
+                data=payload.encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                search_data = json.loads(resp.read().decode())
+            
+            articles = []
+            for item in search_data.get("results", [])[:max_results]:
+                title = item.get("title", "")
+                content = item.get("content", "")
+                url = item.get("url", "")
+                
+                # Basic sentiment analysis from content
+                sentiment = _analyze_basic_sentiment(title + " " + content)
+                
+                articles.append({
+                    "title": title,
+                    "summary": content[:300],
+                    "url": url,
+                    "source": _extract_domain(url),
+                    "sentiment": sentiment,
+                    "category": category,
+                    "published": item.get("published_date", "")
+                })
+            
+            # Overall market sentiment
+            sentiments = [a["sentiment"] for a in articles]
+            positive_count = sentiments.count("positive")
+            negative_count = sentiments.count("negative")
+            
+            if positive_count > negative_count + 1:
+                overall_sentiment = "bullish"
+            elif negative_count > positive_count + 1:
+                overall_sentiment = "bearish"
+            else:
+                overall_sentiment = "mixed"
+            
+            response = {
+                "success": True,
+                "tool": "get_news",
+                "query": query,
+                "category": category,
+                "overall_sentiment": overall_sentiment,
+                "article_count": len(articles),
+                "articles": articles,
+                "answer": search_data.get("answer", ""),
+                "fetch_time_ms": round((time.time() - start_time) * 1000, 2)
+            }
+            
+            return response
+        else:
+            # No Tavily key - return a helpful error
+            return {
+                "success": False,
+                "error": "News search requires TAVILY_API_KEY environment variable. Please set it in your .env file.",
+                "tool": "get_news"
+            }
+        
+    except Exception as e:
+        return {"success": False, "error": f"News fetch failed: {str(e)}", "tool": "get_news"}
+
+
+def _analyze_basic_sentiment(text: str) -> str:
+    """Basic keyword-based sentiment analysis."""
+    text_lower = text.lower()
+    
+    positive_words = ["surge", "gain", "rally", "rise", "jump", "soar", "beat", "exceed",
+                      "strong", "growth", "profit", "upgrade", "bullish", "record", "boom",
+                      "optimistic", "positive", "upbeat", "recovery", "breakthrough"]
+    negative_words = ["fall", "drop", "crash", "decline", "plunge", "loss", "miss", "cut",
+                      "weak", "recession", "bearish", "downgrade", "warning", "concern",
+                      "pessimistic", "negative", "fear", "crisis", "layoff", "bankrupt"]
+    
+    pos_count = sum(1 for w in positive_words if w in text_lower)
+    neg_count = sum(1 for w in negative_words if w in text_lower)
+    
+    if pos_count > neg_count:
+        return "positive"
+    elif neg_count > pos_count:
+        return "negative"
+    return "neutral"
+
+
+def _extract_domain(url: str) -> str:
+    """Extract domain name from URL for source display."""
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        domain = parsed.netloc.replace("www.", "")
+        return domain
+    except Exception:
+        return "Unknown"
+
+
+def create_chart(chart_type: str, title: str, data: list, x_label: str = "", y_label: str = "", colors: list = None) -> Dict[str, Any]:
+    """
+    Create a data visualization chart.
+    Returns structured data for the DataChart frontend component.
+    """
+    try:
+        # Validate data
+        if not data or not isinstance(data, list):
+            return {"success": False, "error": "Data must be a non-empty array"}
+        
+        # Validate chart type
+        valid_types = ["bar", "horizontal_bar", "line", "area", "pie", "donut", "scatter"]
+        if chart_type not in valid_types:
+            return {"success": False, "error": f"Invalid chart type. Must be one of: {', '.join(valid_types)}"}
+        
+        # Default color palette
+        default_colors = [
+            "#F59E0B", "#3B82F6", "#10B981", "#EF4444", "#8B5CF6",
+            "#EC4899", "#06B6D4", "#F97316", "#84CC16", "#6366F1"
+        ]
+        
+        chart_colors = colors if colors and len(colors) > 0 else default_colors
+        
+        # Normalize data format
+        normalized_data = []
+        for i, item in enumerate(data):
+            if isinstance(item, dict):
+                normalized_data.append({
+                    "label": str(item.get("label", item.get("name", f"Item {i+1}"))),
+                    "value": float(item.get("value", item.get("y", 0))),
+                    "x": float(item.get("x", i)) if chart_type == "scatter" else None,
+                    "y": float(item.get("y", item.get("value", 0))) if chart_type == "scatter" else None,
+                    "color": chart_colors[i % len(chart_colors)]
+                })
+            elif isinstance(item, (int, float)):
+                normalized_data.append({
+                    "label": f"Item {i+1}",
+                    "value": float(item),
+                    "color": chart_colors[i % len(chart_colors)]
+                })
+        
+        # Calculate summary stats
+        values = [d["value"] for d in normalized_data]
+        total = sum(values)
+        avg = total / len(values) if values else 0
+        
+        response = {
+            "success": True,
+            "tool": "create_chart",
+            "chart_type": chart_type,
+            "title": title,
+            "x_label": x_label,
+            "y_label": y_label,
+            "data": normalized_data,
+            "colors": chart_colors[:len(normalized_data)],
+            "summary": {
+                "total": round(total, 2),
+                "average": round(avg, 2),
+                "min": round(min(values), 2) if values else 0,
+                "max": round(max(values), 2) if values else 0,
+                "count": len(normalized_data)
+            }
+        }
+        
+        return response
+        
+    except Exception as e:
+        return {"success": False, "error": f"Chart creation failed: {str(e)}"}
+
+
+def code_sandbox(code: str, language: str = "python", title: str = "Code Sandbox", run_immediately: bool = True) -> Dict[str, Any]:
+    """
+    Create an interactive code sandbox.
+    Returns code + execution result for the CodeSandbox frontend component.
+    """
+    try:
+        output = None
+        execution_error = None
+        execution_time_ms = 0
+        
+        # Only execute Python code for safety
+        if run_immediately and language == "python":
+            start_time = time.time()
+            exec_result = execute_python(code=code, description=title)
+            execution_time_ms = round((time.time() - start_time) * 1000, 2)
+            
+            if exec_result.get("success"):
+                output = exec_result.get("output", "Code executed successfully")
+                # Include variable outputs
+                variables = exec_result.get("variables", {})
+                if variables:
+                    var_output = "\n".join([f"{k} = {v}" for k, v in variables.items()])
+                    if output == "Code executed successfully" and var_output:
+                        output = var_output
+                    elif var_output:
+                        output = f"{output}\n\nVariables:\n{var_output}"
+            else:
+                execution_error = exec_result.get("error", "Unknown error")
+                output = f"Error: {execution_error}"
+        elif run_immediately and language != "python":
+            output = f"[{language}] Code preview only - execution supported for Python"
+        
+        response = {
+            "success": True,
+            "tool": "code_sandbox",
+            "title": title,
+            "language": language,
+            "code": code,
+            "output": output,
+            "error": execution_error,
+            "execution_time_ms": execution_time_ms,
+            "is_executed": run_immediately and language == "python",
+            "files": [
+                {
+                    "name": f"main.{_get_file_extension(language)}",
+                    "language": language,
+                    "code": code
+                }
+            ]
+        }
+        
+        return response
+        
+    except Exception as e:
+        return {"success": False, "error": f"Sandbox creation failed: {str(e)}"}
+
+
+def _get_file_extension(language: str) -> str:
+    """Get file extension for a language."""
+    extensions = {
+        "python": "py",
+        "javascript": "js",
+        "afl": "afl",
+        "sql": "sql",
+        "r": "r"
+    }
+    return extensions.get(language, "txt")
+
+
+# ============================================================================
 # TOOL DISPATCHER - OPTIMIZED
 # ============================================================================
 
@@ -769,6 +1595,51 @@ def handle_tool_call(tool_name: str, tool_input: Dict[str, Any], supabase_client
             result = sanity_check_afl(
                 code=tool_input.get("code", ""),
                 auto_fix=tool_input.get("auto_fix", True)
+            )
+
+        elif tool_name == "get_stock_chart":
+            result = get_stock_chart(
+                symbol=tool_input.get("symbol", ""),
+                period=tool_input.get("period", "3mo"),
+                interval=tool_input.get("interval", "1d"),
+                chart_type=tool_input.get("chart_type", "candlestick")
+            )
+
+        elif tool_name == "technical_analysis":
+            result = technical_analysis(
+                symbol=tool_input.get("symbol", ""),
+                period=tool_input.get("period", "3mo")
+            )
+
+        elif tool_name == "get_weather":
+            result = get_weather(
+                location=tool_input.get("location", ""),
+                units=tool_input.get("units", "imperial")
+            )
+
+        elif tool_name == "get_news":
+            result = get_news(
+                query=tool_input.get("query", ""),
+                category=tool_input.get("category", "general"),
+                max_results=tool_input.get("max_results", 5)
+            )
+
+        elif tool_name == "create_chart":
+            result = create_chart(
+                chart_type=tool_input.get("chart_type", "bar"),
+                title=tool_input.get("title", "Chart"),
+                data=tool_input.get("data", []),
+                x_label=tool_input.get("x_label", ""),
+                y_label=tool_input.get("y_label", ""),
+                colors=tool_input.get("colors")
+            )
+
+        elif tool_name == "code_sandbox":
+            result = code_sandbox(
+                code=tool_input.get("code", ""),
+                language=tool_input.get("language", "python"),
+                title=tool_input.get("title", "Code Sandbox"),
+                run_immediately=tool_input.get("run_immediately", True)
             )
 
         else:

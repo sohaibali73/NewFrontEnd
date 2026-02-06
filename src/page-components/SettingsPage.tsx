@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -574,13 +574,13 @@ export function SettingsPage() {
               <div style={{ marginBottom: '32px' }}>
                 <label style={{ ...labelStyle, marginBottom: '16px' }}>THEME</label>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '16px' }}>
-                  {themeOptions.map((theme) => {
-                    const Icon = theme.icon;
-                    const isSelected = settings.appearance.theme === theme.value;
+                  {themeOptions.map((themeOption) => {
+                    const Icon = themeOption.icon;
+                    const isSelected = settings.appearance.theme === themeOption.value;
                     return (
                       <button
-                        key={theme.value}
-                        onClick={() => updateAppearance('theme', theme.value)}
+                        key={themeOption.value}
+                        onClick={() => updateAppearance('theme', themeOption.value)}
                         style={{
                           padding: '24px 16px',
                           backgroundColor: isSelected ? 'rgba(254, 192, 15, 0.1)' : colors.inputBg,
@@ -599,10 +599,10 @@ export function SettingsPage() {
                           color: isSelected ? colors.text : colors.textMuted,
                           marginBottom: '4px',
                         }}>
-                          {theme.label.toUpperCase()}
+                          {themeOption.label.toUpperCase()}
                         </p>
                         <p style={{ color: colors.textMuted, fontSize: '12px', margin: 0 }}>
-                          {theme.desc}
+                          {themeOption.desc}
                         </p>
                         {isSelected && (
                           <div style={{

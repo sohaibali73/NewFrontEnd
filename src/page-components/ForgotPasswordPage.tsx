@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -11,16 +11,20 @@ import {
   Key
 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
-import yellowLogo from '@/assets/yellowlogo.png';
+
+// Use logo from public directory (Next.js serves from /public)
+const logo = '/yellowlogo.png';
 
 export function ForgotPasswordPage() {
   const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-  const [isSmallMobile, setIsSmallMobile] = useState(window.innerWidth < 768);
+  // FIXED: SSR-safe - don't access window in useState initializer
+  const [isMobile, setIsMobile] = useState(false);
+  const [isSmallMobile, setIsSmallMobile] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -138,7 +142,7 @@ export function ForgotPasswordPage() {
             overflow: 'hidden',
           }}>
             <img 
-              src={yellowLogo.src} 
+              src={logo} 
               alt="Analyst Logo" 
               style={{ 
                 width: '100%', 

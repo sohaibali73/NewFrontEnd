@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Search, Trash2, FileText, Database, Loader2, X, FolderOpen } from 'lucide-react';
@@ -22,6 +22,17 @@ export function KnowledgeBasePage() {
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Theme-aware colors
+  const colors = {
+    background: isDark ? '#121212' : '#F5F5F5',
+    cardBg: isDark ? '#1E1E1E' : '#F9F9F9',
+    inputBg: isDark ? '#2A2A2A' : '#FFFFFF',
+    border: isDark ? '#424242' : '#e0e0e0',
+    text: isDark ? '#FFFFFF' : '#212121',
+    textMuted: isDark ? '#9E9E9E' : '#757575',
+    hoverBg: isDark ? '#2A2A2A' : '#f0f0f0',
+  };
 
   useEffect(() => {
     loadData();
@@ -127,23 +138,23 @@ export function KnowledgeBasePage() {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: isDark ? '#121212' : '#F5F5F5',
-      padding: '32px',
+      backgroundColor: colors.background,
+      padding: isMobile ? '20px' : (isTablet ? '28px' : '32px'),
       fontFamily: "'Quicksand', sans-serif",
     }}>
       {/* Header */}
       <div style={{ marginBottom: '32px' }}>
         <h1 style={{
           fontFamily: "'Rajdhani', sans-serif",
-          fontSize: '32px',
+          fontSize: isMobile ? '24px' : '32px',
           fontWeight: 700,
-          color: isDark ? '#FFFFFF' : '#212121',
+          color: colors.text,
           letterSpacing: '2px',
           marginBottom: '8px',
         }}>
           KNOWLEDGE BASE
         </h1>
-        <p style={{ color: isDark ? '#9E9E9E' : '#757575', fontSize: '15px' }}>
+        <p style={{ color: colors.textMuted, fontSize: '15px' }}>
           Upload and manage your trading documents and knowledge resources
         </p>
       </div>
@@ -178,65 +189,37 @@ export function KnowledgeBasePage() {
           gap: '20px',
           marginBottom: '32px',
         }}>
-          <div style={{
-            backgroundColor: isDark ? '#1E1E1E' : '#F9F9F9',
-            border: '1px solid #424242',
-            borderRadius: '12px',
-            padding: '24px',
-          }}>
-            <p style={{ color: '#9E9E9E', fontSize: '14px', marginBottom: '8px' }}>Total Documents</p>
-            <p style={{
-              fontFamily: "'Rajdhani', sans-serif",
-              fontSize: '36px',
-              fontWeight: 700,
-              color: isDark ? '#FFFFFF' : '#212121',
-              margin: 0,
+          {[
+            { label: 'Total Documents', value: stats.total_documents },
+            { label: 'Total Size', value: formatFileSize(stats.total_size) },
+            { label: 'Categories', value: Object.keys(stats.categories).length },
+          ].map((stat) => (
+            <div key={stat.label} style={{
+              backgroundColor: colors.cardBg,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '12px',
+              padding: '24px',
             }}>
-              {stats.total_documents}
-            </p>
-          </div>
-          <div style={{
-            backgroundColor: isDark ? '#1E1E1E' : '#F9F9F9',
-            border: '1px solid #424242',
-            borderRadius: '12px',
-            padding: '24px',
-          }}>
-            <p style={{ color: '#9E9E9E', fontSize: '14px', marginBottom: '8px' }}>Total Size</p>
-            <p style={{
-              fontFamily: "'Rajdhani', sans-serif",
-              fontSize: '36px',
-              fontWeight: 700,
-              color: isDark ? '#FFFFFF' : '#212121',
-              margin: 0,
-            }}>
-              {formatFileSize(stats.total_size)}
-            </p>
-          </div>
-          <div style={{
-            backgroundColor: isDark ? '#1E1E1E' : '#F9F9F9',
-            border: '1px solid #424242',
-            borderRadius: '12px',
-            padding: '24px',
-          }}>
-            <p style={{ color: '#9E9E9E', fontSize: '14px', marginBottom: '8px' }}>Categories</p>
-            <p style={{
-              fontFamily: "'Rajdhani', sans-serif",
-              fontSize: '36px',
-              fontWeight: 700,
-              color: isDark ? '#FFFFFF' : '#212121',
-              margin: 0,
-            }}>
-              {Object.keys(stats.categories).length}
-            </p>
-          </div>
+              <p style={{ color: colors.textMuted, fontSize: '14px', marginBottom: '8px' }}>{stat.label}</p>
+              <p style={{
+                fontFamily: "'Rajdhani', sans-serif",
+                fontSize: '36px',
+                fontWeight: 700,
+                color: colors.text,
+                margin: 0,
+              }}>
+                {stat.value}
+              </p>
+            </div>
+          ))}
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 2fr', gap: '24px' }}>
         {/* Upload Section */}
         <div style={{
-          backgroundColor: isDark ? '#1E1E1E' : '#F9F9F9',
-          border: '1px solid #424242',
+          backgroundColor: colors.cardBg,
+          border: `1px solid ${colors.border}`,
           borderRadius: '12px',
           padding: '24px',
         }}>
@@ -244,7 +227,7 @@ export function KnowledgeBasePage() {
             fontFamily: "'Rajdhani', sans-serif",
             fontSize: '16px',
             fontWeight: 600,
-            color: isDark ? '#FFFFFF' : '#212121',
+            color: colors.text,
             letterSpacing: '1px',
             marginBottom: '8px',
           }}>
@@ -257,7 +240,7 @@ export function KnowledgeBasePage() {
           <div
             onClick={() => !uploading && fileInputRef.current?.click()}
             style={{
-              border: '2px dashed #424242',
+              border: `2px dashed ${colors.border}`,
               borderRadius: '12px',
               padding: '40px 20px',
               textAlign: 'center',
@@ -269,7 +252,7 @@ export function KnowledgeBasePage() {
               if (!uploading) e.currentTarget.style.borderColor = '#FEC00F';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#424242';
+              e.currentTarget.style.borderColor = colors.border;
             }}
           >
             {uploading ? (
@@ -277,7 +260,7 @@ export function KnowledgeBasePage() {
             ) : (
               <Upload size={32} color="#757575" />
             )}
-            <p style={{ color: isDark ? '#FFFFFF' : '#212121', fontSize: '14px', fontWeight: 500, marginTop: '12px' }}>
+            <p style={{ color: colors.text, fontSize: '14px', fontWeight: 500, marginTop: '12px' }}>
               {uploading ? `Uploading ${uploadProgress.completed + uploadProgress.failed}/${uploadProgress.total}...` : 'Click to upload files'}
             </p>
             <p style={{ color: '#757575', fontSize: '12px', marginTop: '4px' }}>
@@ -332,8 +315,8 @@ export function KnowledgeBasePage() {
 
         {/* Search Section */}
         <div style={{
-          backgroundColor: isDark ? '#1E1E1E' : '#F9F9F9',
-          border: '1px solid #424242',
+          backgroundColor: colors.cardBg,
+          border: `1px solid ${colors.border}`,
           borderRadius: '12px',
           padding: '24px',
         }}>
@@ -341,7 +324,7 @@ export function KnowledgeBasePage() {
             fontFamily: "'Rajdhani', sans-serif",
             fontSize: '16px',
             fontWeight: 600,
-            color: isDark ? '#FFFFFF' : '#212121',
+            color: colors.text,
             letterSpacing: '1px',
             marginBottom: '8px',
           }}>
@@ -448,20 +431,20 @@ export function KnowledgeBasePage() {
       {/* Documents List */}
       <div style={{
         marginTop: '24px',
-        backgroundColor: isDark ? '#1E1E1E' : '#F9F9F9',
-        border: '1px solid #424242',
+        backgroundColor: colors.cardBg,
+        border: `1px solid ${colors.border}`,
         borderRadius: '12px',
         overflow: 'hidden',
       }}>
         <div style={{
           padding: '20px 24px',
-          borderBottom: '1px solid #424242',
+          borderBottom: `1px solid ${colors.border}`,
         }}>
           <h2 style={{
             fontFamily: "'Rajdhani', sans-serif",
             fontSize: '16px',
             fontWeight: 600,
-            color: isDark ? '#FFFFFF' : '#212121',
+            color: colors.text,
             letterSpacing: '1px',
             margin: 0,
           }}>
@@ -501,10 +484,10 @@ export function KnowledgeBasePage() {
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: '16px 24px',
-                  borderBottom: idx < documents.length - 1 ? '1px solid #424242' : 'none',
+                  borderBottom: idx < documents.length - 1 ? `1px solid ${colors.border}` : 'none',
                   transition: 'background-color 0.2s',
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2A2A2A'}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.hoverBg}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0 }}>
@@ -521,7 +504,7 @@ export function KnowledgeBasePage() {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{
-                      color: isDark ? '#FFFFFF' : '#212121',
+                      color: colors.text,
                       fontSize: '14px',
                       fontWeight: 500,
                       margin: 0,
@@ -550,7 +533,7 @@ export function KnowledgeBasePage() {
                     width: '36px',
                     height: '36px',
                     backgroundColor: 'transparent',
-                    border: '1px solid #424242',
+                    border: `1px solid ${colors.border}`,
                     borderRadius: '8px',
                     cursor: 'pointer',
                     display: 'flex',
@@ -564,7 +547,7 @@ export function KnowledgeBasePage() {
                     e.currentTarget.style.color = '#DC2626';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = '#424242';
+                    e.currentTarget.style.borderColor = colors.border;
                     e.currentTarget.style.color = '#757575';
                   }}
                 >

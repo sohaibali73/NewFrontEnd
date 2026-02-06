@@ -152,9 +152,9 @@ export function BacktestPage() {
           </h2>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '24px' }}>
-            {backtests.map((backtest) => (
+            {backtests.map((backtest, index) => (
               <div
-                key={backtest.id}
+                key={backtest.id || `backtest-${index}`}
                 style={{
                   backgroundColor: isDark ? '#1E1E1E' : '#F9F9F9',
                   border: `1px solid ${isDark ? '#424242' : '#E0E0E0'}`,

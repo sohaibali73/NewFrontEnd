@@ -8,16 +8,16 @@ interface User {
   id: string;
   email: string;
   name?: string;
-  username?: string;
-  role?: string;
+  nickname?: string;
   is_admin?: boolean;
+  created_at?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, username?: string) => Promise<void>;
+  register: (email: string, password: string, name?: string, claudeApiKey?: string, tavilyApiKey?: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (user: User) => void;
 }
@@ -81,14 +81,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const register = async (email: string, password: string, username?: string) => {
+  const register = async (email: string, password: string, name?: string, claudeApiKey?: string, tavilyApiKey?: string) => {
     try {
       const response = await apiClient.register(
         email,
         password,
-        username || email.split('@')[0], // Use email prefix as name if not provided
-        '', // Claude API key will be required in registration form
-        ''  // Tavily API key optional
+        name || email.split('@')[0], // Use email prefix as name if not provided
+        claudeApiKey || '', // Claude API key from registration form
+        tavilyApiKey || ''  // Tavily API key optional
       );
       // The apiClient.register already sets the token in localStorage
       // Response structure should be { access_token: string, user: User }

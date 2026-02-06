@@ -58,7 +58,7 @@ export function LoginPage() {
 
     try {
       await login(email, password);
-      router.push('/dashboard');
+      // Note: AuthContext.login() already handles navigation to /dashboard
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid email or password');
     } finally {
@@ -211,7 +211,7 @@ export function LoginPage() {
           color: '#757575',
           fontSize: '12px',
         }}>
-          Â© 2026 Potomac Fund Management. All rights reserved.
+          © 2026 Potomac Fund Management. All rights reserved.
         </p>
       </div>
 

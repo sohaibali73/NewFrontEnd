@@ -50,16 +50,40 @@ export function AFLGeneratorPage() {
   const [chatMessages, setChatMessages] = useState<Array<{id: string, role: 'user' | 'assistant', content: string, timestamp: Date}>>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
-  const [chatHistory, setChatHistory] = useState<Array<{id: string, title: string, timestamp: Date, preview: string}>>([
-    { id: '1', title: 'Moving Average Strategy', timestamp: new Date(Date.now() - 3600000), preview: 'Create a moving average crossover...' },
-    { id: '2', title: 'RSI Momentum', timestamp: new Date(Date.now() - 7200000), preview: 'Build an RSI-based strategy...' },
-    { id: '3', title: 'Breakout System', timestamp: new Date(Date.now() - 86400000), preview: 'Develop a breakout trading system...' },
-  ]);
+  const [chatHistory, setChatHistory] = useState<Array<{id: string, title: string, timestamp: Date, preview: string}>>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [chatFiles, setChatFiles] = useState<File[]>([]);
   const chatFileInputRef = useRef<HTMLInputElement>(null);
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(isMobile);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  // Load real chat history from API on mount
+  useEffect(() => {
+    loadChatHistory();
+  }, []);
+
+  const loadChatHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const allConversations = await apiClient.getConversations();
+      // Filter to only show AFL conversations
+      const conversations = allConversations.filter((conv: any) => conv.conversation_type === 'afl');
+      // Map API conversations to chat history format
+      const history = conversations.map((conv: any) => ({
+        id: conv.id,
+        title: conv.title || 'Untitled Chat',
+        timestamp: new Date(conv.updated_at || conv.created_at),
+        preview: conv.title || '',
+      }));
+      setChatHistory(history);
+    } catch (err) {
+      console.error('Failed to load chat history:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
   // Visual Artifacts state (AI SDK Generative UI style)
   const [strategyArtifact, setStrategyArtifact] = useState<{
@@ -408,13 +432,19 @@ export function AFLGeneratorPage() {
     );
   };
 
-  const handleSendChatMessage = () => {
+  const handleSendChatMessage = async () => {
     if (!chatInput.trim() && chatFiles.length === 0) return;
+
+    // Build message with context about the current code
+    let messageContent = chatInput;
+    if (generatedCode && !chatInput.toLowerCase().includes('code')) {
+      messageContent = `[Current AFL Code Context]\n\`\`\`afl\n${generatedCode}\n\`\`\`\n\nUser request: ${chatInput}`;
+    }
 
     const newMessage = {
       id: Date.now().toString(),
       role: 'user' as const,
-      content: chatInput,
+      content: chatInput, // Show only user's text in UI
       timestamp: new Date(),
     };
 
@@ -422,18 +452,42 @@ export function AFLGeneratorPage() {
     setChatInput('');
     setChatLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      // FIXED: Use actual API call with conversation ID
+      const response = await apiClient.sendMessage(messageContent, conversationId || undefined);
+      
+      // Track the conversation ID from the response
+      if (response.conversation_id && !conversationId) {
+        setConversationId(response.conversation_id);
+        // Refresh chat history to show the new conversation
+        loadChatHistory();
+      }
+      
       const aiMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant' as const,
-        content: 'I can help you refine this AFL code. What specific changes would you like me to make?',
+        content: response.response || 'No response received.',
         timestamp: new Date(),
       };
       setChatMessages(prev => [...prev, aiMessage]);
+      
+      // If the response contains AFL code, update the generated code
+      const codeMatch = (response.response || '').match(/```(?:afl)?\n([\s\S]*?)```/);
+      if (codeMatch && codeMatch[1]) {
+        setGeneratedCode(codeMatch[1].trim());
+      }
+    } catch (err) {
+      const aiMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant' as const,
+        content: `Error: ${err instanceof Error ? err.message : 'Failed to get response. Please try again.'}`,
+        timestamp: new Date(),
+      };
+      setChatMessages(prev => [...prev, aiMessage]);
+    } finally {
       setChatLoading(false);
       chatMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 1500);
+    }
   };
 
   const handleChatFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -523,7 +577,23 @@ export function AFLGeneratorPage() {
             {chatHistory.map((chat) => (
               <button
                 key={chat.id}
-                onClick={() => setActiveChatId(chat.id)}
+                onClick={async () => {
+                  setActiveChatId(chat.id);
+                  setConversationId(chat.id);
+                  // Load messages for this conversation
+                  try {
+                    const messages = await apiClient.getMessages(chat.id);
+                    setChatMessages(messages.map((m: any) => ({
+                      id: m.id,
+                      role: m.role as 'user' | 'assistant',
+                      content: m.content,
+                      timestamp: new Date(m.created_at),
+                    })));
+                  } catch (err) {
+                    console.error('Failed to load messages:', err);
+                    setChatMessages([]);
+                  }
+                }}
                 style={{
                   width: '100%',
                   padding: '12px',
@@ -582,9 +652,27 @@ export function AFLGeneratorPage() {
           borderTop: `1px solid ${isDark ? '#424242' : '#E0E0E0'}`,
         }}>
           <button
-            onClick={() => {
-              setActiveChatId(null);
-              setChatMessages([]);
+            onClick={async () => {
+              try {
+                // Create a real conversation via the API
+                const newConv = await apiClient.createConversation('AFL Code Chat', 'afl');
+                setConversationId(newConv.id);
+                setActiveChatId(newConv.id);
+                setChatMessages([]);
+                // Add to chat history
+                setChatHistory(prev => [{
+                  id: newConv.id,
+                  title: newConv.title || 'AFL Code Chat',
+                  timestamp: new Date(newConv.created_at),
+                  preview: 'New conversation',
+                }, ...prev]);
+              } catch (err) {
+                console.error('Failed to create conversation:', err);
+                // Fallback: just clear local state
+                setActiveChatId(null);
+                setConversationId(null);
+                setChatMessages([]);
+              }
             }}
             style={{
               width: '100%',

@@ -385,7 +385,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               fontSize: '16px',
               flexShrink: 0,
             }}>
-              {user?.username?.charAt(0).toUpperCase() || 'U'}
+              {user?.name?.charAt(0).toUpperCase() || user?.nickname?.charAt(0).toUpperCase() || 'U'}
             </div>
             {(!collapsed || isMobile) && (
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -399,7 +399,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                   lineHeight: 1.4,
                   transition: 'color 0.3s ease',
                 }}>
-                  {user?.username || 'User'}
+                  {user?.name || user?.nickname || 'User'}
                 </div>
                 <div style={{ 
                   color: colors.textSecondary, 

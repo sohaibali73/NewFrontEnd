@@ -21,9 +21,11 @@ export function MobilePageContainer({
     isMobile ? 'p-4' : (isTablet ? 'p-8' : 'p-12')
   );
 
+  // FIXED: Tailwind can't use dynamic interpolation like max-w-[${maxWidth}]
+  // Use inline style for dynamic maxWidth instead
   return (
     <div className={`min-h-screen ${isDark ? 'bg-gray-950' : 'bg-white'} transition-colors duration-300`}>
-      <div className={`${paddingClass} max-w-[${maxWidth}] mx-auto w-full`}>
+      <div className={`${paddingClass} mx-auto w-full`} style={{ maxWidth }}>
         {children}
       </div>
     </div>
@@ -70,14 +72,21 @@ export function MobileGrid({
 }: MobileGridProps) {
   const { isMobile, isTablet } = useResponsive();
   
+  // FIXED: Tailwind can't process dynamic class names like grid-cols-${n}
+  // Use a lookup map with complete class strings instead
+  const colsMap: Record<number, string> = {
+    1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4',
+  };
+  const mdColsMap: Record<number, string> = {
+    1: 'md:grid-cols-1', 2: 'md:grid-cols-2', 3: 'md:grid-cols-3', 4: 'md:grid-cols-4',
+  };
+  const lgColsMap: Record<number, string> = {
+    1: 'lg:grid-cols-1', 2: 'lg:grid-cols-2', 3: 'lg:grid-cols-3', 4: 'lg:grid-cols-4',
+  };
+
   const gridClass = minColumnWidth 
     ? `grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3`
-    : (() => {
-        const mobileCols = `grid grid-cols-${columns.mobile}`;
-        const tabletCols = `md:grid-cols-${columns.tablet}`;
-        const desktopCols = `lg:grid-cols-${columns.desktop}`;
-        return `${mobileCols} ${tabletCols} ${desktopCols}`;
-      })();
+    : `grid ${colsMap[columns.mobile || 1]} ${mdColsMap[columns.tablet || 2]} ${lgColsMap[columns.desktop || 3]}`;
 
   const gapClass = gap || (isMobile ? 'gap-4' : (isTablet ? 'gap-5' : 'gap-6'));
 

@@ -18,10 +18,10 @@ import {
   Shield,
   BarChart3,
 } from 'lucide-react';
-import logo from '@/assets/yellowlogo.png';
+import { useAuth } from '@/contexts/AuthContext';
 
-// API Base URL - use environment variable or production URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://potomac-analyst-workbench-production.up.railway.app';
+// Use logo from public directory (not src/assets which doesn't work in Next.js)
+const logoSrc = '/yellowlogo.png';
 
 export function RegisterPage() {
   const router = useRouter();
@@ -75,7 +75,7 @@ export function RegisterPage() {
       setError('Please enter your email');
       return false;
     }
-    if (!/^[\w.-]+@[\w.-]+\.[A-Za-z]{2,3}$/.test(formData.email)) {
+    if (!/^[\w.-]+@[\w.-]+\.[A-Za-z]{2,}$/.test(formData.email)) {
       setError('Please enter a valid email address');
       return false;
     }
@@ -119,6 +119,8 @@ export function RegisterPage() {
     setError('');
   };
 
+  const { register } = useAuth();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateStep3()) return;
@@ -127,31 +129,15 @@ export function RegisterPage() {
     setError('');
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          name: formData.name,
-          claude_api_key: formData.claudeApiKey,
-          tavily_api_key: formData.tavilyApiKey || '',
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Registration failed');
-      }
-
-      // Save token
-      localStorage.setItem('auth_token', data.access_token);
-      
-      // Navigate to dashboard
-      router.push('/dashboard');
+      // Use apiClient via AuthContext instead of direct fetch
+      await register(
+        formData.email,
+        formData.password,
+        formData.name,
+        formData.claudeApiKey,
+        formData.tavilyApiKey || ''
+      );
+      // AuthContext.register() handles token storage and navigation to /dashboard
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -291,7 +277,7 @@ export function RegisterPage() {
               overflow: 'hidden',
             }}>
               <img 
-                src={logo.src} 
+                src={logoSrc} 
                 alt="Analyst Logo" 
                 style={{ 
                   width: '100%', 
@@ -775,7 +761,7 @@ export function RegisterPage() {
             overflow: 'hidden',
           }}>
             <img 
-              src={logo.src} 
+              src={logoSrc} 
               alt="Analyst Logo" 
               style={{ 
                 width: '100%', 
@@ -840,7 +826,7 @@ export function RegisterPage() {
           color: '#757575',
           fontSize: '12px',
         }}>
-          Â© 2026 Potomac Fund Management. All rights reserved.
+          © 2026 Potomac Fund Management. All rights reserved.
           Developed by Sohaib Ali.
         </p>
       </div>

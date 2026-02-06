@@ -3,6 +3,7 @@
 import React, { ReactNode, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -11,6 +12,16 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user, loading } = useAuth();
   const router = useRouter();
+  
+  // FIXED: Use theme context for theme-aware loading state
+  let isDark = true;
+  try {
+    const { resolvedTheme } = useTheme();
+    isDark = resolvedTheme === 'dark';
+  } catch {
+    // ThemeProvider may not be available yet during initial load
+    isDark = true;
+  }
 
   useEffect(() => {
     if (!loading && !user) {
@@ -25,8 +36,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: '100vh',
-        backgroundColor: '#121212',
-        color: '#ffffff'
+        backgroundColor: isDark ? '#121212' : '#ffffff',
+        color: isDark ? '#ffffff' : '#212121',
+        transition: 'background-color 0.3s ease, color 0.3s ease',
       }}>
         <div style={{
           textAlign: 'center'
@@ -34,7 +46,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
           <div style={{
             width: '48px',
             height: '48px',
-            border: '4px solid #424242',
+            borderWidth: '4px',
+            borderStyle: 'solid',
+            borderRightColor: isDark ? '#424242' : '#e0e0e0',
+            borderBottomColor: isDark ? '#424242' : '#e0e0e0',
+            borderLeftColor: isDark ? '#424242' : '#e0e0e0',
             borderTopColor: '#FEC00F',
             borderRadius: '50%',
             margin: '0 auto 16px',
@@ -42,7 +58,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
           }}></div>
           <p>Loading...</p>
         </div>
-        <style jsx>{`
+        {/* FIXED: Use regular style tag instead of style jsx which requires styled-jsx */}
+        <style>{`
           @keyframes spin {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }

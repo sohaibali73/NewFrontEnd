@@ -1,6 +1,7 @@
 // src/components/CodeDisplay.tsx
 import React, { useState } from 'react';
 import { Copy, Check, Download, Maximize2, Minimize2 } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface CodeDisplayProps {
   code: string;
@@ -10,6 +11,15 @@ interface CodeDisplayProps {
 }
 
 export function CodeDisplay({ code, language = 'afl', title = 'AFL CODE OUTPUT', showLineNumbers = true }: CodeDisplayProps) {
+  // FIXED: Add theme support
+  let isDark = true;
+  try {
+    const { resolvedTheme } = useTheme();
+    isDark = resolvedTheme === 'dark';
+  } catch {
+    isDark = true;
+  }
+
   const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
@@ -40,8 +50,6 @@ export function CodeDisplay({ code, language = 'afl', title = 'AFL CODE OUTPUT',
     const functions = ['MA', 'EMA', 'RSI', 'MACD', 'Cross', 'Ref', 'HHV', 'LLV', 'ATR', 'StDev', 'IIf', 'ValueWhen', 'BarsSince'];
     const variables = ['Close', 'Open', 'High', 'Low', 'Volume', 'O', 'H', 'L', 'C', 'V'];
 
-    let result = line;
-    
     // This is a simplified highlighter - in production you'd use a proper syntax highlighter
     return (
       <span>
@@ -71,8 +79,8 @@ export function CodeDisplay({ code, language = 'afl', title = 'AFL CODE OUTPUT',
 
   return (
     <div style={{
-      backgroundColor: '#1E1E1E',
-      border: '1px solid #424242',
+      backgroundColor: isDark ? '#1E1E1E' : '#ffffff',
+      border: `1px solid ${isDark ? '#424242' : '#e0e0e0'}`,
       borderRadius: '12px',
       overflow: 'hidden',
       height: expanded ? '80vh' : 'auto',
@@ -85,14 +93,14 @@ export function CodeDisplay({ code, language = 'afl', title = 'AFL CODE OUTPUT',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '12px 20px',
-        backgroundColor: '#2A2A2A',
-        borderBottom: '1px solid #424242',
+        backgroundColor: isDark ? '#2A2A2A' : '#f5f5f5',
+        borderBottom: `1px solid ${isDark ? '#424242' : '#e0e0e0'}`,
       }}>
         <span style={{
           fontFamily: "'Rajdhani', sans-serif",
           fontSize: '13px',
           fontWeight: 600,
-          color: '#FFFFFF',
+          color: isDark ? '#FFFFFF' : '#212121',
           letterSpacing: '0.5px',
         }}>
           {title}
@@ -163,7 +171,7 @@ export function CodeDisplay({ code, language = 'afl', title = 'AFL CODE OUTPUT',
       <div style={{
         flex: 1,
         overflow: 'auto',
-        backgroundColor: '#0D1117',
+        backgroundColor: isDark ? '#0D1117' : '#f8f9fa',
       }}>
         <pre style={{
           margin: 0,
@@ -177,17 +185,17 @@ export function CodeDisplay({ code, language = 'afl', title = 'AFL CODE OUTPUT',
               {showLineNumbers && (
                 <span style={{
                   width: '50px',
-                  color: '#6E7681',
+                  color: isDark ? '#6E7681' : '#adb5bd',
                   textAlign: 'right',
                   paddingRight: '20px',
                   userSelect: 'none',
-                  borderRight: '1px solid #21262D',
+                  borderRight: `1px solid ${isDark ? '#21262D' : '#e9ecef'}`,
                   marginRight: '20px',
                 }}>
                   {index + 1}
                 </span>
               )}
-              <span style={{ color: '#E6EDF3', flex: 1 }}>
+              <span style={{ color: isDark ? '#E6EDF3' : '#212529', flex: 1 }}>
                 {highlightCode(line) || ' '}
               </span>
             </div>
@@ -201,13 +209,13 @@ export function CodeDisplay({ code, language = 'afl', title = 'AFL CODE OUTPUT',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '10px 20px',
-        backgroundColor: '#161B22',
-        borderTop: '1px solid #21262D',
+        backgroundColor: isDark ? '#161B22' : '#f1f3f5',
+        borderTop: `1px solid ${isDark ? '#21262D' : '#e9ecef'}`,
       }}>
-        <span style={{ color: '#6E7681', fontSize: '11px' }}>
+        <span style={{ color: isDark ? '#6E7681' : '#868e96', fontSize: '11px' }}>
           {lines.length} lines • {language.toUpperCase()}
         </span>
-        <span style={{ color: '#6E7681', fontSize: '11px' }}>
+        <span style={{ color: isDark ? '#6E7681' : '#868e96', fontSize: '11px' }}>
           {code.length} characters
         </span>
       </div>

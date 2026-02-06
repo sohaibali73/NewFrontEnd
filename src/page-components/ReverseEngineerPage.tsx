@@ -23,12 +23,22 @@ import {
   Trash2,
   Paperclip,
   X,
+  Activity,
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  Target,
+  Shield,
+  ArrowUpCircle,
+  ArrowDownCircle,
 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import apiClient from '@/lib/api';
-import logo from '@/assets/yellowlogo.png';
+// FIXED: Use public directory path instead of src/assets import
+const logo = '/yellowlogo.png';
 import Editor from '@monaco-editor/react';
+import mermaid from 'mermaid';
 
 interface ChatMessage {
   id: string;
@@ -55,6 +65,71 @@ export function ReverseEngineerPage() {
   
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
+
+  // Load sessions from localStorage on component mount
+  useEffect(() => {
+    try {
+      const savedSessions = localStorage.getItem('reverse_engineer_sessions');
+      if (savedSessions) {
+        const parsedSessions: Session[] = JSON.parse(savedSessions);
+        // Convert timestamp strings back to Date objects
+        const sessionsWithDates = parsedSessions.map(session => ({
+          ...session,
+          messages: session.messages.map(msg => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp),
+          })),
+        }));
+        setSessions(sessionsWithDates);
+      }
+    } catch (error) {
+      console.error('Failed to load sessions from localStorage:', error);
+    }
+    // FIXED: Mark sessions as loaded to prevent save effect from overwriting with []
+    setSessionsLoaded(true);
+  }, []);
+
+  // Save sessions to localStorage whenever sessions change
+  // FIXED: Only save AFTER initial load is complete to prevent overwriting with []
+  useEffect(() => {
+    if (!sessionsLoaded) return; // Don't save until initial load is done
+    try {
+      localStorage.setItem('reverse_engineer_sessions', JSON.stringify(sessions));
+    } catch (error) {
+      console.error('Failed to save sessions to localStorage:', error);
+    }
+  }, [sessions, sessionsLoaded]);
+
+  // Save selected session to localStorage
+  useEffect(() => {
+    try {
+      if (selectedSession) {
+        localStorage.setItem('reverse_engineer_selected_session', selectedSession.id);
+      } else {
+        localStorage.removeItem('reverse_engineer_selected_session');
+      }
+    } catch (error) {
+      console.error('Failed to save selected session:', error);
+    }
+  }, [selectedSession]);
+
+  // Restore selected session on component mount
+  useEffect(() => {
+    try {
+      const savedSelectedSessionId = localStorage.getItem('reverse_engineer_selected_session');
+      if (savedSelectedSessionId && sessions.length > 0) {
+        const foundSession = sessions.find(s => s.id === savedSelectedSessionId);
+        if (foundSession) {
+          setSelectedSession(foundSession);
+          // Restore the active step based on session state
+          setActiveStep(foundSession.code ? 4 : foundSession.schematic ? 3 : foundSession.messages.length > 0 ? 2 : 0);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to restore selected session:', error);
+    }
+  }, [sessions]);
   const [description, setDescription] = useState('');
   const [chatInput, setChatInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -72,6 +147,7 @@ export function ReverseEngineerPage() {
   const editorRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const mermaidRef = useRef<HTMLDivElement>(null);
 
   // Theme-aware colors
   const colors = {
@@ -95,6 +171,78 @@ export function ReverseEngineerPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [selectedSession?.messages]);
+
+  // Initialize mermaid
+  useEffect(() => {
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: isDark ? 'dark' : 'default',
+      securityLevel: 'loose',
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis',
+      },
+    });
+  }, [isDark]);
+
+  // Parse schematic text into structured data
+  const parseSchematic = (schematicText: string): {
+    strategy_name?: string;
+    strategy_type?: string;
+    timeframe?: string;
+    indicators?: string[];
+    entry_logic?: string;
+    exit_logic?: string;
+    mermaid_diagram?: string;
+    risk_management?: Record<string, any>;
+    raw?: string;
+    isParsed: boolean;
+  } => {
+    if (!schematicText) return { isParsed: false };
+    try {
+      // Try parsing as JSON (the backend may return JSON-formatted schematic)
+      const parsed = JSON.parse(schematicText);
+      return { ...parsed, isParsed: true };
+    } catch {
+      // Try to find JSON within the text (e.g. surrounded by other text)
+      const jsonMatch = schematicText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[0]);
+          return { ...parsed, isParsed: true };
+        } catch {
+          // not JSON
+        }
+      }
+      // Return raw text as fallback
+      return { raw: schematicText, isParsed: false };
+    }
+  };
+
+  // Render mermaid diagram when schematic changes
+  useEffect(() => {
+    const schematicData = selectedSession?.schematic ? parseSchematic(selectedSession.schematic) : null;
+    if (schematicData?.mermaid_diagram && mermaidRef.current) {
+      const renderMermaid = async () => {
+        try {
+          mermaidRef.current!.innerHTML = '';
+          const id = `mermaid-${Date.now()}`;
+          const { svg } = await mermaid.render(id, schematicData.mermaid_diagram!);
+          if (mermaidRef.current) {
+            mermaidRef.current.innerHTML = svg;
+          }
+        } catch (err) {
+          console.error('Mermaid render error:', err);
+          // Show raw mermaid code as fallback
+          if (mermaidRef.current) {
+            mermaidRef.current.innerHTML = `<pre style="color: ${colors.textMuted}; font-size: 11px; white-space: pre-wrap;">${schematicData.mermaid_diagram}</pre>`;
+          }
+        }
+      };
+      renderMermaid();
+    }
+  }, [selectedSession?.schematic, isDark]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -211,11 +359,9 @@ export function ReverseEngineerPage() {
         conversationId: data.conversation_id,  // Backend conversation ID
         strategyId: data.strategy_id,  // Backend strategy ID (with underscore)
         ...(data.schematic && { 
-          schematic: cleanText(
-            typeof data.schematic === 'string' 
-              ? data.schematic 
-              : JSON.stringify(data.schematic, null, 2)
-          ) 
+          schematic: typeof data.schematic === 'string' 
+            ? data.schematic 
+            : JSON.stringify(data.schematic, null, 2)
         }),
         ...(data.code && { code: cleanText(data.code) }),
       };
@@ -258,7 +404,8 @@ export function ReverseEngineerPage() {
   const handleChatSend = async () => {
     if (!chatInput.trim() || loading || !selectedSession) return;
     
-    const backendId = selectedSession?.conversationId || selectedSession?.strategyId;
+    // FIXED: Use strategyId first (backend looks up strategies table, not conversations)
+    const backendId = selectedSession?.strategyId || selectedSession?.conversationId;
     
     if (!backendId) {
       setError('No session ID available for chat. Please start a new session.');
@@ -298,13 +445,11 @@ export function ReverseEngineerPage() {
       const finalSession = { 
         ...selectedSession, 
         messages: finalMessages,
-        // Update schematic/code if returned
+        // Update schematic/code if returned - preserve JSON for visual rendering
         ...(data.schematic && { 
-          schematic: cleanText(
-            typeof data.schematic === 'string' 
-              ? data.schematic 
-              : JSON.stringify(data.schematic, null, 2)
-          ) 
+          schematic: typeof data.schematic === 'string' 
+            ? data.schematic 
+            : JSON.stringify(data.schematic, null, 2)
         }),
         ...(data.code && { code: cleanText(data.code) }),
       };
@@ -322,7 +467,8 @@ export function ReverseEngineerPage() {
   };
 
   const handleSchematic = async () => {
-    const backendId = selectedSession?.conversationId || selectedSession?.strategyId;
+    // FIXED: Must use strategyId - backend /schematic/{strategy_id} looks up strategies table
+    const backendId = selectedSession?.strategyId || selectedSession?.conversationId;
     
     if (!backendId) {
       setError('No session ID available. Please start a new session.');
@@ -336,11 +482,10 @@ export function ReverseEngineerPage() {
     try {
       const data = await apiClient.generateStrategySchematic(backendId);
       
-      const schematicText = cleanText(
-        typeof data.schematic === 'string' 
-          ? data.schematic 
-          : JSON.stringify(data.schematic, null, 2)
-      );
+      // Preserve JSON structure for visual rendering - don't apply cleanText
+      const schematicText = typeof data.schematic === 'string' 
+        ? data.schematic 
+        : JSON.stringify(data.schematic, null, 2);
       
       const responseText = data.response || 'Strategy schematic generated successfully.';
       
@@ -369,7 +514,8 @@ export function ReverseEngineerPage() {
   };
 
   const handleCode = async () => {
-    const backendId = selectedSession?.conversationId || selectedSession?.strategyId;
+    // FIXED: Must use strategyId - backend /generate-code/{strategy_id} looks up strategies table
+    const backendId = selectedSession?.strategyId || selectedSession?.conversationId;
     
     if (!backendId) {
       setError('No session ID available. Please start a new session.');
@@ -1034,7 +1180,7 @@ export function ReverseEngineerPage() {
                   gap: '12px',
                 }}>
                   <div style={{ width: '32px', height: '32px', borderRadius: '8px', overflow: 'hidden' }}>
-                    <img src={logo.src} alt="AI" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    <img src={logo} alt="AI" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                   </div>
                   <div>
                     <h2 style={{
@@ -1066,7 +1212,7 @@ export function ReverseEngineerPage() {
                     >
                       {msg.role === 'assistant' && (
                         <div style={{ width: '28px', height: '28px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0 }}>
-                          <img src={logo.src} alt="AI" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                          <img src={logo} alt="AI" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                         </div>
                       )}
                       <div style={{ maxWidth: '80%' }}>
@@ -1090,7 +1236,7 @@ export function ReverseEngineerPage() {
                   {loading && (
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <div style={{ width: '28px', height: '28px', borderRadius: '8px', overflow: 'hidden' }}>
-                        <img src={logo.src} alt="AI" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        <img src={logo} alt="AI" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                       </div>
                       <div style={{ padding: '12px 16px', borderRadius: '16px', backgroundColor: colors.inputBg }}>
                         <div style={{ display: 'flex', gap: '6px' }}>
@@ -1276,18 +1422,323 @@ export function ReverseEngineerPage() {
               overflow: 'auto',
               padding: '20px',
             }}>
-              {selectedSession?.schematic ? (
-                <pre style={{
-                  margin: 0,
-                  fontFamily: "'Fira Code', monospace",
-                  fontSize: '13px',
-                  lineHeight: 1.7,
-                  color: colors.text,
-                  whiteSpace: 'pre-wrap',
-                }}>
-                  {selectedSession.schematic}
-                </pre>
-              ) : (
+              {selectedSession?.schematic ? (() => {
+                const schematicData = parseSchematic(selectedSession.schematic!);
+                
+                if (schematicData.isParsed) {
+                  // Render as visual UI schematic
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {/* Strategy Header Card */}
+                      {(schematicData.strategy_name || schematicData.strategy_type || schematicData.timeframe) && (
+                        <div style={{
+                          padding: '16px',
+                          borderRadius: '10px',
+                          background: isDark 
+                            ? 'linear-gradient(135deg, rgba(254,192,15,0.15) 0%, rgba(254,192,15,0.05) 100%)' 
+                            : 'linear-gradient(135deg, rgba(254,192,15,0.2) 0%, rgba(254,192,15,0.08) 100%)',
+                          border: '1px solid rgba(254,192,15,0.3)',
+                        }}>
+                          {schematicData.strategy_name && (
+                            <h3 style={{
+                              fontFamily: "'Rajdhani', sans-serif",
+                              fontSize: '18px',
+                              fontWeight: 700,
+                              color: '#FEC00F',
+                              margin: '0 0 8px 0',
+                              letterSpacing: '0.5px',
+                              textTransform: 'uppercase',
+                            }}>
+                              {schematicData.strategy_name}
+                            </h3>
+                          )}
+                          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                            {schematicData.strategy_type && (
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                padding: '4px 12px',
+                                borderRadius: '20px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                fontFamily: "'Rajdhani', sans-serif",
+                                letterSpacing: '0.5px',
+                                backgroundColor: isDark ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.15)',
+                                color: '#A78BFA',
+                                border: '1px solid rgba(139,92,246,0.3)',
+                                textTransform: 'uppercase',
+                              }}>
+                                <Activity size={12} />
+                                {schematicData.strategy_type.replace(/_/g, ' ')}
+                              </span>
+                            )}
+                            {schematicData.timeframe && (
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                padding: '4px 12px',
+                                borderRadius: '20px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                fontFamily: "'Rajdhani', sans-serif",
+                                letterSpacing: '0.5px',
+                                backgroundColor: isDark ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.15)',
+                                color: '#60A5FA',
+                                border: '1px solid rgba(59,130,246,0.3)',
+                                textTransform: 'uppercase',
+                              }}>
+                                <Clock size={12} />
+                                {schematicData.timeframe}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Indicators Section */}
+                      {schematicData.indicators && schematicData.indicators.length > 0 && (
+                        <div style={{
+                          padding: '16px',
+                          borderRadius: '10px',
+                          backgroundColor: isDark ? 'rgba(30,58,95,0.4)' : 'rgba(219,234,254,0.6)',
+                          border: `1px solid ${isDark ? 'rgba(59,130,246,0.3)' : 'rgba(59,130,246,0.2)'}`,
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginBottom: '12px',
+                          }}>
+                            <BarChart3 size={16} color="#60A5FA" />
+                            <span style={{
+                              fontFamily: "'Rajdhani', sans-serif",
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              color: '#60A5FA',
+                              letterSpacing: '1px',
+                              textTransform: 'uppercase',
+                            }}>
+                              Indicators
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                            {schematicData.indicators.map((indicator: string, idx: number) => (
+                              <div key={idx} style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '8px 14px',
+                                borderRadius: '8px',
+                                backgroundColor: isDark ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.1)',
+                                border: `1px solid ${isDark ? 'rgba(59,130,246,0.25)' : 'rgba(59,130,246,0.2)'}`,
+                                fontSize: '12px',
+                                fontWeight: 500,
+                                color: colors.text,
+                              }}>
+                                <div style={{
+                                  width: '6px',
+                                  height: '6px',
+                                  borderRadius: '50%',
+                                  backgroundColor: '#60A5FA',
+                                }} />
+                                {typeof indicator === 'string' 
+                                  ? indicator.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                                  : String(indicator)
+                                }
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Entry Logic */}
+                      {schematicData.entry_logic && (
+                        <div style={{
+                          padding: '16px',
+                          borderRadius: '10px',
+                          backgroundColor: isDark ? 'rgba(34,197,94,0.08)' : 'rgba(34,197,94,0.06)',
+                          border: `1px solid ${isDark ? 'rgba(34,197,94,0.25)' : 'rgba(34,197,94,0.2)'}`,
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginBottom: '10px',
+                          }}>
+                            <ArrowUpCircle size={16} color="#22C55E" />
+                            <span style={{
+                              fontFamily: "'Rajdhani', sans-serif",
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              color: '#22C55E',
+                              letterSpacing: '1px',
+                              textTransform: 'uppercase',
+                            }}>
+                              Entry Logic
+                            </span>
+                          </div>
+                          <p style={{
+                            margin: 0,
+                            fontSize: '13px',
+                            lineHeight: 1.6,
+                            color: colors.text,
+                          }}>
+                            {schematicData.entry_logic}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Exit Logic */}
+                      {schematicData.exit_logic && (
+                        <div style={{
+                          padding: '16px',
+                          borderRadius: '10px',
+                          backgroundColor: isDark ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.06)',
+                          border: `1px solid ${isDark ? 'rgba(239,68,68,0.25)' : 'rgba(239,68,68,0.2)'}`,
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginBottom: '10px',
+                          }}>
+                            <ArrowDownCircle size={16} color="#EF4444" />
+                            <span style={{
+                              fontFamily: "'Rajdhani', sans-serif",
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              color: '#EF4444',
+                              letterSpacing: '1px',
+                              textTransform: 'uppercase',
+                            }}>
+                              Exit Logic
+                            </span>
+                          </div>
+                          <p style={{
+                            margin: 0,
+                            fontSize: '13px',
+                            lineHeight: 1.6,
+                            color: colors.text,
+                          }}>
+                            {schematicData.exit_logic}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Risk Management */}
+                      {schematicData.risk_management && Object.keys(schematicData.risk_management).length > 0 && (
+                        <div style={{
+                          padding: '16px',
+                          borderRadius: '10px',
+                          backgroundColor: isDark ? 'rgba(251,146,60,0.08)' : 'rgba(251,146,60,0.06)',
+                          border: `1px solid ${isDark ? 'rgba(251,146,60,0.25)' : 'rgba(251,146,60,0.2)'}`,
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginBottom: '12px',
+                          }}>
+                            <Shield size={16} color="#FB923C" />
+                            <span style={{
+                              fontFamily: "'Rajdhani', sans-serif",
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              color: '#FB923C',
+                              letterSpacing: '1px',
+                              textTransform: 'uppercase',
+                            }}>
+                              Risk Management
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {Object.entries(schematicData.risk_management).map(([key, value]) => (
+                              <div key={key} style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '8px 12px',
+                                borderRadius: '6px',
+                                backgroundColor: isDark ? 'rgba(251,146,60,0.1)' : 'rgba(251,146,60,0.08)',
+                              }}>
+                                <span style={{
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  color: colors.textMuted,
+                                  textTransform: 'capitalize',
+                                }}>
+                                  {key.replace(/_/g, ' ')}
+                                </span>
+                                <span style={{
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  color: colors.text,
+                                }}>
+                                  {String(value)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Mermaid Flowchart Diagram */}
+                      {schematicData.mermaid_diagram && (
+                        <div style={{
+                          padding: '16px',
+                          borderRadius: '10px',
+                          backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                          border: `1px solid ${colors.border}`,
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginBottom: '12px',
+                          }}>
+                            <GitBranch size={16} color="#FEC00F" />
+                            <span style={{
+                              fontFamily: "'Rajdhani', sans-serif",
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              color: '#FEC00F',
+                              letterSpacing: '1px',
+                              textTransform: 'uppercase',
+                            }}>
+                              Strategy Flow
+                            </span>
+                          </div>
+                          <div 
+                            ref={mermaidRef} 
+                            style={{ 
+                              width: '100%', 
+                              overflow: 'auto',
+                              display: 'flex',
+                              justifyContent: 'center',
+                            }} 
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                } else {
+                  // Fallback: render raw text for non-JSON schematic
+                  return (
+                    <pre style={{
+                      margin: 0,
+                      fontFamily: "'Fira Code', monospace",
+                      fontSize: '13px',
+                      lineHeight: 1.7,
+                      color: colors.text,
+                      whiteSpace: 'pre-wrap',
+                    }}>
+                      {selectedSession.schematic}
+                    </pre>
+                  );
+                }
+              })() : (
                 <div style={{
                   height: '100%',
                   display: 'flex',

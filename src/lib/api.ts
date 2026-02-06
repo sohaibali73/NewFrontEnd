@@ -205,17 +205,172 @@ class APIClient {
     return this.request<{ success: boolean }>(`/afl/codes/${codeId}`, 'DELETE');
   }
 
+  // FIXED: Added missing AFL file upload endpoints
+  async uploadAflFile(file: File, description?: string) {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (description) formData.append('description', description);
+
+    return this.request<{
+      id: string;
+      filename: string;
+      description?: string;
+      size: number;
+      content_type: string;
+      uploaded_at: string;
+    }>('/afl/upload', 'POST', formData, true);
+  }
+
+  async getAflFiles() {
+    return this.request<{
+      id: string;
+      filename: string;
+      description?: string;
+      size: number;
+      content_type: string;
+      uploaded_at: string;
+    }[]>('/afl/files');
+  }
+
+  async getAflFile(fileId: string) {
+    return this.request<{
+      id: string;
+      filename: string;
+      description?: string;
+      size: number;
+      content_type: string;
+      uploaded_at: string;
+      content?: string;
+    }>(`/afl/files/${fileId}`);
+  }
+
+  async deleteAflFile(fileId: string) {
+    return this.request<{ success: boolean }>(`/afl/files/${fileId}`, 'DELETE');
+  }
+
+  // FIXED: Added missing AFL settings presets endpoints
+  async saveSettingsPreset(preset: {
+    name: string;
+    description?: string;
+    settings: any;
+    is_default?: boolean;
+  }) {
+    return this.request<{
+      id: string;
+      name: string;
+      description?: string;
+      settings: any;
+      is_default: boolean;
+      created_at: string;
+      updated_at: string;
+    }>('/afl/settings/presets', 'POST', preset);
+  }
+
+  async getSettingsPresets() {
+    return this.request<{
+      id: string;
+      name: string;
+      description?: string;
+      settings: any;
+      is_default: boolean;
+      created_at: string;
+      updated_at: string;
+    }[]>('/afl/settings/presets');
+  }
+
+  async getSettingsPreset(presetId: string) {
+    return this.request<{
+      id: string;
+      name: string;
+      description?: string;
+      settings: any;
+      is_default: boolean;
+      created_at: string;
+      updated_at: string;
+    }>(`/afl/settings/presets/${presetId}`);
+  }
+
+  async updateSettingsPreset(presetId: string, updates: {
+    name?: string;
+    description?: string;
+    settings?: any;
+  }) {
+    return this.request<{
+      id: string;
+      name: string;
+      description?: string;
+      settings: any;
+      is_default: boolean;
+      created_at: string;
+      updated_at: string;
+    }>(`/afl/settings/presets/${presetId}`, 'PUT', updates);
+  }
+
+  async deleteSettingsPreset(presetId: string) {
+    return this.request<{ success: boolean }>(`/afl/settings/presets/${presetId}`, 'DELETE');
+  }
+
+  async setDefaultPreset(presetId: string) {
+    return this.request<{
+      id: string;
+      name: string;
+      description?: string;
+      settings: any;
+      is_default: boolean;
+      created_at: string;
+      updated_at: string;
+    }>(`/afl/settings/presets/${presetId}/set-default`, 'POST');
+  }
+
+  // FIXED: Added missing AFL history endpoints
+  async saveAflHistory(entry: {
+    prompt: string;
+    strategy_type?: string;
+    settings?: any;
+    generated_code: string;
+    success: boolean;
+    error_message?: string;
+  }) {
+    return this.request<{
+      id: string;
+      prompt: string;
+      strategy_type?: string;
+      settings?: any;
+      generated_code: string;
+      success: boolean;
+      error_message?: string;
+      created_at: string;
+    }>('/afl/history', 'POST', entry);
+  }
+
+  async getAflHistory(limit: number = 50) {
+    return this.request<{
+      id: string;
+      prompt: string;
+      strategy_type?: string;
+      settings?: any;
+      generated_code: string;
+      success: boolean;
+      error_message?: string;
+      created_at: string;
+    }[]>(`/afl/history?limit=${limit}`);
+  }
+
+  async deleteAflHistory(historyId: string) {
+    return this.request<{ success: boolean }>(`/afl/history/${historyId}`, 'DELETE');
+  }
+
   // ==================== CHAT ENDPOINTS ====================
 
   async getConversations() {
     return this.request<Conversation[]>('/chat/conversations');
   }
 
-  // FIXED: Added title parameter to match backend
-  async createConversation(title?: string) {
+  // FIXED: Added title and conversationType parameters to match backend
+  async createConversation(title?: string, conversationType: string = 'agent') {
     return this.request<Conversation>('/chat/conversations', 'POST', {
       title: title || "New Conversation",
-      conversation_type: "agent"
+      conversation_type: conversationType
     });
   }
 
@@ -522,6 +677,103 @@ class APIClient {
     return this.request<BacktestResult[]>(`/backtest/strategy/${strategyId}`);
   }
 
+  // ==================== RESEARCHER ENDPOINTS ====================
+  // FIXED: Added missing researcher endpoints with correct /api prefix
+
+  async getCompanyResearch(symbol: string) {
+    return this.request<{
+      symbol: string;
+      name: string;
+      sector: string;
+      industry: string;
+      market_cap: number;
+      price: number;
+      data: any;
+    }>(`/api/researcher/company/${symbol}`);
+  }
+
+  async getCompanyNews(symbol: string) {
+    return this.request<{
+      symbol: string;
+      news: any[];
+    }>(`/api/researcher/news/${symbol}`);
+  }
+
+  async analyzeStrategyFit(
+    symbol: string,
+    strategy_type: string,
+    timeframe: string,
+    additional_context?: string
+  ) {
+    return this.request<{
+      symbol: string;
+      strategy_type: string;
+      timeframe: string;
+      analysis: string;
+      recommendations: any[];
+    }>('/api/researcher/strategy-analysis', 'POST', {
+      symbol,
+      strategy_type,
+      timeframe,
+      additional_context,
+    });
+  }
+
+  async getPeerComparison(symbol: string, peers?: string[], sector?: string) {
+    return this.request<{
+      symbol: string;
+      peers: string[];
+      comparison: any;
+      analysis: string;
+    }>('/api/researcher/comparison', 'POST', {
+      symbol,
+      peers,
+      sector,
+    });
+  }
+
+  async getMacroContext() {
+    return this.request<{
+      market_overview: any;
+      economic_indicators: any;
+      sector_performance: any;
+      analysis: string;
+    }>('/api/researcher/macro-context');
+  }
+
+  async getSecFilings(symbol: string) {
+    return this.request<{
+      symbol: string;
+      filings: any[];
+    }>(`/api/researcher/sec-filings/${symbol}`);
+  }
+
+  async generateResearchReport(
+    symbol: string,
+    include_peers: boolean = true,
+    include_technicals: boolean = true,
+    include_fundamentals: boolean = true
+  ) {
+    return this.request<{
+      symbol: string;
+      report: string;
+      sections: any;
+    }>('/api/researcher/generate-report', 'POST', {
+      symbol,
+      include_peers,
+      include_technicals,
+      include_fundamentals,
+    });
+  }
+
+  async getTrendingResearch() {
+    return this.request<{
+      trending_stocks: any[];
+      sector_trends: any[];
+      market_movers: any[];
+    }>('/api/researcher/trending');
+  }
+
   // ==================== REVERSE ENGINEER ENDPOINTS ====================
 
   async startReverseEngineering(query: string) {
@@ -549,6 +801,31 @@ class APIClient {
 
   async getStrategy(strategyId: string) {
     return this.request<Strategy>(`/reverse-engineer/strategy/${strategyId}`);
+  }
+
+  // FIXED: Added missing reverse engineer history endpoints
+  async saveReverseEngineerHistory(entry: {
+    strategy_id: string;
+    query: string;
+    phase: string;
+    result: any;
+  }) {
+    return this.request<{ id: string; success: boolean }>('/reverse-engineer/history', 'POST', entry);
+  }
+
+  async getReverseEngineerHistory(limit: number = 50) {
+    return this.request<{
+      id: string;
+      strategy_id: string;
+      query: string;
+      phase: string;
+      result: any;
+      created_at: string;
+    }[]>(`/reverse-engineer/history?limit=${limit}`);
+  }
+
+  async deleteReverseEngineerHistory(historyId: string) {
+    return this.request<{ success: boolean }>(`/reverse-engineer/history/${historyId}`, 'DELETE');
   }
 
   // ==================== TRAIN ENDPOINTS ====================
@@ -791,6 +1068,22 @@ export const api = {
     getCodes: () => apiClient.getAFLCodes(),
     getCode: (codeId: string) => apiClient.getAFLCode(codeId),
     deleteCode: (codeId: string) => apiClient.deleteAFLCode(codeId),
+    // FIXED: Added missing AFL file upload methods
+    uploadFile: (file: File, description?: string) => apiClient.uploadAflFile(file, description),
+    getFiles: () => apiClient.getAflFiles(),
+    getFile: (fileId: string) => apiClient.getAflFile(fileId),
+    deleteFile: (fileId: string) => apiClient.deleteAflFile(fileId),
+    // FIXED: Added missing AFL settings preset methods
+    savePreset: (preset: any) => apiClient.saveSettingsPreset(preset),
+    getPresets: () => apiClient.getSettingsPresets(),
+    getPreset: (presetId: string) => apiClient.getSettingsPreset(presetId),
+    updatePreset: (presetId: string, updates: any) => apiClient.updateSettingsPreset(presetId, updates),
+    deletePreset: (presetId: string) => apiClient.deleteSettingsPreset(presetId),
+    setDefaultPreset: (presetId: string) => apiClient.setDefaultPreset(presetId),
+    // FIXED: Added missing AFL history methods
+    saveHistory: (entry: any) => apiClient.saveAflHistory(entry),
+    getHistory: (limit?: number) => apiClient.getAflHistory(limit),
+    deleteHistory: (historyId: string) => apiClient.deleteAflHistory(historyId),
   },
   chat: {
     getConversations: () => apiClient.getConversations(),
@@ -815,6 +1108,20 @@ export const api = {
     getBacktest: (backtestId: string) => apiClient.getBacktest(backtestId),
     getStrategyBacktests: (strategyId: string) => apiClient.getStrategyBacktests(strategyId),
   },
+  // FIXED: Added missing researcher endpoints
+  researcher: {
+    getCompanyResearch: (symbol: string) => apiClient.getCompanyResearch(symbol),
+    getCompanyNews: (symbol: string) => apiClient.getCompanyNews(symbol),
+    analyzeStrategyFit: (symbol: string, strategy_type: string, timeframe: string, additional_context?: string) =>
+      apiClient.analyzeStrategyFit(symbol, strategy_type, timeframe, additional_context),
+    getPeerComparison: (symbol: string, peers?: string[], sector?: string) =>
+      apiClient.getPeerComparison(symbol, peers, sector),
+    getMacroContext: () => apiClient.getMacroContext(),
+    getSecFilings: (symbol: string) => apiClient.getSecFilings(symbol),
+    generateReport: (symbol: string, include_peers?: boolean, include_technicals?: boolean, include_fundamentals?: boolean) =>
+      apiClient.generateResearchReport(symbol, include_peers, include_technicals, include_fundamentals),
+    getTrending: () => apiClient.getTrendingResearch(),
+  },
   reverseEngineer: {
     startSession: (query: string) => apiClient.startReverseEngineering(query),
     continue: (strategyId: string, message: string) => apiClient.continueReverseEngineering(strategyId, message),
@@ -822,6 +1129,10 @@ export const api = {
     generateSchematic: (strategyId: string) => apiClient.generateStrategySchematic(strategyId),
     generateCode: (strategyId: string) => apiClient.generateStrategyCode(strategyId),
     getStrategy: (strategyId: string) => apiClient.getStrategy(strategyId),
+    // FIXED: Added missing reverse engineer history methods
+    saveHistory: (entry: any) => apiClient.saveReverseEngineerHistory(entry),
+    getHistory: (limit?: number) => apiClient.getReverseEngineerHistory(limit),
+    deleteHistory: (historyId: string) => apiClient.deleteReverseEngineerHistory(historyId),
   },
   train: {
     submitFeedback: (feedback: FeedbackCreateRequest) => apiClient.submitFeedback(feedback),

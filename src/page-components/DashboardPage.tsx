@@ -1,5 +1,3 @@
-﻿'use client'
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -20,7 +18,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { resolvedTheme } = useTheme();
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(false);
 
   const isDark = resolvedTheme === 'dark';
 
@@ -38,6 +36,7 @@ export default function DashboardPage() {
       setIsMobile(window.innerWidth < 768);
     };
 
+    handleResize(); // Run on mount
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -47,7 +46,7 @@ export default function DashboardPage() {
       icon: Code2,
       title: 'AFL Generator',
       description: 'Generate AmiBroker Formula Language code from natural language',
-      href: '/afl-generator',
+      href: '/afl',
       color: '#3B82F6',
       bgColor: 'rgba(59, 130, 246, 0.1)',
     },
@@ -63,7 +62,7 @@ export default function DashboardPage() {
       icon: Database,
       title: 'Knowledge Base',
       description: 'Upload and search your trading documents and strategies',
-      href: '/knowledge-base',
+      href: '/knowledge',
       color: '#22C55E',
       bgColor: 'rgba(34, 197, 94, 0.1)',
     },
@@ -123,7 +122,7 @@ export default function DashboardPage() {
             Your AI-powered AFL code generation and trading strategy platform
           </p>
           <button
-            onClick={() => router.push('/afl-generator')}
+            onClick={() => router.push('/afl')}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -276,7 +275,7 @@ export default function DashboardPage() {
             marginBottom: '16px',
             letterSpacing: '0.5px',
           }}>
-            =Â¡ QUICK TIPS
+            💡 QUICK TIPS
           </h3>
           <ul style={{
             margin: 0,

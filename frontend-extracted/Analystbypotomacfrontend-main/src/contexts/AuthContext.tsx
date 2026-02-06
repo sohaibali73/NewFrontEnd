@@ -36,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const userData = await apiClient.getCurrentUser();
           setUser(userData);
           setIsAuthenticated(true);
+          localStorage.setItem('user_info', JSON.stringify(userData));
         } catch (error) {
           console.error('Failed to fetch user:', error);
           localStorage.removeItem('auth_token');
@@ -57,6 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData = await apiClient.getCurrentUser();
       setUser(userData);
       setIsAuthenticated(true);
+      // Persist user info for Settings page
+      localStorage.setItem('user_info', JSON.stringify(userData));
     } catch (error) {
       console.error('Login failed:', error);
       throw error;

@@ -77,14 +77,26 @@ export interface Conversation {
 
 export interface AFLGenerateRequest {
   prompt: string;
-  strategy_type?: 'standalone' | 'entry' | 'exit';
+  strategy_type?: 'standalone' | 'composite' | 'entry' | 'exit';
   settings?: {
     initial_equity?: number;
     max_positions?: number;
     trade_delays?: number[];
   };
+  backtest_settings?: {
+    initial_equity?: number;
+    position_size?: string;
+    position_size_type?: string;
+    max_positions?: number;
+    commission?: number;
+    trade_delays?: number[];
+    margin_requirement?: number;
+  };
+  uploaded_file_ids?: string[];
+  kb_context?: string;
   conversation_id?: string;
   answers?: Record<string, string>;
+  stream?: boolean;
 }
 
 export interface AFLCode {

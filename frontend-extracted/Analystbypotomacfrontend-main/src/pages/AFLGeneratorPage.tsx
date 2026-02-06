@@ -186,22 +186,22 @@ export function AFLGeneratorPage() {
 
     // Generate flowchart
     let flowchart = `flowchart TD
-    subgraph INDICATORS["=Ê Indicators"]
+    subgraph INDICATORS["=ÃŠ Indicators"]
 `;
     indicators.forEach((ind, i) => {
       flowchart += `        IND${i}["${ind.name}<br/>${ind.type}(${ind.params.period})"]\n`;
     });
     flowchart += `    end
     
-    subgraph SIGNALS["<¯ Trading Signals"]
+    subgraph SIGNALS["<Â¯ Trading Signals"]
 `;
     signals.forEach((sig, i) => {
-      const icon = sig.type === 'buy' ? '=â' : sig.type === 'sell' ? '=4' : sig.type === 'short' ? '=à' : '=5';
+      const icon = sig.type === 'buy' ? '=Ã¢' : sig.type === 'sell' ? '=4' : sig.type === 'short' ? '=Ã ' : '=5';
       flowchart += `        SIG${i}["${icon} ${sig.type.toUpperCase()}"]\n`;
     });
     flowchart += `    end
     
-    subgraph RISK["  Risk Management"]
+    subgraph RISK["Â  Risk Management"]
 `;
     if (riskManagement.stopLoss) flowchart += `        STOP["Stop Loss: ${riskManagement.stopLoss}%"]\n`;
     if (riskManagement.takeProfit) flowchart += `        PROFIT["Take Profit: ${riskManagement.takeProfit}%"]\n`;
@@ -233,7 +233,7 @@ export function AFLGeneratorPage() {
     
     try {
       const result = await apiClient.generateAFL({
-        request: prompt,
+        prompt: prompt,
         strategy_type: strategyType as any,
         backtest_settings: backtestSettings,
         uploaded_file_ids: selectedFileIds,

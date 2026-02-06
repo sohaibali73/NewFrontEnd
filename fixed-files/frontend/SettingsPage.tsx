@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useState, useEffect } from 'react';
 import {
   Settings,
@@ -18,7 +20,7 @@ import {
   AlertTriangle,
   ExternalLink,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFontSize } from '@/contexts/FontSizeContext';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -56,7 +58,7 @@ const sections = [
 ];
 
 export function SettingsPage() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { theme, setTheme, resolvedTheme, accentColor, setAccentColor } = useTheme();
   const { fontSize, setFontSize } = useFontSize();
   const { isMobile, isTablet } = useResponsive();
@@ -123,11 +125,10 @@ export function SettingsPage() {
             tavilyApiKey: (userData as any).tavily_api_key || '',
           },
         }));
-        // Update localStorage cache
         localStorage.setItem('user_info', JSON.stringify(userData));
       } catch (e) {
         console.error('Failed to load user data from API:', e);
-        // Fallback to localStorage
+        // Fallback to localStorage cache
         const userInfo = localStorage.getItem('user_info');
         if (userInfo) {
           try {
@@ -197,7 +198,6 @@ export function SettingsPage() {
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
       console.error('Failed to save to backend:', err);
-      // Still show saved for localStorage settings
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       alert(`Settings saved locally. Backend sync failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -207,13 +207,13 @@ export function SettingsPage() {
   const handleLogout = () => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_info');
-    navigate('/login');
+    router.push('/login');
   };
 
   const handleDeleteAccount = () => {
     if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
       localStorage.clear();
-      navigate('/login');
+      router.push('/login');
     }
   };
 
@@ -947,3 +947,6 @@ export function SettingsPage() {
     </div>
   );
 }
+
+
+export default SettingsPage;

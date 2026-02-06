@@ -3,3 +3,14 @@ __pycache__/
 *.pyc
 .venv/
 .idea/
+
+# Node
+node_modules/
+.next/
+package-lock.json
+
+# Large/binary files
+*.zip
+*.dll
+*.node
+*.exe

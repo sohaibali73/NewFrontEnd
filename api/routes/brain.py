@@ -31,83 +31,118 @@ async def upload_document(
         api_keys: dict = Depends(get_user_api_keys),
 ):
     """Upload and process a document."""
-    db = get_supabase()
-
-    # Read file content
-    content_bytes = await file.read()
-
-    # Try to parse based on file type
     try:
-        content = content_bytes.decode("utf-8", errors="ignore")
-    except:
-        content = str(content_bytes)
+        db = get_supabase()
 
-    # Generate content hash for deduplication
-    content_hash = hashlib.sha256(content.encode()).hexdigest()
+        # Read file content
+        content_bytes = await file.read()
+        
+        # Check file size (limit to 10MB)
+        if len(content_bytes) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="File too large. Maximum size is 10MB.")
 
-    # Check for duplicate
-    existing = db.table("brain_documents").select("id").eq("content_hash", content_hash).execute()
-    if existing.data:
-        return {
-            "status": "duplicate",
-            "document_id": existing.data[0]["id"],
-            "message": "Document already exists in knowledge base",
+        # Try to parse based on file type
+        try:
+            content = content_bytes.decode("utf-8", errors="ignore")
+        except:
+            content = str(content_bytes)
+
+        # Ensure content is not empty
+        if not content or not content.strip():
+            raise HTTPException(status_code=400, detail="File is empty or could not be read.")
+
+        # Generate content hash for deduplication
+        content_hash = hashlib.sha256(content.encode()).hexdigest()
+
+        # Check for duplicate
+        existing = db.table("brain_documents").select("id").eq("content_hash", content_hash).execute()
+        if existing.data:
+            return {
+                "status": "duplicate",
+                "document_id": existing.data[0]["id"],
+                "message": "Document already exists in knowledge base",
+            }
+
+        # Classify document (with graceful fallback if classifier fails)
+        final_category = category or "general"
+        classification_data = {
+            "subcategories": [],
+            "tags": [],
+            "summary": "",
+            "confidence": 0,
         }
+        
+        try:
+            claude_key = api_keys.get("claude", "")
+            if claude_key:
+                classifier = AIDocumentClassifier(api_key=claude_key)
+                classification = classifier.classify_document(content[:5000], file.filename)  # Limit content for classification
+                if category == "general" and hasattr(classification, 'primary_category'):
+                    final_category = classification.primary_category or "general"
+                classification_data = {
+                    "subcategories": getattr(classification, 'subcategories', []),
+                    "tags": getattr(classification, 'suggested_tags', []),
+                    "summary": getattr(classification, 'summary', ""),
+                    "confidence": getattr(classification, 'confidence', 0),
+                }
+        except Exception as cls_err:
+            # Classification failed - continue with defaults
+            import logging
+            logging.getLogger(__name__).warning(f"Document classification failed: {cls_err}")
 
-    # Classify document
-    classifier = AIDocumentClassifier(api_key=api_keys.get("claude", ""))
-    classification = classifier.classify_document(content, file.filename)
-
-    # Use provided category or classified category
-    final_category = category if category != "general" else classification.primary_category
-
-    # Store document
-    doc_result = db.table("brain_documents").insert({
-        "uploaded_by": user_id,
-        "title": title or file.filename,
-        "filename": file.filename,
-        "file_type": file.content_type,
-        "file_size": len(content_bytes),
-        "category": final_category,
-        "subcategories": classification.subcategories,
-        "tags": classification.suggested_tags,
-        "raw_content": content,
-        "summary": classification.summary,
-        "content_hash": content_hash,
-        "source_type": "upload",
-    }).execute()
-
-    document_id = doc_result.data[0]["id"]
-
-    # Chunk document for RAG (simple chunking for now)
-    chunk_size = 500
-    chunks = [content[i:i + chunk_size] for i in range(0, len(content), chunk_size)]
-
-    for idx, chunk in enumerate(chunks[:50]):  # Limit chunks
-        db.table("brain_chunks").insert({
-            "document_id": document_id,
-            "chunk_index": idx,
-            "content": chunk,
-            # embedding would be added here with sentence-transformers
+        # Store document
+        doc_result = db.table("brain_documents").insert({
+            "uploaded_by": user_id,
+            "title": title or file.filename,
+            "filename": file.filename,
+            "file_type": file.content_type,
+            "file_size": len(content_bytes),
+            "category": final_category,
+            "subcategories": classification_data["subcategories"],
+            "tags": classification_data["tags"],
+            "raw_content": content,
+            "summary": classification_data["summary"],
+            "content_hash": content_hash,
+            "source_type": "upload",
         }).execute()
 
-    # Update document
-    db.table("brain_documents").update({
-        "is_processed": True,
-        "chunk_count": len(chunks),
-        "processed_at": "now()",
-    }).eq("id", document_id).execute()
+        document_id = doc_result.data[0]["id"]
 
-    return {
-        "status": "success",
-        "document_id": document_id,
-        "classification": {
-            "category": final_category,
-            "confidence": classification.confidence,
-            "summary": classification.summary,
-        },
-        "chunks_created": min(len(chunks), 50),
-    }
+        # Chunk document for RAG (simple chunking for now)
+        chunk_size = 500
+        chunks = [content[i:i + chunk_size] for i in range(0, len(content), chunk_size)]
+
+        for idx, chunk in enumerate(chunks[:50]):  # Limit chunks
+            db.table("brain_chunks").insert({
+                "document_id": document_id,
+                "chunk_index": idx,
+                "content": chunk,
+            }).execute()
+
+        # Update document
+        db.table("brain_documents").update({
+            "is_processed": True,
+            "chunk_count": len(chunks),
+            "processed_at": "now()",
+        }).eq("id", document_id).execute()
+
+        return {
+            "status": "success",
+            "document_id": document_id,
+            "classification": {
+                "category": final_category,
+                "confidence": classification_data["confidence"],
+                "summary": classification_data["summary"],
+            },
+            "chunks_created": min(len(chunks), 50),
+        }
+    
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Upload failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
 @router.post("/upload-batch")

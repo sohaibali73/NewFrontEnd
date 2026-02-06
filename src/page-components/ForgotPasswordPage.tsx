@@ -32,6 +32,7 @@ export function ForgotPasswordPage() {
       setIsSmallMobile(window.innerWidth < 768);
     };
 
+    handleResize(); // Call immediately to set initial values
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleResize);
     return () => {

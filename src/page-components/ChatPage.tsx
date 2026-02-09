@@ -1019,8 +1019,8 @@ export function ChatPage() {
         )}
 
         {/* AI Elements: Conversation with auto-scroll */}
-        <AIConversation className="flex-1 overflow-hidden">
-          <ConversationContent className="max-w-[900px] mx-auto px-6 py-8 h-full overflow-y-auto">
+        <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+          <div className="max-w-[900px] mx-auto px-6 py-8">
             {allMessages.length === 0 ? (
               <ConversationEmptyState
                 icon={<img src={logo} alt="Logo" className="w-20 opacity-30" />}
@@ -1062,9 +1062,8 @@ export function ChatPage() {
               </>
             )}
             <div ref={messagesEndRef} />
-          </ConversationContent>
-          <ConversationScrollButton />
-        </AIConversation>
+          </div>
+        </div>
 
         {/* Error banner */}
         {(pageError || chatError) && (

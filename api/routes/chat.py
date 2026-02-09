@@ -432,6 +432,32 @@ async def stream_message(
 
     history = [{"role": m["role"], "content": m["content"]} for m in history_result.data[:-1]][-10:]
 
+    # Fetch uploaded files for this conversation to include in context
+    file_context = ""
+    try:
+        files_result = db.table("conversation_files").select(
+            "filename, content_type, file_data"
+        ).eq("conversation_id", conversation_id).execute()
+        
+        if files_result.data:
+            file_snippets = []
+            for f in files_result.data:
+                fd = f.get("file_data", {})
+                filename = fd.get("filename", f.get("filename", "unknown"))
+                if fd.get("text_content"):
+                    # Include text file content (truncated)
+                    content_preview = fd["text_content"][:2000]
+                    file_snippets.append(f"### File: {filename}\n```\n{content_preview}\n```")
+                elif fd.get("base64_content") and f.get("content_type", "").startswith("image/"):
+                    file_snippets.append(f"### File: {filename} (image uploaded — available for analysis)")
+                else:
+                    file_snippets.append(f"### File: {filename} ({f.get('content_type', 'unknown type')})")
+            
+            if file_snippets:
+                file_context = "\n\n## Uploaded Files in This Conversation:\n" + "\n\n".join(file_snippets)
+    except Exception:
+        pass  # conversation_files table may not exist
+
     # Pre-fetch knowledge base context for AFL-related queries
     kb_context = ""
     user_msg_lower = data.content.lower()
@@ -463,10 +489,11 @@ async def stream_message(
             import anthropic
             client = anthropic.Anthropic(api_key=api_keys["claude"])
 
-            # System prompt
+            # System prompt (includes file context and KB context)
             system_prompt = f"""{get_base_prompt()}
 
 {get_chat_prompt()}
+{file_context}
 {kb_context}
 
 ## Tools Available (use when helpful):
@@ -749,7 +776,11 @@ async def delete_conversation(
     if not conv.data or conv.data[0]["user_id"] != user_id:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    # Delete messages first (foreign key)
+    # Delete related records first (foreign keys)
+    try:
+        db.table("conversation_files").delete().eq("conversation_id", conversation_id).execute()
+    except Exception:
+        pass  # Table may not exist or no files
     db.table("messages").delete().eq("conversation_id", conversation_id).execute()
     
     # Delete conversation

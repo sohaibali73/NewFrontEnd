@@ -163,8 +163,9 @@ async def send_message(
         conv_check = db.table("conversations").select("title").eq("id", conversation_id).execute()
         if conv_check.data:
             current_title = conv_check.data[0].get("title", "")
-            # Update title if it's still the default "New Conversation"
-            if current_title == "New Conversation" or not current_title:
+            # Update title if it's still a default placeholder
+            default_titles = ["New Conversation", "AFL Code Chat", "New Chat", "Untitled", ""]
+            if current_title in default_titles or not current_title:
                 new_title = data.content[:50] + "..." if len(data.content) > 50 else data.content
                 db.table("conversations").update({
                     "title": new_title
@@ -412,7 +413,9 @@ async def stream_message(
         conv_check = db.table("conversations").select("title").eq("id", conversation_id).execute()
         if conv_check.data:
             current_title = conv_check.data[0].get("title", "")
-            if current_title == "New Conversation" or not current_title:
+            # Update title if it's still a default placeholder
+            default_titles = ["New Conversation", "AFL Code Chat", "New Chat", "Untitled", ""]
+            if current_title in default_titles or not current_title:
                 new_title = data.content[:50] + "..." if len(data.content) > 50 else data.content
                 db.table("conversations").update({
                     "title": new_title
@@ -758,6 +761,41 @@ async def list_available_tools():
         "tools": tool_info,
         "count": len(tool_info)
     }
+
+
+class ConversationUpdate(BaseModel):
+    title: Optional[str] = None
+
+
+@router.patch("/conversations/{conversation_id}")
+async def update_conversation(
+        conversation_id: str,
+        data: ConversationUpdate,
+        user_id: str = Depends(get_current_user_id),
+):
+    """Update a conversation (rename, etc.)."""
+    db = get_supabase()
+
+    # Verify ownership
+    conv = db.table("conversations").select("user_id").eq(
+        "id", conversation_id
+    ).execute()
+
+    if not conv.data or conv.data[0]["user_id"] != user_id:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    updates = {}
+    if data.title is not None:
+        updates["title"] = data.title
+    
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    result = db.table("conversations").update(updates).eq(
+        "id", conversation_id
+    ).execute()
+
+    return result.data[0] if result.data else {"status": "updated"}
 
 
 @router.delete("/conversations/{conversation_id}")

@@ -1019,8 +1019,8 @@ export function ChatPage() {
         )}
 
         {/* AI Elements: Conversation with auto-scroll */}
-        <AIConversation className="flex-1">
-          <ConversationContent className="max-w-[900px] mx-auto px-6 py-8">
+        <AIConversation className="flex-1 overflow-hidden">
+          <ConversationContent className="max-w-[900px] mx-auto px-6 py-8 h-full overflow-y-auto">
             {allMessages.length === 0 ? (
               <ConversationEmptyState
                 icon={<img src={logo} alt="Logo" className="w-20 opacity-30" />}

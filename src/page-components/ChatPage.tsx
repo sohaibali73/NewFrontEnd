@@ -215,7 +215,18 @@ export function ChatPage() {
       parts.push({ type: 'text', text: m.content });
     }
 
-    return parts.length > 0 ? parts : [{ type: 'text', text: m.content || '' }];
+    // FALLBACK: Ensure old messages always have at least a text part to render
+    if (parts.length === 0) {
+      const fallbackContent = m.content || m.text || m.message || '';
+      if (fallbackContent) {
+        parts.push({ type: 'text', text: fallbackContent });
+      } else {
+        // Last resort: create a minimal text part so message doesn't disappear
+        parts.push({ type: 'text', text: '[Message content unavailable]' });
+      }
+    }
+
+    return parts;
   };
 
   // Get auth token for transport

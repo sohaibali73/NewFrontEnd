@@ -14,23 +14,31 @@ interface ForecastDay {
 }
 
 interface WeatherCardProps {
-  city: string;
+  city?: string;
+  location?: string;  // Backend returns 'location' instead of 'city'
   country?: string;
-  temperature: number;
+  temperature?: number;
   feels_like?: number;
-  condition: string;
+  condition?: string;
+  condition_text?: string;  // Backend returns both 'condition' and 'condition_text'
   description?: string;
   humidity?: number;
   wind_speed?: number;
   wind_direction?: string;
   visibility?: number;
+  visibility_unit?: string;
   pressure?: number;
   uv_index?: number;
   sunrise?: string;
   sunset?: string;
   forecast?: ForecastDay[];
   unit?: 'F' | 'C';
+  temp_unit?: string;  // Backend returns '°F' or '°C'
+  wind_unit?: string;
   icon?: string;
+  success?: boolean;
+  error?: string;
+  [key: string]: any;
 }
 
 const conditionConfig: Record<string, { Icon: any; gradient: string; accent: string }> = {
@@ -45,34 +53,45 @@ const conditionConfig: Record<string, { Icon: any; gradient: string; accent: str
   windy: { Icon: Wind, gradient: 'linear-gradient(135deg, #134e4a 0%, #115e59 50%, #0f766e 100%)', accent: '#5EEAD4' },
 };
 
-const getConditionStyle = (condition: string) => {
+const getConditionStyle = (condition: string | undefined | null) => {
+  if (!condition) return conditionConfig.cloudy;
   const key = condition.toLowerCase().replace(/\s+/g, '_');
   return conditionConfig[key] || conditionConfig.cloudy;
 };
 
-const getSmallIcon = (condition: string) => {
+const getSmallIcon = (condition: string | undefined | null) => {
   const { Icon } = getConditionStyle(condition);
   return <Icon size={16} />;
 };
 
-export function WeatherCard({
-  city,
-  country,
-  temperature,
-  feels_like,
-  condition,
-  description,
-  humidity,
-  wind_speed,
-  wind_direction,
-  visibility,
-  pressure,
-  uv_index,
-  sunrise,
-  sunset,
-  forecast = [],
-  unit = 'F',
-}: WeatherCardProps) {
+export function WeatherCard(props: WeatherCardProps) {
+  // Normalize: accept both frontend naming (city) and backend naming (location)
+  const city = props.city || props.location || 'Unknown';
+  const country = props.country || '';
+  const temperature = props.temperature ?? 0;
+  const feels_like = props.feels_like;
+  const condition = props.condition || props.condition_text || 'cloudy';
+  const description = props.description || props.condition_text || '';
+  const humidity = props.humidity;
+  const wind_speed = props.wind_speed;
+  const wind_direction = props.wind_direction || '';
+  const visibility = props.visibility;
+  const pressure = props.pressure;
+  const uv_index = props.uv_index;
+  const sunrise = props.sunrise;
+  const sunset = props.sunset;
+  const forecast = props.forecast || [];
+  const unit = props.unit || (props.temp_unit?.includes('C') ? 'C' : 'F') as 'F' | 'C';
+
+  // Show error state if the tool returned an error
+  if (props.success === false && props.error) {
+    return (
+      <div style={{ padding: '16px', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '12px', color: '#ef4444', fontSize: '14px', maxWidth: '420px' }}>
+        <strong>Weather Error:</strong> {props.error}
+      </div>
+    );
+  }
+
   const { Icon, gradient, accent } = getConditionStyle(condition);
 
   return (

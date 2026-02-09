@@ -14,12 +14,24 @@ export function AFLGeneratorPage() {
   const { isMobile, isTablet } = useResponsive();
   const isDark = resolvedTheme === 'dark';
   
-  const [prompt, setPrompt] = useState('');
-  const [strategyType, setStrategyType] = useState('standalone');
+  // Persist key state in localStorage
+  const [prompt, setPrompt] = useState(() => {
+    try { return localStorage.getItem('afl_prompt') || ''; } catch { return ''; }
+  });
+  const [strategyType, setStrategyType] = useState(() => {
+    try { return localStorage.getItem('afl_strategy_type') || 'standalone'; } catch { return 'standalone'; }
+  });
   const [loading, setLoading] = useState(false);
-  const [generatedCode, setGeneratedCode] = useState('');
+  const [generatedCode, setGeneratedCode] = useState(() => {
+    try { return localStorage.getItem('afl_generated_code') || ''; } catch { return ''; }
+  });
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
+
+  // Persist prompt, strategy type, and generated code
+  useEffect(() => { try { localStorage.setItem('afl_prompt', prompt); } catch {} }, [prompt]);
+  useEffect(() => { try { localStorage.setItem('afl_strategy_type', strategyType); } catch {} }, [strategyType]);
+  useEffect(() => { try { localStorage.setItem('afl_generated_code', generatedCode); } catch {} }, [generatedCode]);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [codeId, setCodeId] = useState<string | undefined>(undefined);
   
@@ -459,7 +471,26 @@ export function AFLGeneratorPage() {
       // Track the conversation ID from the response
       if (response.conversation_id && !conversationId) {
         setConversationId(response.conversation_id);
-        // Refresh chat history to show the new conversation
+        // Update the chat history with the actual message as title
+        const shortTitle = chatInput.length > 50 ? chatInput.slice(0, 50) + '...' : chatInput;
+        setChatHistory(prev => {
+          // Update the "AFL Code Chat" entry with the real title
+          const updated = prev.map(h => 
+            h.id === activeChatId ? { ...h, title: shortTitle, preview: chatInput } : h
+          );
+          // If this is a brand new conversation not in history yet, add it
+          if (!prev.some(h => h.id === response.conversation_id)) {
+            updated.unshift({
+              id: response.conversation_id,
+              title: shortTitle,
+              timestamp: new Date(),
+              preview: chatInput,
+            });
+          }
+          return updated;
+        });
+        setActiveChatId(response.conversation_id);
+        // Also refresh from server to get accurate data
         loadChatHistory();
       }
       

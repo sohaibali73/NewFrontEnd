@@ -1,9 +1,8 @@
 /**
  * Next.js API Route: /api/upload
  * 
- * Proxies file upload requests to the backend to avoid CORS issues.
- * The backend endpoint at /chat/conversations/{id}/upload returns 500
- * without CORS headers, so we proxy through Next.js.
+ * Proxies file upload requests to the backend.
+ * Properly reconstructs FormData for the backend fetch.
  */
 
 import { NextRequest } from 'next/server';
@@ -28,26 +27,99 @@ export async function POST(req: NextRequest) {
     // Get auth token
     const authToken = req.headers.get('authorization') || '';
 
-    // Forward the form data directly to backend
-    const formData = await req.formData();
+    // Get the raw form data from the request
+    const incomingFormData = await req.formData();
+    const file = incomingFormData.get('file') || incomingFormData.get('audio');
     
+    if (!file || !(file instanceof File)) {
+      return new Response(
+        JSON.stringify({ error: 'No file provided' }), 
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Handle audio transcription for SpeechInput fallback
+    if (file.type.startsWith('audio/')) {
+      try {
+        // Reconstruct FormData for transcription endpoint
+        const transcribeFormData = new FormData();
+        transcribeFormData.append('audio', file, file.name);
+
+        const transcribeResponse = await fetch(
+          `${API_BASE_URL}/chat/conversations/${conversationId}/transcribe`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': authToken,
+            },
+            body: transcribeFormData,
+          }
+        );
+
+        if (transcribeResponse.ok) {
+          const transcribeData = await transcribeResponse.json();
+          return new Response(JSON.stringify({
+            transcript: transcribeData.transcript || transcribeData.text || '',
+            success: true,
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        } else {
+          // Fallback: return empty transcript if transcription fails
+          return new Response(JSON.stringify({
+            transcript: '',
+            success: false,
+            error: 'Transcription service unavailable',
+          }), {
+            status: 200, // Return 200 so SpeechInput doesn't error
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+      } catch {
+        return new Response(JSON.stringify({
+          transcript: '',
+          success: false,
+          error: 'Transcription failed',
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    // Regular file upload (documents, images, etc.)
+    const backendFormData = new FormData();
+    backendFormData.append('file', file, file.name);
+
     const backendResponse = await fetch(
       `${API_BASE_URL}/chat/conversations/${conversationId}/upload`,
       {
         method: 'POST',
         headers: {
           'Authorization': authToken,
+          // Don't set Content-Type — let fetch set it with boundary automatically
         },
-        body: formData,
+        body: backendFormData,
       }
     );
 
     if (!backendResponse.ok) {
-      const error = await backendResponse.json().catch(() => ({ 
-        detail: `Upload failed with status ${backendResponse.status}` 
-      }));
+      let errorDetail = `Upload failed with status ${backendResponse.status}`;
+      try {
+        const errorBody = await backendResponse.json();
+        errorDetail = errorBody.detail || errorDetail;
+      } catch {
+        // Response may not be JSON
+        try {
+          errorDetail = await backendResponse.text();
+        } catch {}
+      }
+      
+      console.error(`Upload proxy error: ${backendResponse.status} - ${errorDetail}`);
+      
       return new Response(
-        JSON.stringify({ error: error.detail || `HTTP ${backendResponse.status}` }), 
+        JSON.stringify({ error: errorDetail }), 
         { status: backendResponse.status, headers: { 'Content-Type': 'application/json' } }
       );
     }

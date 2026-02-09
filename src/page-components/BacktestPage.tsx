@@ -10,10 +10,25 @@ export function BacktestPage() {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   
-  const [backtests, setBacktests] = useState<BacktestResult[]>([]);
+  // Load backtests from localStorage on mount
+  const [backtests, setBacktests] = useState<BacktestResult[]>(() => {
+    try {
+      const saved = localStorage.getItem('backtest_results');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Persist backtests to localStorage whenever they change
+  React.useEffect(() => {
+    try {
+      // Keep max 20 backtests in localStorage
+      const toSave = backtests.slice(0, 20);
+      localStorage.setItem('backtest_results', JSON.stringify(toSave));
+    } catch { /* Silently fail */ }
+  }, [backtests]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -31,6 +46,10 @@ export function BacktestPage() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleDeleteBacktest = (index: number) => {
+    setBacktests(prev => prev.filter((_, i) => i !== index));
   };
 
   const formatPercent = (value: number) => `${(value * 100).toFixed(2)}%`;

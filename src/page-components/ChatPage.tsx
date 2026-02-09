@@ -1,15 +1,34 @@
 'use client'
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, Plus, MessageSquare, Paperclip, Trash2, ChevronLeft, ChevronRight, Loader2, Square, RefreshCw } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { Plus, MessageSquare, Paperclip, Trash2, ChevronLeft, ChevronRight, Loader2, RefreshCw, Search, Pencil, X, Wifi, WifiOff, CopyIcon, ThumbsUpIcon, ThumbsDownIcon } from 'lucide-react';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
+import { toast } from 'sonner';
 import apiClient from '@/lib/api';
-import { Conversation } from '@/types/api';
+import { Conversation as ConversationType } from '@/types/api';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useResponsive } from '@/hooks/useResponsive';
+import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { ArtifactRenderer } from '@/components/artifacts';
+
+// AI Elements - Composable Components
+import { Suggestions, Suggestion } from '@/components/ai-elements/suggestion';
+import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-elements/reasoning';
+import { Shimmer } from '@/components/ai-elements/shimmer';
+import { Tool as AITool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool';
+import { Conversation as AIConversation, ConversationContent, ConversationScrollButton, ConversationEmptyState } from '@/components/ai-elements/conversation';
+import { Message as AIMessage, MessageContent, MessageActions, MessageAction, MessageResponse, MessageToolbar } from '@/components/ai-elements/message';
+import { CodeBlock, CodeBlockHeader, CodeBlockTitle, CodeBlockActions, CodeBlockCopyButton, CodeBlockContent } from '@/components/ai-elements/code-block';
+import { PromptInput, PromptInputTextarea, PromptInputFooter, PromptInputHeader, PromptInputTools, PromptInputButton, PromptInputSubmit, usePromptInputAttachments, PromptInputActionMenu, PromptInputActionMenuTrigger, PromptInputActionMenuContent, PromptInputActionMenuContent as MenuContent, PromptInputActionAddAttachments } from '@/components/ai-elements/prompt-input';
+import { Attachments, Attachment, AttachmentPreview, AttachmentInfo, AttachmentRemove } from '@/components/ai-elements/attachments';
+import { Sources, SourcesTrigger, SourcesContent, Source } from '@/components/ai-elements/sources';
+import { Artifact, ArtifactHeader, ArtifactTitle, ArtifactContent, ArtifactActions, ArtifactAction } from '@/components/ai-elements/artifact';
+import { ChainOfThought, ChainOfThoughtHeader, ChainOfThoughtContent, ChainOfThoughtStep } from '@/components/ai-elements/chain-of-thought';
+import { SpeechInput } from '@/components/ai-elements/speech-input';
+import { WebPreview, WebPreviewNavigation, WebPreviewNavigationButton, WebPreviewBody, WebPreviewConsole } from '@/components/ai-elements/web-preview';
 import {
   StockCard,
   LiveStockChart,
@@ -31,14 +50,51 @@ import {
 
 const logo = '/yellowlogo.png';
 
+// Component to display file attachments inside PromptInput
+function AttachmentsDisplay() {
+  const attachments = usePromptInputAttachments();
+  
+  if (attachments.files.length === 0) {
+    return null;
+  }
+
+  return (
+    <PromptInputHeader>
+      <Attachments variant="grid">
+        {attachments.files.map((file) => (
+          <Attachment key={file.id} data={file} onRemove={() => attachments.remove(file.id)}>
+            <AttachmentPreview />
+            <AttachmentRemove />
+          </Attachment>
+        ))}
+      </Attachments>
+    </PromptInputHeader>
+  );
+}
+
+// Simple attachment button that opens file dialog
+function AttachmentButton({ disabled }: { disabled?: boolean }) {
+  const attachments = usePromptInputAttachments();
+  
+  return (
+    <PromptInputButton
+      tooltip="Attach files"
+      onClick={() => attachments.openFileDialog()}
+      disabled={disabled}
+    >
+      <Paperclip className="size-4" />
+    </PromptInputButton>
+  );
+}
+
 export function ChatPage() {
   const { resolvedTheme } = useTheme();
   const { user } = useAuth();
   const { isMobile } = useResponsive();
   const isDark = resolvedTheme === 'dark';
 
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [conversations, setConversations] = useState<ConversationType[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<ConversationType | null>(null);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(isMobile);
   const [pageError, setPageError] = useState('');
@@ -46,6 +102,14 @@ export function ChatPage() {
   
   // Local input state - per the v5 docs pattern
   const [input, setInput] = useState('');
+
+  // Conversation search & rename state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  // Connection status
+  const { status: connStatus, check: recheckConnection } = useConnectionStatus({ interval: 60000 });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -192,8 +256,15 @@ export function ChatPage() {
       loadConversations();
     },
     onError: (error) => {
-      setPageError(error.message || 'An error occurred');
+      const msg = error.message || 'An error occurred';
+      setPageError(msg);
+      toast.error('Chat Error', {
+        description: msg,
+        action: { label: 'Retry', onClick: () => regenerate() },
+        duration: 8000,
+      });
     },
+    experimental_throttle: 50, // Throttle UI updates for smoother streaming
   });
 
   const isStreaming = status === 'streaming' || status === 'submitted';
@@ -214,7 +285,16 @@ export function ChatPage() {
   }, [selectedConversation]);
 
   useEffect(() => { loadConversations(); }, []);
-  useEffect(() => { if (selectedConversation) loadPreviousMessages(selectedConversation.id); }, [selectedConversation]);
+  useEffect(() => {
+    if (selectedConversation) {
+      // Skip loading messages if we just created this conversation (avoids clearing stream messages)
+      if (skipNextLoadRef.current) {
+        skipNextLoadRef.current = false;
+        return;
+      }
+      loadPreviousMessages(selectedConversation.id);
+    }
+  }, [selectedConversation]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [streamMessages, historicalMessages]);
   useEffect(() => { if (chatError) setPageError(chatError.message); }, [chatError]);
 
@@ -249,8 +329,12 @@ export function ChatPage() {
     } catch { setHistoricalMessages([]); }
   };
 
+  // Track whether we just created a new conversation (to skip re-loading messages)
+  const skipNextLoadRef = useRef(false);
+
   const handleNewConversation = async () => {
     try {
+      skipNextLoadRef.current = true; // Prevent loadPreviousMessages from running
       const newConv = await apiClient.createConversation();
       setConversations(prev => [newConv, ...prev]);
       setSelectedConversation(newConv);
@@ -283,6 +367,7 @@ export function ChatPage() {
     // Auto-create conversation if needed
     if (!convId) {
       try {
+        skipNextLoadRef.current = true; // Prevent loadPreviousMessages from clearing stream
         const conv = await apiClient.createConversation();
         setConversations(prev => [conv, ...prev]);
         setSelectedConversation(conv);
@@ -302,54 +387,143 @@ export function ChatPage() {
   const lastIdx = allMessages.length - 1;
   const userName = user?.name || 'You';
 
-  // Render a single message using the v5 parts API
+  // Strip large code blocks from text when artifacts exist (prevents duplication)
+  const deduplicateTextWithArtifacts = (text: string, parts: any[], isCurrentlyStreaming: boolean): string => {
+    // Only deduplicate for completed messages (not during streaming)
+    if (isCurrentlyStreaming) return text;
+    
+    // Check if there are artifact/data parts in this message
+    const hasArtifacts = parts.some((p: any) => 
+      p.type?.startsWith('data-') || 
+      (p.type?.startsWith('tool-') && p.state === 'output-available' && 
+       ['generate_afl_code', 'debug_afl_code'].includes(p.type.replace('tool-', '')))
+    );
+    
+    if (!hasArtifacts) return text;
+    
+    // Strip the largest code block (```...```) from text if artifact covers the same content
+    // This regex matches fenced code blocks with 10+ lines (substantial code)
+    return text.replace(/```[\w]*\n([\s\S]{200,}?)```/g, (match) => {
+      // Replace large code blocks with a note, since the artifact card shows them
+      return '*(See the rendered component below)*';
+    });
+  };
+
+  // Helper: Copy message text to clipboard
+  const handleCopyMessage = useCallback((text: string) => {
+    navigator.clipboard.writeText(text).then(() => toast.success('Copied!')).catch(() => toast.error('Copy failed'));
+  }, []);
+
+  // Render a single message using AI Elements composable architecture
   const renderMessage = (message: any, idx: number) => {
     const parts = message.parts || [{ type: 'text', text: message.content || '' }];
     const isLast = idx === lastIdx;
     const msgIsStreaming = isStreaming && isLast && message.role === 'assistant';
+    const fullText = parts.filter((p: any) => p.type === 'text').map((p: any) => p.text || '').join('');
+    // Detect multi-tool sequences for ChainOfThought display
+    const toolParts = parts.filter((p: any) => p.type?.startsWith('tool-') || p.type === 'dynamic-tool');
+    const hasMultipleTools = toolParts.length >= 2;
+    // Collect source-url parts for Sources component
+    const sourceParts = parts.filter((p: any) => p.type === 'source-url');
+    const hasSources = sourceParts.length > 0;
 
     return (
-      <div key={message.id} style={{ marginBottom: '24px', display: 'flex', gap: '12px' }}>
-        {/* Avatar */}
-        <div style={{ width: '36px', height: '36px', borderRadius: message.role === 'user' ? '50%' : '10px', background: message.role === 'user' ? 'linear-gradient(135deg, #FEC00F 0%, #FFD740 100%)' : colors.cardBg, border: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          {message.role === 'user' ? <span style={{ fontWeight: 700, color: '#212121' }}>{userName.charAt(0).toUpperCase()}</span> : <img src={logo} alt="AI" style={{ width: '24px' }} />}
+      <AIMessage key={message.id} from={message.role}>
+        {/* Timestamp label */}
+        <div className="text-xs text-muted-foreground mb-1 flex items-center gap-2">
+          {message.role === 'user' ? (
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold" style={{ background: 'linear-gradient(135deg, #FEC00F 0%, #FFD740 100%)', color: '#212121' }}>
+              {userName.charAt(0).toUpperCase()}
+            </span>
+          ) : (
+            <img src={logo} alt="AI" className="w-6 h-6 rounded" />
+          )}
+          <span>{message.role === 'user' ? userName : 'Assistant'}</span>
+          {message.createdAt && <span className="text-muted-foreground">• {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+          {msgIsStreaming && <Shimmer duration={1.5}>Streaming...</Shimmer>}
         </div>
 
-        {/* Content */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '12px', color: colors.textMuted, marginBottom: '8px' }}>
-            {message.role === 'user' ? userName : 'Assistant'}
-            {message.createdAt && ` • ${new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
-            {msgIsStreaming && <span style={{ marginLeft: '8px', color: '#FEC00F', animation: 'pulse 1.5s ease-in-out infinite' }}>● Streaming...</span>}
-          </div>
+        <MessageContent>
+          {/* AI Elements: Sources collapsible list for source-url parts */}
+          {hasSources && message.role === 'assistant' && !msgIsStreaming && (
+            <Sources>
+              <SourcesTrigger count={sourceParts.length} />
+              <SourcesContent>
+                {sourceParts.map((sourcePart: any, sIdx: number) => (
+                  <Source
+                    key={`source-${sIdx}`}
+                    href={sourcePart.url}
+                    title={sourcePart.title || new URL(sourcePart.url).hostname}
+                  />
+                ))}
+              </SourcesContent>
+            </Sources>
+          )}
+
+          {/* AI Elements: ChainOfThought summary for multi-tool sequences */}
+          {hasMultipleTools && message.role === 'assistant' && !msgIsStreaming && (
+            <ChainOfThought defaultOpen={false}>
+              <ChainOfThoughtHeader>Used {toolParts.length} tools</ChainOfThoughtHeader>
+              <ChainOfThoughtContent>
+                {toolParts.map((tp: any, tIdx: number) => {
+                  const tName = tp.type === 'dynamic-tool' ? (tp.toolName || 'unknown') : (tp.type?.replace('tool-', '') || 'unknown');
+                  const tStatus = tp.state === 'output-available' ? 'complete' : tp.state === 'output-error' ? 'complete' : 'active';
+                  return (
+                    <ChainOfThoughtStep
+                      key={`cot-${tIdx}`}
+                      label={tName.replace(/_/g, ' ')}
+                      status={tStatus}
+                      description={tp.state === 'output-available' ? 'Completed' : tp.state === 'output-error' ? 'Error' : 'Running...'}
+                    />
+                  );
+                })}
+              </ChainOfThoughtContent>
+            </ChainOfThought>
+          )}
 
           {/* Render parts per v5 docs */}
           {parts.map((part: any, pIdx: number) => {
             switch (part.type) {
               case 'text':
-                return part.text ? (
-                  <div key={pIdx} style={{ color: colors.text, fontSize: '15px', lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                if (!part.text) return null;
+                if (message.role === 'assistant') {
+                  const displayText = deduplicateTextWithArtifacts(part.text, parts, msgIsStreaming);
+                  if (!displayText.trim()) return null;
+                  // Use AI Elements MessageResponse (Streamdown) for assistant markdown
+                  return <MessageResponse key={pIdx}>{displayText}</MessageResponse>;
+                }
+                return (
+                  <p key={pIdx} className="whitespace-pre-wrap break-words text-sm leading-relaxed">
                     {part.text}
-                  </div>
-                ) : null;
+                  </p>
+                );
 
               case 'reasoning':
                 return (
-                  <pre key={pIdx} style={{ color: colors.textMuted, fontSize: '13px', backgroundColor: colors.inputBg, padding: '12px', borderRadius: '8px', marginBottom: '8px', whiteSpace: 'pre-wrap' }}>
-                    {part.text}
-                  </pre>
+                  <Reasoning key={pIdx} isStreaming={msgIsStreaming} defaultOpen={msgIsStreaming}>
+                    <ReasoningTrigger />
+                    <ReasoningContent>{part.text || ''}</ReasoningContent>
+                  </Reasoning>
                 );
 
               case 'source-url':
-                return (
-                  <a key={pIdx} href={part.url} target="_blank" rel="noopener" style={{ color: '#FEC00F', fontSize: '13px' }}>
-                    [{part.title || 'Source'}]
-                  </a>
-                );
+                // Now handled by Sources component above - skip individual rendering
+                return null;
 
               case 'file':
                 if (part.mediaType?.startsWith('image/')) {
-                  return <img key={pIdx} src={part.url} alt="Generated" style={{ maxWidth: '100%', borderRadius: '8px', marginTop: '8px' }} />;
+                  return <img key={pIdx} src={part.url} alt="Generated" className="max-w-full rounded-lg mt-2" />;
+                }
+                // Non-image files: display with AI Elements Attachments
+                if (part.url || part.filename) {
+                  return (
+                    <Attachments key={pIdx} variant="inline">
+                      <Attachment data={{ ...part, id: `file-${pIdx}`, type: 'file' as const }}>
+                        <AttachmentPreview />
+                        <AttachmentInfo showMediaType />
+                      </Attachment>
+                    </Attachments>
+                  );
                 }
                 return null;
 
@@ -555,7 +729,7 @@ export function ChatPage() {
                   default: return null;
                 }
 
-              // v6: Dynamic tools (tools without static type definitions)
+              // v6: Dynamic tools — use AI Elements Tool composable
               case 'dynamic-tool': {
                 const dynToolName = part.toolName || 'unknown';
                 switch (part.state) {
@@ -564,23 +738,30 @@ export function ChatPage() {
                     return <ToolLoading key={pIdx} toolName={dynToolName} input={part.input} />;
                   case 'output-available':
                     return (
-                      <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(45, 127, 62, 0.1)', border: '1px solid rgba(45, 127, 62, 0.3)', borderRadius: '12px', marginTop: '8px', fontSize: '13px' }}>
-                        <span style={{ color: '#2D7F3E', fontWeight: 600 }}>✓ {dynToolName}</span>
-                        <pre style={{ margin: '8px 0 0', fontSize: '12px', color: colors.text, whiteSpace: 'pre-wrap' }}>
-                          {typeof part.output === 'string' ? part.output : JSON.stringify(part.output, null, 2)}
-                        </pre>
-                      </div>
+                      <AITool key={pIdx}>
+                        <ToolHeader type="dynamic-tool" state={part.state} toolName={dynToolName} />
+                        <ToolContent>
+                          <ToolInput input={part.input} />
+                          <ToolOutput output={part.output} errorText={part.errorText} />
+                        </ToolContent>
+                      </AITool>
                     );
                   case 'output-error':
-                    return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220, 38, 38, 0.1)', borderRadius: '12px', marginTop: '8px', color: '#DC2626', fontSize: '13px' }}>Error: {part.errorText}</div>;
+                    return (
+                      <AITool key={pIdx}>
+                        <ToolHeader type="dynamic-tool" state={part.state} toolName={dynToolName} />
+                        <ToolContent>
+                          <ToolOutput output={part.output} errorText={part.errorText} />
+                        </ToolContent>
+                      </AITool>
+                    );
                   default: return null;
                 }
               }
 
-              // Fallback: Unknown tool types or data parts
+              // Fallback: Unknown tool types — use AI Elements Tool composable
               default:
                 if (part.type?.startsWith('tool-')) {
-                  // Generic tool rendering for any unknown tools (v6 states)
                   const toolName = part.type.replace('tool-', '');
                   switch (part.state) {
                     case 'input-streaming':
@@ -588,42 +769,115 @@ export function ChatPage() {
                       return <ToolLoading key={pIdx} toolName={toolName} input={part.input} />;
                     case 'output-available':
                       return (
-                        <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(45, 127, 62, 0.1)', border: '1px solid rgba(45, 127, 62, 0.3)', borderRadius: '12px', marginTop: '8px', fontSize: '13px' }}>
-                          <span style={{ color: '#2D7F3E', fontWeight: 600 }}>✓ {toolName}</span>
-                          <pre style={{ margin: '8px 0 0', fontSize: '12px', color: colors.text, whiteSpace: 'pre-wrap' }}>
-                            {typeof part.output === 'string' ? part.output : JSON.stringify(part.output, null, 2)}
-                          </pre>
-                        </div>
+                        <AITool key={pIdx}>
+                          <ToolHeader type={part.type} state={part.state} />
+                          <ToolContent>
+                            <ToolInput input={part.input} />
+                            <ToolOutput output={part.output} errorText={part.errorText} />
+                          </ToolContent>
+                        </AITool>
                       );
                     case 'output-error':
-                      return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220, 38, 38, 0.1)', borderRadius: '12px', marginTop: '8px', color: '#DC2626', fontSize: '13px' }}>Error: {part.errorText}</div>;
+                      return (
+                        <AITool key={pIdx}>
+                          <ToolHeader type={part.type} state={part.state} />
+                          <ToolContent>
+                            <ToolOutput output={part.output} errorText={part.errorText} />
+                          </ToolContent>
+                        </AITool>
+                      );
                     default: return null;
                   }
                 }
                 // Data parts (artifacts from backend via type code 2:)
                 if (part.type?.startsWith('data-') && part.data) {
                   if (part.data.content && part.data.artifactType) {
-                    return <ArtifactRenderer key={pIdx} artifact={{
-                      id: part.data.id || `data-${pIdx}`,
-                      type: part.data.artifactType,
-                      language: part.data.language || part.data.artifactType,
-                      code: part.data.content,
-                      complete: true,
-                    }} />;
+                    const artType = part.data.artifactType;
+                    const isRenderable = ['html', 'svg', 'react', 'jsx', 'tsx'].includes(artType);
+                    const artLang = part.data.language || artType;
+                    const artCode = part.data.content;
+
+                    // For HTML/SVG: use WebPreview with live iframe + source code
+                    if (isRenderable && artCode) {
+                      const blobUrl = (() => {
+                        try {
+                          const htmlContent = artType === 'svg'
+                            ? `<!DOCTYPE html><html><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:transparent">${artCode}</body></html>`
+                            : artCode;
+                          const blob = new Blob([htmlContent], { type: 'text/html' });
+                          return URL.createObjectURL(blob);
+                        } catch { return ''; }
+                      })();
+
+                      return (
+                        <div key={pIdx} className="space-y-2">
+                          {/* Live WebPreview */}
+                          <WebPreview defaultUrl={blobUrl} className="h-[400px]">
+                            <WebPreviewNavigation>
+                              <span className="text-xs text-muted-foreground px-2 truncate flex-1">
+                                {part.data.title || `${artType.toUpperCase()} Preview`}
+                              </span>
+                            </WebPreviewNavigation>
+                            <WebPreviewBody />
+                            <WebPreviewConsole />
+                          </WebPreview>
+                          {/* Source code with CodeBlock */}
+                          <CodeBlock code={artCode} language={artLang as any} showLineNumbers>
+                            <CodeBlockHeader>
+                              <CodeBlockTitle>{part.data.title || artType}</CodeBlockTitle>
+                              <CodeBlockActions>
+                                <CodeBlockCopyButton />
+                              </CodeBlockActions>
+                            </CodeBlockHeader>
+                          </CodeBlock>
+                        </div>
+                      );
+                    }
+
+                    // Non-renderable artifacts: Artifact card + ArtifactRenderer
+                    return (
+                      <Artifact key={pIdx}>
+                        <ArtifactHeader>
+                          <ArtifactTitle>{part.data.title || artType}</ArtifactTitle>
+                        </ArtifactHeader>
+                        <ArtifactContent>
+                          <ArtifactRenderer artifact={{
+                            id: part.data.id || `data-${pIdx}`,
+                            type: artType,
+                            language: artLang,
+                            code: artCode,
+                            complete: true,
+                          }} />
+                        </ArtifactContent>
+                      </Artifact>
+                    );
                   }
                 }
                 return null;
             }
           })}
 
-          {/* Streaming dots for submitted state */}
+          {/* Shimmer loading for submitted state */}
           {status === 'submitted' && isLast && message.role === 'assistant' && parts.every((p: any) => !p.text) && (
-            <div style={{ display: 'flex', gap: '4px', padding: '12px 0' }}>
-              {[0, 0.2, 0.4].map((delay, i) => <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#FEC00F', animation: 'bounce 1.4s infinite ease-in-out', animationDelay: `${delay}s` }} />)}
-            </div>
+            <Shimmer duration={1.5}>Thinking...</Shimmer>
           )}
-        </div>
-      </div>
+        </MessageContent>
+
+        {/* Message actions toolbar for assistant messages (copy, thumbs up/down) */}
+        {message.role === 'assistant' && !msgIsStreaming && fullText && (
+          <MessageActions className="opacity-0 group-hover:opacity-100 transition-opacity">
+            <MessageAction tooltip="Copy" onClick={() => handleCopyMessage(fullText)}>
+              <CopyIcon className="size-3.5" />
+            </MessageAction>
+            <MessageAction tooltip="Helpful" onClick={() => toast.success('Thanks for the feedback!')}>
+              <ThumbsUpIcon className="size-3.5" />
+            </MessageAction>
+            <MessageAction tooltip="Not helpful" onClick={() => toast.info('Feedback noted')}>
+              <ThumbsDownIcon className="size-3.5" />
+            </MessageAction>
+          </MessageActions>
+        )}
+      </AIMessage>
     );
   };
 
@@ -636,27 +890,112 @@ export function ChatPage() {
             <img src={logo} alt="Logo" style={{ width: '32px', height: '32px' }} />
             <h2 style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: '16px', fontWeight: 700, color: colors.text, margin: 0 }}>CHATS</h2>
           </div>
-          <button onClick={() => setSidebarCollapsed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
-            <ChevronLeft size={16} color={colors.textMuted} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Connection status indicator */}
+            <div onClick={() => recheckConnection()} title={connStatus === 'connected' ? 'API Connected' : connStatus === 'disconnected' ? 'API Disconnected — click to retry' : 'Checking...'} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+              {connStatus === 'connected' ? (
+                <Wifi size={14} color="#22c55e" />
+              ) : connStatus === 'disconnected' ? (
+                <WifiOff size={14} color="#ef4444" />
+              ) : (
+                <Wifi size={14} color={colors.textMuted} style={{ opacity: 0.5 }} />
+              )}
+            </div>
+            <button onClick={() => setSidebarCollapsed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
+              <ChevronLeft size={16} color={colors.textMuted} />
+            </button>
+          </div>
         </div>
-        <div style={{ padding: '16px' }}>
+        <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <button onClick={handleNewConversation} style={{ width: '100%', padding: '12px', backgroundColor: '#FEC00F', border: 'none', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 700, color: '#212121' }}>
             <Plus size={18} /> New Chat
           </button>
-        </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
-          {loadingConversations ? (
-            <div style={{ textAlign: 'center', padding: '20px' }}><Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} color={colors.textMuted} /></div>
-          ) : conversations.map(conv => (
-            <div key={conv.id} onClick={() => setSelectedConversation(conv)} style={{ padding: '12px', marginBottom: '8px', backgroundColor: selectedConversation?.id === conv.id ? 'rgba(254, 192, 15, 0.1)' : 'transparent', border: selectedConversation?.id === conv.id ? '1px solid rgba(254, 192, 15, 0.4)' : '1px solid transparent', borderRadius: '10px', cursor: 'pointer', color: colors.text, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <MessageSquare size={14} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{conv.title}</span>
-              <button onClick={(e) => { e.stopPropagation(); handleDeleteConversation(conv.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', opacity: 0.5 }}>
-                <Trash2 size={14} color={colors.textMuted} />
+          {/* Search input */}
+          <div style={{ position: 'relative' }}>
+            <Search size={14} color={colors.textMuted} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search chats..."
+              style={{ width: '100%', padding: '8px 10px 8px 32px', backgroundColor: colors.inputBg, border: `1px solid ${colors.border}`, borderRadius: '8px', color: colors.text, fontSize: '12px', outline: 'none', boxSizing: 'border-box' }}
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}>
+                <X size={12} color={colors.textMuted} />
               </button>
+            )}
+          </div>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px' }}>
+          {loadingConversations ? (
+            <div className="space-y-3 px-2 py-4">
+              {/* AI Elements: Shimmer skeleton for conversation list loading */}
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center gap-2 px-3 py-2">
+                  <div className="w-4 h-4 rounded bg-muted animate-pulse" />
+                  <Shimmer duration={2 + i * 0.3} className="text-xs">Loading conversations...</Shimmer>
+                </div>
+              ))}
             </div>
-          ))}
+          ) : (() => {
+            const filtered = searchQuery.trim()
+              ? conversations.filter(c => c.title?.toLowerCase().includes(searchQuery.toLowerCase()))
+              : conversations;
+            if (filtered.length === 0 && searchQuery.trim()) {
+              return <div style={{ textAlign: 'center', padding: '20px', color: colors.textMuted, fontSize: '12px' }}>No chats matching "{searchQuery}"</div>;
+            }
+            return filtered.map(conv => (
+              <div key={conv.id} onClick={() => { if (renamingId !== conv.id) setSelectedConversation(conv); }} style={{ padding: '10px 12px', marginBottom: '4px', backgroundColor: selectedConversation?.id === conv.id ? 'rgba(254, 192, 15, 0.1)' : 'transparent', border: selectedConversation?.id === conv.id ? '1px solid rgba(254, 192, 15, 0.4)' : '1px solid transparent', borderRadius: '10px', cursor: 'pointer', color: colors.text, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <MessageSquare size={14} style={{ flexShrink: 0 }} />
+                {renamingId === conv.id ? (
+                  /* Inline rename input */
+                  <input
+                    autoFocus
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const newTitle = renameValue || conv.title;
+                        setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, title: newTitle } : c));
+                        if (selectedConversation?.id === conv.id) setSelectedConversation({ ...conv, title: newTitle });
+                        setRenamingId(null);
+                        // Persist to backend
+                        apiClient.renameConversation(conv.id, newTitle).then(() => {
+                          toast.success('Chat renamed');
+                        }).catch(() => {
+                          toast.error('Failed to save rename');
+                        });
+                      }
+                      if (e.key === 'Escape') setRenamingId(null);
+                    }}
+                    onBlur={() => {
+                      const newTitle = renameValue || conv.title;
+                      setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, title: newTitle } : c));
+                      if (selectedConversation?.id === conv.id) setSelectedConversation({ ...conv, title: newTitle });
+                      setRenamingId(null);
+                      // Persist to backend
+                      apiClient.renameConversation(conv.id, newTitle).catch(() => {});
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ flex: 1, background: colors.inputBg, border: `1px solid #FEC00F`, borderRadius: '4px', color: colors.text, fontSize: '13px', padding: '2px 6px', outline: 'none', minWidth: 0 }}
+                  />
+                ) : (
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{conv.title}</span>
+                )}
+                {renamingId !== conv.id && (
+                  <div style={{ display: 'flex', gap: '2px', opacity: 0.5 }}>
+                    <button onClick={(e) => { e.stopPropagation(); setRenamingId(conv.id); setRenameValue(conv.title || ''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }} title="Rename">
+                      <Pencil size={12} color={colors.textMuted} />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); handleDeleteConversation(conv.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }} title="Delete">
+                      <Trash2 size={12} color={colors.textMuted} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ));
+          })()}
         </div>
       </div>
 
@@ -668,89 +1007,201 @@ export function ChatPage() {
           </button>
         )}
 
-        {/* Messages */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '32px 24px' }}>
-          <div style={{ maxWidth: '900px', width: '100%', margin: '0 auto' }}>
+        {/* AI Elements: Conversation with auto-scroll */}
+        <AIConversation className="flex-1">
+          <ConversationContent className="max-w-[900px] mx-auto px-6 py-8">
             {allMessages.length === 0 ? (
-              <div style={{ textAlign: 'center', color: colors.textMuted, paddingTop: '40px' }}>
-                <img src={logo} alt="Logo" style={{ width: '80px', opacity: 0.3, marginBottom: '20px' }} />
-                <p style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px', color: colors.text }}>Welcome to Analyst Chat</p>
-                <p style={{ fontSize: '14px', color: colors.textMuted }}>Ask me about AFL code, trading strategies, backtesting, or anything else.</p>
-                <p style={{ fontSize: '13px', color: '#FEC00F', marginTop: '16px' }}>Just type a message below to start chatting.</p>
-              </div>
+              <ConversationEmptyState
+                icon={<img src={logo} alt="Logo" className="w-20 opacity-30" />}
+                title="Welcome to Analyst Chat"
+                description="Ask me about AFL code, trading strategies, backtesting, or anything else."
+              >
+                <div className="flex flex-col items-center gap-4">
+                  <img src={logo} alt="Logo" className="w-20 opacity-30" />
+                  <div className="space-y-1">
+                    <h3 className="font-semibold text-lg">Welcome to Analyst Chat</h3>
+                    <p className="text-muted-foreground text-sm">Ask me about AFL code, trading strategies, backtesting, or anything else.</p>
+                  </div>
+                  {/* AI Elements: Quick Suggestions */}
+                  <Suggestions className="justify-center mt-4">
+                    <Suggestion suggestion="Generate a moving average crossover AFL" onClick={(s) => { setInput(s); }} />
+                    <Suggestion suggestion="Explain RSI divergence strategy" onClick={(s) => { setInput(s); }} />
+                    <Suggestion suggestion="Show me AAPL stock data" onClick={(s) => { setInput(s); }} />
+                    <Suggestion suggestion="Search knowledge base for Bollinger Bands" onClick={(s) => { setInput(s); }} />
+                  </Suggestions>
+                  <p className="text-xs text-muted-foreground mt-2">Click a suggestion or type your own message below</p>
+                </div>
+              </ConversationEmptyState>
             ) : (
-              allMessages.map((msg, idx) => renderMessage(msg, idx))
-            )}
+              <>
+                {allMessages.map((msg, idx) => renderMessage(msg, idx))}
 
-            {/* Submitted state - waiting for first token */}
-            {status === 'submitted' && allMessages.length > 0 && allMessages[allMessages.length - 1]?.role === 'user' && (
-              <div style={{ marginBottom: '24px', display: 'flex', gap: '12px' }}>
-                <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: colors.cardBg, border: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <img src={logo} alt="AI" style={{ width: '24px' }} />
-                </div>
-                <div style={{ display: 'flex', gap: '4px', padding: '16px 0' }}>
-                  {[0, 0.2, 0.4].map((delay, i) => <div key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#FEC00F', animation: 'bounce 1.4s infinite ease-in-out', animationDelay: `${delay}s` }} />)}
-                </div>
-              </div>
+                {/* Submitted state — waiting for first token */}
+                {status === 'submitted' && allMessages.length > 0 && allMessages[allMessages.length - 1]?.role === 'user' && (
+                  <AIMessage from="assistant">
+                    <div className="text-xs text-muted-foreground mb-1 flex items-center gap-2">
+                      <img src={logo} alt="AI" className="w-6 h-6 rounded" />
+                      <span>Assistant</span>
+                    </div>
+                    <MessageContent>
+                      <Shimmer duration={1.5}>Thinking...</Shimmer>
+                    </MessageContent>
+                  </AIMessage>
+                )}
+              </>
             )}
-
             <div ref={messagesEndRef} />
-          </div>
-        </div>
+          </ConversationContent>
+          <ConversationScrollButton />
+        </AIConversation>
 
-        {/* Error */}
+        {/* Error banner */}
         {(pageError || chatError) && (
-          <div style={{ padding: '12px 24px', backgroundColor: 'rgba(220, 38, 38, 0.1)', borderTop: '1px solid #DC2626', color: '#DC2626', fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="px-6 py-3 bg-destructive/10 border-t border-destructive text-destructive text-sm flex justify-between items-center">
             <span>{pageError || chatError?.message || 'An error occurred'}</span>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => regenerate()} style={{ background: 'none', border: '1px solid #DC2626', borderRadius: '6px', color: '#DC2626', cursor: 'pointer', padding: '4px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div className="flex gap-2">
+              <button onClick={() => regenerate()} className="border border-destructive rounded-md text-destructive cursor-pointer px-3 py-1 text-xs flex items-center gap-1 bg-transparent">
                 <RefreshCw size={12} /> Retry
               </button>
-              <button onClick={() => setPageError('')} style={{ background: 'none', border: 'none', color: '#DC2626', cursor: 'pointer', fontSize: '18px' }}>×</button>
+              <button onClick={() => setPageError('')} className="bg-transparent border-none text-destructive cursor-pointer text-lg">×</button>
             </div>
           </div>
         )}
 
-        {/* Input */}
-        <div style={{ padding: '20px 24px 32px', borderTop: `1px solid ${colors.border}` }}>
-          <form onSubmit={(e) => { e.preventDefault(); doSend(); }} style={{ maxWidth: '900px', width: '100%', margin: '0 auto', position: 'relative' }}>
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); } }}
-              placeholder={isStreaming ? "Yang is responding..." : "Type a message to start chatting..."}
-              disabled={status !== 'ready' && status !== 'error'}
-              style={{ width: '100%', minHeight: '56px', maxHeight: '200px', padding: '18px 120px 18px 20px', backgroundColor: colors.cardBg, border: `2px solid ${isStreaming ? '#FEC00F' : colors.border}`, borderRadius: '24px', color: colors.text, fontSize: '15px', fontFamily: "'Quicksand', sans-serif", outline: 'none', resize: 'none', transition: 'border-color 0.3s ease', boxSizing: 'border-box' }}
-            />
-            <div style={{ position: 'absolute', right: '12px', bottom: '12px', display: 'flex', gap: '8px' }}>
-              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={!selectedConversation || isStreaming} style={{ width: '36px', height: '36px', background: 'none', border: `1px solid ${colors.border}`, borderRadius: '10px', cursor: selectedConversation && !isStreaming ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: selectedConversation && !isStreaming ? 1 : 0.5 }}>
-                <Paperclip size={16} color={colors.textMuted} />
-              </button>
-              {isStreaming ? (
-                <button type="button" onClick={() => stop()} style={{ width: '36px', height: '36px', backgroundColor: '#DC2626', border: 'none', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Stop">
-                  <Square size={14} color="#FFFFFF" fill="#FFFFFF" />
-                </button>
-              ) : (
-                <button type="submit" disabled={!input.trim()} style={{ width: '36px', height: '36px', backgroundColor: input.trim() ? '#FEC00F' : colors.inputBg, border: 'none', borderRadius: '10px', cursor: input.trim() ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Send size={16} color={input.trim() ? '#212121' : colors.textMuted} />
-                </button>
-              )}
-            </div>
-          </form>
+        {/* AI Elements: PromptInput with file upload */}
+        <div className="border-t px-6 py-5">
+          <div className="max-w-[900px] mx-auto">
+            <TooltipProvider>
+            <PromptInput
+              accept=".pdf,.csv,.json,.txt,.afl,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif"
+              multiple
+              onSubmit={async ({ text, files }) => {
+                if ((!text.trim() && files.length === 0) || isStreaming) return;
+                setInput('');
+                setPageError('');
+
+                let convId = selectedConversation?.id || conversationIdRef.current;
+                if (!convId) {
+                  try {
+                    skipNextLoadRef.current = true;
+                    const conv = await apiClient.createConversation();
+                    setConversations(prev => [conv, ...prev]);
+                    setSelectedConversation(conv);
+                    conversationIdRef.current = conv.id;
+                    convId = conv.id;
+                  } catch { setPageError('Failed to create conversation'); return; }
+                }
+
+                // Upload files first if any
+                let messageText = text;
+                if (files.length > 0) {
+                  const token = getAuthToken();
+                  const uploaded: string[] = [];
+
+                  for (const file of files) {
+                    const fileName = file.filename || 'upload';
+                    try {
+                      // Convert blob URL to actual File if needed
+                      let actualFile: File;
+                      if (file.url?.startsWith('blob:')) {
+                        const blob = await fetch(file.url).then(r => r.blob());
+                        actualFile = new File([blob], fileName, { type: file.mediaType || 'application/octet-stream' });
+                      } else {
+                        // This shouldn't happen with PromptInput but handle it
+                        throw new Error('No blob URL found');
+                      }
+
+                      const toastId = toast.loading(`Uploading ${fileName}...`);
+                      const formData = new FormData();
+                      formData.append('file', actualFile);
+                      
+                      const resp = await fetch(`/api/upload?conversationId=${convId}`, { 
+                        method: 'POST', 
+                        headers: { 'Authorization': token ? `Bearer ${token}` : '' }, 
+                        body: formData 
+                      });
+                      
+                      if (resp.ok) {
+                        uploaded.push(fileName);
+                        toast.success(`Uploaded ${fileName}`, { id: toastId });
+                      } else {
+                        throw new Error(`Upload failed: ${resp.status}`);
+                      }
+                    } catch (err) {
+                      toast.error(`Failed to upload ${fileName}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                    }
+                  }
+
+                  // Add file references to message text
+                  if (uploaded.length > 0) {
+                    const fileList = uploaded.map(f => `📎 ${f}`).join('\n');
+                    messageText = text.trim() ? `${text}\n\n${fileList}` : fileList;
+                  }
+                }
+
+                sendMessage({ text: messageText }, { body: { conversationId: convId } });
+              }}
+            >
+              {/* AI Elements: File attachment previews */}
+              <AttachmentsDisplay />
+              <PromptInputTextarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={isStreaming ? "Yang is responding..." : "Type a message to start chatting..."}
+                disabled={status !== 'ready' && status !== 'error'}
+              />
+              <PromptInputFooter>
+                <PromptInputTools>
+                  {/* AI Elements: File attachment button */}
+                  <AttachmentButton disabled={isStreaming} />
+
+                  {/* AI Elements: Voice dictation via Web Speech API / MediaRecorder fallback */}
+                  <SpeechInput
+                    size="icon-sm"
+                    variant="ghost"
+                    onTranscriptionChange={(text) => {
+                      setInput(prev => {
+                        const base = prev.trim();
+                        return base ? `${base} ${text}` : text;
+                      });
+                    }}
+                    onAudioRecorded={async (audioBlob) => {
+                      // Fallback for Firefox/Safari: send audio to backend transcription
+                      try {
+                        const token = getAuthToken();
+                        const formData = new FormData();
+                        formData.append('audio', audioBlob, 'recording.webm');
+                        const resp = await fetch('/api/upload', {
+                          method: 'POST',
+                          headers: { 'Authorization': token ? `Bearer ${token}` : '' },
+                          body: formData,
+                        });
+                        if (resp.ok) {
+                          const data = await resp.json();
+                          return data.transcript || '';
+                        }
+                      } catch {
+                        toast.error('Voice transcription failed');
+                      }
+                      return '';
+                    }}
+                    lang="en-US"
+                    disabled={isStreaming}
+                  />
+                </PromptInputTools>
+                <PromptInputSubmit
+                  status={status}
+                  onStop={() => stop()}
+                  disabled={!input.trim() && !isStreaming}
+                />
+              </PromptInputFooter>
+            </PromptInput>
+            </TooltipProvider>
+          </div>
         </div>
-        <input ref={fileInputRef} type="file" onChange={async (e) => {
-          const file = e.target.files?.[0];
-          if (!file || !selectedConversation) return;
-          try {
-            const formData = new FormData();
-            formData.append('file', file);
-            const token = getAuthToken();
-            await fetch(`/api/upload?conversationId=${selectedConversation.id}`, { method: 'POST', headers: { 'Authorization': token ? `Bearer ${token}` : '' }, body: formData });
-            setInput(prev => prev + `\n📎 ${file.name}`);
-          } catch { setPageError('Upload failed'); }
-          if (fileInputRef.current) fileInputRef.current.value = '';
-        }} style={{ display: 'none' }} />
+
+        {/* Note: PromptInput handles file attachments internally — no manual file input needed */}
+        {/* The AI Elements PromptInput component automatically manages file attachments with proper preview */}
       </div>
 
       <style>{`

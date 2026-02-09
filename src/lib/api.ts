@@ -378,6 +378,10 @@ class APIClient {
     return this.request<Message[]>(`/chat/conversations/${conversationId}/messages`);
   }
 
+  async renameConversation(conversationId: string, title: string) {
+    return this.request<any>(`/chat/conversations/${conversationId}`, 'PATCH', { title });
+  }
+
   async deleteConversation(conversationId: string) {
     return this.request<{ success: boolean }>(`/chat/conversations/${conversationId}`, 'DELETE');
   }

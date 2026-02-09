@@ -123,6 +123,8 @@ export async function POST(req: NextRequest) {
         let textId = `text-${Date.now()}`;
         let textStarted = false;
         let accumulatedText = '';
+        // Track which tool calls have had their input-start sent (prevents double start)
+        const toolInputStartedSet = new Set<string>();
 
         // Send message start
         await writeSSE({ type: 'start', messageId });
@@ -210,11 +212,15 @@ export async function POST(req: NextRequest) {
                       textStarted = false;
                       textId = `text-${Date.now()}`;
                     }
-                    await writeSSE({
-                      type: 'tool-input-start',
-                      toolCallId: parsed.toolCallId,
-                      toolName: parsed.toolName,
-                    });
+                    // Only send tool-input-start once per toolCallId
+                    if (!toolInputStartedSet.has(parsed.toolCallId)) {
+                      toolInputStartedSet.add(parsed.toolCallId);
+                      await writeSSE({
+                        type: 'tool-input-start',
+                        toolCallId: parsed.toolCallId,
+                        toolName: parsed.toolName,
+                      });
+                    }
                   }
                   break;
 
@@ -236,13 +242,16 @@ export async function POST(req: NextRequest) {
                       textStarted = false;
                       textId = `text-${Date.now()}`;
                     }
-                    // Must send tool-input-start first to create the part in AI SDK v5
-                    await writeSSE({
-                      type: 'tool-input-start',
-                      toolCallId: parsed.toolCallId,
-                      toolName: parsed.toolName,
-                    });
-                    // Then send tool-input-available with the complete input
+                    // Only send tool-input-start if not already sent (e.g., via type 7)
+                    if (!toolInputStartedSet.has(parsed.toolCallId)) {
+                      toolInputStartedSet.add(parsed.toolCallId);
+                      await writeSSE({
+                        type: 'tool-input-start',
+                        toolCallId: parsed.toolCallId,
+                        toolName: parsed.toolName,
+                      });
+                    }
+                    // Send tool-input-available with the complete input
                     await writeSSE({
                       type: 'tool-input-available',
                       toolCallId: parsed.toolCallId,

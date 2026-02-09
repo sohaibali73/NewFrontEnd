@@ -16,12 +16,14 @@ interface NewsArticle {
 }
 
 interface NewsHeadlinesProps {
-  headlines: NewsArticle[];
+  headlines?: NewsArticle[];
+  articles?: NewsArticle[];  // Backend may return 'articles' instead of 'headlines'
   query?: string;
   category?: string;
   total_results?: number;
   market_sentiment?: 'bullish' | 'bearish' | 'neutral';
   last_updated?: string;
+  [key: string]: any; // Allow extra fields from tool output
 }
 
 const sentimentStyles: Record<string, { color: string; bg: string; label: string }> = {
@@ -57,15 +59,31 @@ function timeAgo(dateStr?: string): string {
 }
 
 export function NewsHeadlines({
-  headlines = [],
+  headlines: headlinesProp,
+  articles: articlesProp,
   query,
   category,
   total_results,
   market_sentiment,
   last_updated,
+  ...rest
 }: NewsHeadlinesProps) {
   const [expanded, setExpanded] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
+
+  // Normalize: accept both 'headlines' and 'articles', and normalize field names
+  const rawItems = headlinesProp || articlesProp || (rest as any).results || [];
+  const headlines: NewsArticle[] = rawItems.map((item: any) => ({
+    title: item.title || '',
+    source: item.source || item.source_name || '',
+    url: item.url || item.link || '',
+    published_at: item.published_at || item.published || item.publishedAt || item.date || '',
+    summary: item.summary || item.description || item.snippet || '',
+    sentiment: item.sentiment || 'neutral',
+    category: item.category || '',
+    image_url: item.image_url || item.imageUrl || item.image || '',
+    author: item.author || '',
+  }));
 
   const visibleHeadlines = showAll ? headlines : headlines.slice(0, 5);
 

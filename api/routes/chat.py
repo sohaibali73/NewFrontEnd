@@ -29,6 +29,10 @@ class MessageCreate(BaseModel):
     content: str
     conversation_id: Optional[str] = None
 
+class TTSRequest(BaseModel):
+    text: str
+    voice: str = "en-US-AriaNeural"  # Default natural female voice
+
 class ConversationCreate(BaseModel):
     title: str = "New Conversation"
     conversation_type: str = "agent"
@@ -822,6 +826,92 @@ async def delete_conversation(
     db.table("conversations").delete().eq("id", conversation_id).execute()
 
     return {"status": "deleted", "conversation_id": conversation_id}
+
+
+@router.post("/tts")
+async def text_to_speech(
+    data: TTSRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Convert text to speech using edge-tts (Microsoft Edge TTS).
+    Returns an MP3 audio stream. No API key needed.
+    
+    Available voices:
+    - en-US-AriaNeural (female, default)
+    - en-US-GuyNeural (male)
+    - en-US-JennyNeural (female)
+    - en-GB-SoniaNeural (British female)
+    - en-AU-NatashaNeural (Australian female)
+    """
+    import io
+    
+    if not data.text or not data.text.strip():
+        raise HTTPException(status_code=400, detail="Text is required")
+    
+    # Limit text length to prevent abuse
+    text = data.text[:5000]
+    
+    # Strip markdown formatting for cleaner speech
+    import re
+    text = re.sub(r'```[\s\S]*?```', ' code block omitted ', text)  # Remove code blocks
+    text = re.sub(r'`[^`]+`', '', text)  # Remove inline code
+    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)  # Links → just text
+    text = re.sub(r'[#*_~>|]', '', text)  # Remove markdown symbols
+    text = re.sub(r'\n{2,}', '. ', text)  # Double newlines → period
+    text = re.sub(r'\n', ' ', text)  # Single newlines → space
+    text = text.strip()
+    
+    if not text:
+        raise HTTPException(status_code=400, detail="No speakable text after processing")
+    
+    try:
+        import edge_tts
+        
+        communicate = edge_tts.Communicate(text, data.voice)
+        
+        # Collect audio chunks into buffer
+        audio_buffer = io.BytesIO()
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio_buffer.write(chunk["data"])
+        
+        audio_buffer.seek(0)
+        
+        return StreamingResponse(
+            audio_buffer,
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": "inline; filename=tts.mp3",
+                "Access-Control-Allow-Origin": "*",
+            }
+        )
+        
+    except ImportError:
+        raise HTTPException(status_code=500, detail="edge-tts not installed. Run: pip install edge-tts")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"TTS failed: {str(e)}")
+
+
+@router.get("/tts/voices")
+async def list_tts_voices():
+    """List available TTS voices."""
+    try:
+        import edge_tts
+        voices = await edge_tts.list_voices()
+        # Filter to English voices only for simplicity
+        english_voices = [
+            {"name": v["ShortName"], "gender": v["Gender"], "locale": v["Locale"]}
+            for v in voices if v["Locale"].startswith("en-")
+        ]
+        return {"voices": english_voices, "count": len(english_voices)}
+    except ImportError:
+        return {"voices": [
+            {"name": "en-US-AriaNeural", "gender": "Female", "locale": "en-US"},
+            {"name": "en-US-GuyNeural", "gender": "Male", "locale": "en-US"},
+            {"name": "en-US-JennyNeural", "gender": "Female", "locale": "en-US"},
+            {"name": "en-GB-SoniaNeural", "gender": "Female", "locale": "en-GB"},
+        ], "count": 4, "note": "edge-tts not installed, showing defaults"}
 
 
 @router.post("/v6")

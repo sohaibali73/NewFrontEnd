@@ -20,6 +20,7 @@ passlib[bcrypt]
 # Document Processing
 PyPDF2
 python-docx
+python-pptx
 PyMuPDF
 
 # Utils
@@ -32,6 +33,9 @@ email-validator
 # Data Analysis (for code execution tool)
 numpy
 pandas
+
+# Text-to-Speech (Voice Mode)
+edge-tts
 
 # Optional: Embeddings (for vector search)
 sentence-transformers==2.2.2

@@ -418,6 +418,233 @@ TOOL_DEFINITIONS = [
             },
             "required": ["code"]
         }
+    },
+    # Custom: Stock Screener
+    {
+        "name": "screen_stocks",
+        "description": "Screen stocks by criteria like market cap, P/E ratio, sector, dividend yield, or price performance. Returns a filtered list of stocks matching the criteria. Use when users ask to find stocks matching certain conditions.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "sector": {
+                    "type": "string",
+                    "description": "Sector to filter by (e.g., 'Technology', 'Healthcare', 'Financial Services')"
+                },
+                "min_market_cap": {
+                    "type": "number",
+                    "description": "Minimum market cap in billions (e.g., 10 for $10B+)"
+                },
+                "max_pe_ratio": {
+                    "type": "number",
+                    "description": "Maximum P/E ratio"
+                },
+                "min_dividend_yield": {
+                    "type": "number",
+                    "description": "Minimum dividend yield as percentage (e.g., 2.0 for 2%+)"
+                },
+                "symbols": {
+                    "type": "string",
+                    "description": "Comma-separated list of symbols to screen (default: major indices constituents)",
+                    "default": "AAPL,MSFT,GOOGL,AMZN,META,NVDA,TSLA,JPM,V,JNJ,WMT,PG,UNH,MA,HD,DIS,BAC,NFLX,ADBE,CRM,PFE,ABBV,KO,PEP,MRK,TMO,COST,AVGO,LLY,ORCL"
+                }
+            }
+        }
+    },
+    # Custom: Compare Stocks
+    {
+        "name": "compare_stocks",
+        "description": "Compare multiple stocks side by side with key metrics like price, market cap, P/E ratio, revenue, margins, and performance. Use when users want to compare two or more stocks.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbols": {
+                    "type": "string",
+                    "description": "Comma-separated stock symbols to compare (e.g., 'AAPL,MSFT,GOOGL')"
+                },
+                "metrics": {
+                    "type": "string",
+                    "description": "Comma-separated metrics to compare",
+                    "default": "price,market_cap,pe_ratio,revenue,profit_margin,dividend_yield,52w_change"
+                }
+            },
+            "required": ["symbols"]
+        }
+    },
+    # Custom: Sector Performance
+    {
+        "name": "get_sector_performance",
+        "description": "Get performance data for market sectors using sector ETFs. Shows daily, weekly, monthly, and yearly returns for each sector. Use when users ask about sector rotation or which sectors are performing best/worst.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "period": {
+                    "type": "string",
+                    "description": "Time period for performance data",
+                    "enum": ["1d", "5d", "1mo", "3mo", "6mo", "1y"],
+                    "default": "1mo"
+                }
+            }
+        }
+    },
+    # Custom: Position Size Calculator
+    {
+        "name": "calculate_position_size",
+        "description": "Calculate optimal position size based on account size, risk tolerance, entry/stop-loss prices. Helps traders determine how many shares to buy while managing risk. Use when users ask about position sizing or risk management.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "account_size": {
+                    "type": "number",
+                    "description": "Total account value in dollars"
+                },
+                "risk_percent": {
+                    "type": "number",
+                    "description": "Maximum risk per trade as percentage (e.g., 2.0 for 2%)",
+                    "default": 2.0
+                },
+                "entry_price": {
+                    "type": "number",
+                    "description": "Planned entry price per share"
+                },
+                "stop_loss_price": {
+                    "type": "number",
+                    "description": "Stop loss price per share"
+                },
+                "symbol": {
+                    "type": "string",
+                    "description": "Optional stock symbol for current price reference"
+                }
+            },
+            "required": ["account_size", "entry_price", "stop_loss_price"]
+        }
+    },
+    # Custom: Correlation Matrix
+    {
+        "name": "get_correlation_matrix",
+        "description": "Calculate the correlation matrix between multiple stocks. Shows how closely stock prices move together. Use for portfolio diversification analysis or pairs trading research.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbols": {
+                    "type": "string",
+                    "description": "Comma-separated stock symbols (e.g., 'AAPL,MSFT,GOOGL,AMZN')"
+                },
+                "period": {
+                    "type": "string",
+                    "description": "Time period for correlation calculation",
+                    "enum": ["1mo", "3mo", "6mo", "1y"],
+                    "default": "6mo"
+                }
+            },
+            "required": ["symbols"]
+        }
+    },
+    # Custom: Dividend Info
+    {
+        "name": "get_dividend_info",
+        "description": "Get detailed dividend information for a stock including yield, payout ratio, dividend history, ex-dividend dates, and growth rate. Use when users ask about dividends or income investing.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "Stock ticker symbol"
+                }
+            },
+            "required": ["symbol"]
+        }
+    },
+    # Custom: Risk Metrics Calculator
+    {
+        "name": "calculate_risk_metrics",
+        "description": "Calculate comprehensive risk metrics for a stock or portfolio including Sharpe ratio, Sortino ratio, max drawdown, Value at Risk (VaR), beta, and volatility. Use for risk analysis and portfolio evaluation.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "Stock ticker symbol"
+                },
+                "period": {
+                    "type": "string",
+                    "description": "Time period for calculations",
+                    "enum": ["3mo", "6mo", "1y", "2y"],
+                    "default": "1y"
+                },
+                "benchmark": {
+                    "type": "string",
+                    "description": "Benchmark symbol for relative metrics",
+                    "default": "SPY"
+                },
+                "risk_free_rate": {
+                    "type": "number",
+                    "description": "Annual risk-free rate as decimal (e.g., 0.05 for 5%)",
+                    "default": 0.05
+                }
+            },
+            "required": ["symbol"]
+        }
+    },
+    # Custom: Market Overview
+    {
+        "name": "get_market_overview",
+        "description": "Get a comprehensive market overview including major indices (S&P 500, Nasdaq, Dow), VIX, treasury yields, gold, oil, and bitcoin. Use when users ask about overall market conditions or 'how's the market doing'.",
+        "input_schema": {
+            "type": "object",
+            "properties": {}
+        }
+    },
+    # Custom: Quick Backtest
+    {
+        "name": "backtest_quick",
+        "description": "Run a quick backtest of a simple trading strategy (moving average crossover, RSI, etc.) on a given stock. Returns performance metrics like total return, win rate, and max drawdown. Use when users want to test a basic strategy idea.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "Stock ticker symbol to backtest on"
+                },
+                "strategy": {
+                    "type": "string",
+                    "description": "Strategy type to test",
+                    "enum": ["sma_crossover", "ema_crossover", "rsi_oversold", "macd_signal", "bollinger_bounce"],
+                    "default": "sma_crossover"
+                },
+                "period": {
+                    "type": "string",
+                    "description": "Backtest period",
+                    "enum": ["6mo", "1y", "2y", "5y"],
+                    "default": "1y"
+                },
+                "fast_period": {
+                    "type": "integer",
+                    "description": "Fast moving average period (for crossover strategies)",
+                    "default": 20
+                },
+                "slow_period": {
+                    "type": "integer",
+                    "description": "Slow moving average period (for crossover strategies)",
+                    "default": 50
+                }
+            },
+            "required": ["symbol"]
+        }
+    },
+    # Custom: Options Snapshot
+    {
+        "name": "get_options_snapshot",
+        "description": "Get options data overview for a stock including available expiration dates, current IV, put/call ratio, and top options by volume. Use when users ask about options for a stock.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "Stock ticker symbol"
+                }
+            },
+            "required": ["symbol"]
+        }
     }
 ]
 
@@ -1532,6 +1759,400 @@ def _get_file_extension(language: str) -> str:
 
 
 # ============================================================================
+# NEW TOOL HANDLERS - Trading Platform Tools
+# ============================================================================
+
+def screen_stocks(sector: str = None, min_market_cap: float = None, max_pe_ratio: float = None, min_dividend_yield: float = None, symbols: str = "AAPL,MSFT,GOOGL,AMZN,META,NVDA,TSLA,JPM,V,JNJ,WMT,PG,UNH,MA,HD,DIS,BAC,NFLX,ADBE,CRM,PFE,ABBV,KO,PEP,MRK,TMO,COST,AVGO,LLY,ORCL") -> Dict[str, Any]:
+    """Screen stocks by criteria."""
+    try:
+        import yfinance as yf
+        start_time = time.time()
+        symbol_list = [s.strip().upper() for s in symbols.split(",")]
+        results = []
+        for sym in symbol_list[:30]:
+            try:
+                info = yf.Ticker(sym).info
+                mc = info.get("marketCap", 0)
+                pe = info.get("trailingPE") or info.get("forwardPE")
+                dy = info.get("dividendYield", 0)
+                dy_pct = (dy * 100) if dy else 0
+                sec = info.get("sector", "")
+                if sector and sec.lower() != sector.lower(): continue
+                if min_market_cap and mc < min_market_cap * 1e9: continue
+                if max_pe_ratio and pe and pe > max_pe_ratio: continue
+                if min_dividend_yield and dy_pct < min_dividend_yield: continue
+                results.append({
+                    "symbol": sym, "name": info.get("longName", sym), "sector": sec,
+                    "price": info.get("currentPrice") or info.get("regularMarketPrice", 0),
+                    "market_cap": mc, "market_cap_b": round(mc / 1e9, 1) if mc else 0,
+                    "pe_ratio": round(pe, 1) if pe else None,
+                    "dividend_yield": round(dy_pct, 2),
+                    "52w_change": round((info.get("52WeekChange", 0) or 0) * 100, 1),
+                })
+            except Exception:
+                continue
+        return {"success": True, "tool": "screen_stocks", "results": results, "count": len(results),
+                "filters": {"sector": sector, "min_market_cap": min_market_cap, "max_pe_ratio": max_pe_ratio, "min_dividend_yield": min_dividend_yield},
+                "fetch_time_ms": round((time.time() - start_time) * 1000, 2)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def compare_stocks(symbols: str, metrics: str = "price,market_cap,pe_ratio,revenue,profit_margin,dividend_yield,52w_change") -> Dict[str, Any]:
+    """Compare multiple stocks side by side."""
+    try:
+        import yfinance as yf
+        start_time = time.time()
+        symbol_list = [s.strip().upper() for s in symbols.split(",")][:6]
+        comparisons = []
+        for sym in symbol_list:
+            try:
+                info = yf.Ticker(sym).info
+                comparisons.append({
+                    "symbol": sym, "name": info.get("longName", sym), "sector": info.get("sector", ""),
+                    "price": info.get("currentPrice") or info.get("regularMarketPrice", 0),
+                    "market_cap": info.get("marketCap", 0), "market_cap_b": round(info.get("marketCap", 0) / 1e9, 1),
+                    "pe_ratio": round(info.get("trailingPE", 0) or 0, 1),
+                    "forward_pe": round(info.get("forwardPE", 0) or 0, 1),
+                    "revenue": info.get("totalRevenue", 0), "revenue_b": round(info.get("totalRevenue", 0) / 1e9, 1) if info.get("totalRevenue") else 0,
+                    "profit_margin": round((info.get("profitMargins", 0) or 0) * 100, 1),
+                    "dividend_yield": round((info.get("dividendYield", 0) or 0) * 100, 2),
+                    "beta": round(info.get("beta", 0) or 0, 2),
+                    "52w_high": info.get("fiftyTwoWeekHigh", 0), "52w_low": info.get("fiftyTwoWeekLow", 0),
+                    "52w_change": round((info.get("52WeekChange", 0) or 0) * 100, 1),
+                })
+            except Exception:
+                comparisons.append({"symbol": sym, "error": "Data unavailable"})
+        return {"success": True, "tool": "compare_stocks", "symbols": symbol_list, "comparisons": comparisons,
+                "metrics": metrics.split(","), "fetch_time_ms": round((time.time() - start_time) * 1000, 2)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def get_sector_performance(period: str = "1mo") -> Dict[str, Any]:
+    """Get sector performance using sector ETFs."""
+    try:
+        import yfinance as yf
+        start_time = time.time()
+        sector_etfs = {
+            "Technology": "XLK", "Healthcare": "XLV", "Financial": "XLF", "Consumer Disc.": "XLY",
+            "Consumer Staples": "XLP", "Energy": "XLE", "Utilities": "XLU", "Real Estate": "XLRE",
+            "Materials": "XLB", "Industrials": "XLI", "Communication": "XLC"
+        }
+        sectors = []
+        for name, etf in sector_etfs.items():
+            try:
+                hist = yf.Ticker(etf).history(period=period)
+                if not hist.empty and len(hist) >= 2:
+                    start_price = float(hist["Close"].iloc[0])
+                    end_price = float(hist["Close"].iloc[-1])
+                    change_pct = round((end_price - start_price) / start_price * 100, 2)
+                    sectors.append({"name": name, "etf": etf, "change_percent": change_pct, "current_price": round(end_price, 2)})
+            except Exception:
+                continue
+        sectors.sort(key=lambda x: x["change_percent"], reverse=True)
+        return {"success": True, "tool": "get_sector_performance", "period": period, "sectors": sectors,
+                "best": sectors[0] if sectors else None, "worst": sectors[-1] if sectors else None,
+                "fetch_time_ms": round((time.time() - start_time) * 1000, 2)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def calculate_position_size(account_size: float, entry_price: float, stop_loss_price: float, risk_percent: float = 2.0, symbol: str = None) -> Dict[str, Any]:
+    """Calculate optimal position size."""
+    try:
+        risk_per_share = abs(entry_price - stop_loss_price)
+        if risk_per_share == 0:
+            return {"success": False, "error": "Entry and stop loss prices cannot be the same"}
+        max_risk = account_size * (risk_percent / 100)
+        shares = int(max_risk / risk_per_share)
+        position_value = shares * entry_price
+        position_pct = round(position_value / account_size * 100, 1)
+        potential_loss = shares * risk_per_share
+        reward_1r = entry_price + risk_per_share
+        reward_2r = entry_price + (2 * risk_per_share)
+        reward_3r = entry_price + (3 * risk_per_share)
+        current_price = None
+        if symbol:
+            try:
+                import yfinance as yf
+                current_price = yf.Ticker(symbol.upper()).info.get("currentPrice")
+            except Exception:
+                pass
+        return {"success": True, "tool": "calculate_position_size", "account_size": account_size,
+                "risk_percent": risk_percent, "entry_price": entry_price, "stop_loss_price": stop_loss_price,
+                "risk_per_share": round(risk_per_share, 2), "max_risk_amount": round(max_risk, 2),
+                "recommended_shares": shares, "position_value": round(position_value, 2),
+                "position_percent": position_pct, "potential_loss": round(potential_loss, 2),
+                "reward_targets": {"1R": round(reward_1r, 2), "2R": round(reward_2r, 2), "3R": round(reward_3r, 2)},
+                "current_price": current_price, "symbol": symbol}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def get_correlation_matrix(symbols: str, period: str = "6mo") -> Dict[str, Any]:
+    """Calculate correlation matrix between stocks."""
+    try:
+        import yfinance as yf
+        import numpy as np
+        start_time = time.time()
+        symbol_list = [s.strip().upper() for s in symbols.split(",")][:8]
+        prices = {}
+        for sym in symbol_list:
+            try:
+                hist = yf.Ticker(sym).history(period=period)
+                if not hist.empty:
+                    prices[sym] = hist["Close"].pct_change().dropna().values
+            except Exception:
+                continue
+        if len(prices) < 2:
+            return {"success": False, "error": "Need at least 2 valid symbols"}
+        valid_syms = list(prices.keys())
+        min_len = min(len(v) for v in prices.values())
+        matrix_data = np.array([prices[s][:min_len] for s in valid_syms])
+        corr = np.corrcoef(matrix_data)
+        matrix = []
+        for i, sym1 in enumerate(valid_syms):
+            row = {}
+            for j, sym2 in enumerate(valid_syms):
+                row[sym2] = round(float(corr[i][j]), 3)
+            matrix.append({"symbol": sym1, "correlations": row})
+        pairs = []
+        for i in range(len(valid_syms)):
+            for j in range(i + 1, len(valid_syms)):
+                pairs.append({"pair": f"{valid_syms[i]}/{valid_syms[j]}", "correlation": round(float(corr[i][j]), 3)})
+        pairs.sort(key=lambda x: abs(x["correlation"]), reverse=True)
+        return {"success": True, "tool": "get_correlation_matrix", "symbols": valid_syms, "period": period,
+                "matrix": matrix, "notable_pairs": pairs[:5], "data_points": min_len,
+                "fetch_time_ms": round((time.time() - start_time) * 1000, 2)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def get_dividend_info(symbol: str) -> Dict[str, Any]:
+    """Get dividend information for a stock."""
+    try:
+        import yfinance as yf
+        start_time = time.time()
+        ticker = yf.Ticker(symbol.upper())
+        info = ticker.info
+        divs = ticker.dividends
+        div_history = []
+        if divs is not None and not divs.empty:
+            for date, amount in divs.tail(8).items():
+                div_history.append({"date": date.strftime("%Y-%m-%d"), "amount": round(float(amount), 4)})
+        annual_div = info.get("dividendRate", 0) or 0
+        div_yield = (info.get("dividendYield", 0) or 0) * 100
+        payout_ratio = (info.get("payoutRatio", 0) or 0) * 100
+        ex_date = info.get("exDividendDate")
+        if ex_date and isinstance(ex_date, (int, float)):
+            from datetime import datetime
+            ex_date = datetime.fromtimestamp(ex_date).strftime("%Y-%m-%d")
+        return {"success": True, "tool": "get_dividend_info", "symbol": symbol.upper(),
+                "name": info.get("longName", symbol), "annual_dividend": round(annual_div, 2),
+                "dividend_yield": round(div_yield, 2), "payout_ratio": round(payout_ratio, 1),
+                "ex_dividend_date": ex_date, "frequency": info.get("dividendFrequency", "Quarterly"),
+                "5y_avg_yield": round((info.get("fiveYearAvgDividendYield", 0) or 0), 2),
+                "history": div_history, "fetch_time_ms": round((time.time() - start_time) * 1000, 2)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def calculate_risk_metrics(symbol: str, period: str = "1y", benchmark: str = "SPY", risk_free_rate: float = 0.05) -> Dict[str, Any]:
+    """Calculate risk metrics for a stock."""
+    try:
+        import yfinance as yf
+        import numpy as np
+        start_time = time.time()
+        sym = symbol.upper()
+        stock_hist = yf.Ticker(sym).history(period=period)
+        bench_hist = yf.Ticker(benchmark.upper()).history(period=period)
+        if stock_hist.empty:
+            return {"success": False, "error": f"No data for {sym}"}
+        stock_returns = stock_hist["Close"].pct_change().dropna().values
+        bench_returns = bench_hist["Close"].pct_change().dropna().values if not bench_hist.empty else None
+        min_len = min(len(stock_returns), len(bench_returns)) if bench_returns is not None else len(stock_returns)
+        stock_returns = stock_returns[:min_len]
+        if bench_returns is not None:
+            bench_returns = bench_returns[:min_len]
+        ann_return = float(np.mean(stock_returns) * 252)
+        ann_vol = float(np.std(stock_returns) * np.sqrt(252))
+        sharpe = round((ann_return - risk_free_rate) / ann_vol, 2) if ann_vol > 0 else 0
+        neg_returns = stock_returns[stock_returns < 0]
+        downside_vol = float(np.std(neg_returns) * np.sqrt(252)) if len(neg_returns) > 0 else ann_vol
+        sortino = round((ann_return - risk_free_rate) / downside_vol, 2) if downside_vol > 0 else 0
+        cumulative = np.cumprod(1 + stock_returns)
+        peak = np.maximum.accumulate(cumulative)
+        drawdown = (cumulative - peak) / peak
+        max_dd = round(float(np.min(drawdown)) * 100, 2)
+        var_95 = round(float(np.percentile(stock_returns, 5)) * 100, 2)
+        var_99 = round(float(np.percentile(stock_returns, 1)) * 100, 2)
+        beta = 1.0
+        alpha = 0.0
+        if bench_returns is not None and len(bench_returns) > 0:
+            cov = np.cov(stock_returns, bench_returns)
+            beta = round(float(cov[0][1] / cov[1][1]), 2) if cov[1][1] != 0 else 1.0
+            bench_ann = float(np.mean(bench_returns) * 252)
+            alpha = round((ann_return - (risk_free_rate + beta * (bench_ann - risk_free_rate))) * 100, 2)
+        return {"success": True, "tool": "calculate_risk_metrics", "symbol": sym, "benchmark": benchmark,
+                "period": period, "annual_return": round(ann_return * 100, 2), "annual_volatility": round(ann_vol * 100, 2),
+                "sharpe_ratio": sharpe, "sortino_ratio": sortino, "max_drawdown": max_dd,
+                "var_95": var_95, "var_99": var_99, "beta": beta, "alpha": alpha,
+                "risk_free_rate": risk_free_rate * 100, "trading_days": len(stock_returns),
+                "fetch_time_ms": round((time.time() - start_time) * 1000, 2)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def get_market_overview() -> Dict[str, Any]:
+    """Get comprehensive market overview."""
+    try:
+        import yfinance as yf
+        start_time = time.time()
+        indices = {"S&P 500": "^GSPC", "Nasdaq": "^IXIC", "Dow Jones": "^DJI", "Russell 2000": "^RUT", "VIX": "^VIX"}
+        commodities = {"Gold": "GC=F", "Silver": "SI=F", "Crude Oil": "CL=F", "Natural Gas": "NG=F"}
+        crypto = {"Bitcoin": "BTC-USD", "Ethereum": "ETH-USD"}
+        bonds = {"10Y Treasury": "^TNX", "2Y Treasury": "^IRX"}
+        def get_quote(sym):
+            try:
+                info = yf.Ticker(sym).info
+                price = info.get("regularMarketPrice") or info.get("currentPrice", 0)
+                prev = info.get("previousClose", price)
+                chg = round(price - prev, 2) if price and prev else 0
+                chg_pct = round((chg / prev) * 100, 2) if prev else 0
+                return {"price": round(price, 2), "change": chg, "change_percent": chg_pct}
+            except Exception:
+                return {"price": 0, "change": 0, "change_percent": 0}
+        idx_data = {name: get_quote(sym) for name, sym in indices.items()}
+        comm_data = {name: get_quote(sym) for name, sym in commodities.items()}
+        crypto_data = {name: get_quote(sym) for name, sym in crypto.items()}
+        bond_data = {name: get_quote(sym) for name, sym in bonds.items()}
+        sp500 = idx_data.get("S&P 500", {})
+        if sp500.get("change_percent", 0) > 0.5: sentiment = "bullish"
+        elif sp500.get("change_percent", 0) < -0.5: sentiment = "bearish"
+        else: sentiment = "neutral"
+        return {"success": True, "tool": "get_market_overview", "indices": idx_data, "commodities": comm_data,
+                "crypto": crypto_data, "bonds": bond_data, "market_sentiment": sentiment,
+                "fetch_time_ms": round((time.time() - start_time) * 1000, 2)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def backtest_quick(symbol: str, strategy: str = "sma_crossover", period: str = "1y", fast_period: int = 20, slow_period: int = 50) -> Dict[str, Any]:
+    """Run a quick backtest on a stock."""
+    try:
+        import yfinance as yf
+        import numpy as np
+        start_time = time.time()
+        sym = symbol.upper()
+        hist = yf.Ticker(sym).history(period=period)
+        if hist.empty or len(hist) < slow_period + 10:
+            return {"success": False, "error": f"Insufficient data for backtest on {sym}"}
+        closes = hist["Close"].values.astype(float)
+        dates = [d.strftime("%Y-%m-%d") for d in hist.index]
+        signals = np.zeros(len(closes))
+        if strategy in ("sma_crossover", "ema_crossover"):
+            def calc_ma(data, window, use_ema=False):
+                if use_ema:
+                    alpha = 2 / (window + 1)
+                    result = [data[0]]
+                    for i in range(1, len(data)):
+                        result.append(alpha * data[i] + (1 - alpha) * result[-1])
+                    return np.array(result)
+                return np.array([np.mean(data[max(0, i - window + 1):i + 1]) if i >= window - 1 else np.nan for i in range(len(data))])
+            use_ema = strategy == "ema_crossover"
+            fast_ma = calc_ma(closes, fast_period, use_ema)
+            slow_ma = calc_ma(closes, slow_period, use_ema)
+            for i in range(slow_period, len(closes)):
+                if not np.isnan(fast_ma[i]) and not np.isnan(slow_ma[i]):
+                    signals[i] = 1 if fast_ma[i] > slow_ma[i] else -1
+        elif strategy == "rsi_oversold":
+            deltas = np.diff(closes, prepend=closes[0])
+            gains = np.where(deltas > 0, deltas, 0)
+            losses = np.where(deltas < 0, -deltas, 0)
+            for i in range(14, len(closes)):
+                ag = np.mean(gains[i - 13:i + 1])
+                al = np.mean(losses[i - 13:i + 1])
+                rs = ag / al if al != 0 else 100
+                rsi = 100 - (100 / (1 + rs))
+                signals[i] = 1 if rsi < 30 else (-1 if rsi > 70 else signals[i - 1])
+        else:
+            for i in range(slow_period, len(closes)):
+                signals[i] = 1 if closes[i] > np.mean(closes[i - slow_period:i]) else -1
+        # Calculate returns
+        daily_returns = np.diff(closes) / closes[:-1]
+        strategy_returns = daily_returns * signals[:-1]
+        strategy_returns = strategy_returns[~np.isnan(strategy_returns)]
+        total_return = round(float(np.prod(1 + strategy_returns) - 1) * 100, 2)
+        buy_hold = round(float((closes[-1] / closes[0] - 1) * 100), 2)
+        trades = 0
+        for i in range(1, len(signals)):
+            if signals[i] != signals[i - 1] and signals[i] != 0: trades += 1
+        wins = len(strategy_returns[strategy_returns > 0])
+        total_days = len(strategy_returns[strategy_returns != 0])
+        win_rate = round(wins / total_days * 100, 1) if total_days > 0 else 0
+        cum = np.cumprod(1 + strategy_returns)
+        peak = np.maximum.accumulate(cum) if len(cum) > 0 else np.array([1])
+        dd = (cum - peak) / peak if len(cum) > 0 else np.array([0])
+        max_dd = round(float(np.min(dd)) * 100, 2) if len(dd) > 0 else 0
+        ann_vol = round(float(np.std(strategy_returns) * np.sqrt(252) * 100), 2) if len(strategy_returns) > 0 else 0
+        sharpe = round((np.mean(strategy_returns) * 252 - 0.05) / (np.std(strategy_returns) * np.sqrt(252)), 2) if np.std(strategy_returns) > 0 else 0
+        return {"success": True, "tool": "backtest_quick", "symbol": sym, "strategy": strategy, "period": period,
+                "parameters": {"fast_period": fast_period, "slow_period": slow_period},
+                "total_return": total_return, "buy_hold_return": buy_hold, "excess_return": round(total_return - buy_hold, 2),
+                "total_trades": trades, "win_rate": win_rate, "max_drawdown": max_dd,
+                "annual_volatility": ann_vol, "sharpe_ratio": sharpe, "trading_days": len(closes),
+                "start_date": dates[0], "end_date": dates[-1],
+                "fetch_time_ms": round((time.time() - start_time) * 1000, 2)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def get_options_snapshot(symbol: str) -> Dict[str, Any]:
+    """Get options overview for a stock."""
+    try:
+        import yfinance as yf
+        start_time = time.time()
+        ticker = yf.Ticker(symbol.upper())
+        expirations = ticker.options
+        if not expirations:
+            return {"success": False, "error": f"No options data for {symbol.upper()}"}
+        info = ticker.info
+        price = info.get("currentPrice") or info.get("regularMarketPrice", 0)
+        nearest_exp = expirations[0]
+        chain = ticker.option_chain(nearest_exp)
+        calls = chain.calls
+        puts = chain.puts
+        total_call_vol = int(calls["volume"].sum()) if "volume" in calls else 0
+        total_put_vol = int(puts["volume"].sum()) if "volume" in puts else 0
+        pc_ratio = round(total_put_vol / total_call_vol, 2) if total_call_vol > 0 else 0
+        top_calls = []
+        if not calls.empty:
+            sorted_calls = calls.sort_values("volume", ascending=False).head(5)
+            for _, row in sorted_calls.iterrows():
+                top_calls.append({"strike": float(row["strike"]), "last": float(row.get("lastPrice", 0)),
+                                  "volume": int(row.get("volume", 0)), "oi": int(row.get("openInterest", 0)),
+                                  "iv": round(float(row.get("impliedVolatility", 0)) * 100, 1)})
+        top_puts = []
+        if not puts.empty:
+            sorted_puts = puts.sort_values("volume", ascending=False).head(5)
+            for _, row in sorted_puts.iterrows():
+                top_puts.append({"strike": float(row["strike"]), "last": float(row.get("lastPrice", 0)),
+                                 "volume": int(row.get("volume", 0)), "oi": int(row.get("openInterest", 0)),
+                                 "iv": round(float(row.get("impliedVolatility", 0)) * 100, 1)})
+        avg_iv = 0
+        if not calls.empty and "impliedVolatility" in calls:
+            avg_iv = round(float(calls["impliedVolatility"].mean()) * 100, 1)
+        return {"success": True, "tool": "get_options_snapshot", "symbol": symbol.upper(),
+                "current_price": price, "expirations": list(expirations[:6]), "nearest_expiration": nearest_exp,
+                "put_call_ratio": pc_ratio, "total_call_volume": total_call_vol, "total_put_volume": total_put_vol,
+                "average_iv": avg_iv, "top_calls": top_calls, "top_puts": top_puts,
+                "fetch_time_ms": round((time.time() - start_time) * 1000, 2)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# ============================================================================
 # TOOL DISPATCHER - OPTIMIZED
 # ============================================================================
 
@@ -1640,6 +2261,72 @@ def handle_tool_call(tool_name: str, tool_input: Dict[str, Any], supabase_client
                 language=tool_input.get("language", "python"),
                 title=tool_input.get("title", "Code Sandbox"),
                 run_immediately=tool_input.get("run_immediately", True)
+            )
+
+        # ===== NEW TOOLS =====
+        elif tool_name == "screen_stocks":
+            result = screen_stocks(
+                sector=tool_input.get("sector"),
+                min_market_cap=tool_input.get("min_market_cap"),
+                max_pe_ratio=tool_input.get("max_pe_ratio"),
+                min_dividend_yield=tool_input.get("min_dividend_yield"),
+                symbols=tool_input.get("symbols", "AAPL,MSFT,GOOGL,AMZN,META,NVDA,TSLA,JPM,V,JNJ,WMT,PG,UNH,MA,HD,DIS,BAC,NFLX,ADBE,CRM,PFE,ABBV,KO,PEP,MRK,TMO,COST,AVGO,LLY,ORCL")
+            )
+
+        elif tool_name == "compare_stocks":
+            result = compare_stocks(
+                symbols=tool_input.get("symbols", ""),
+                metrics=tool_input.get("metrics", "price,market_cap,pe_ratio,revenue,profit_margin,dividend_yield,52w_change")
+            )
+
+        elif tool_name == "get_sector_performance":
+            result = get_sector_performance(
+                period=tool_input.get("period", "1mo")
+            )
+
+        elif tool_name == "calculate_position_size":
+            result = calculate_position_size(
+                account_size=tool_input.get("account_size", 100000),
+                entry_price=tool_input.get("entry_price", 0),
+                stop_loss_price=tool_input.get("stop_loss_price", 0),
+                risk_percent=tool_input.get("risk_percent", 2.0),
+                symbol=tool_input.get("symbol")
+            )
+
+        elif tool_name == "get_correlation_matrix":
+            result = get_correlation_matrix(
+                symbols=tool_input.get("symbols", ""),
+                period=tool_input.get("period", "6mo")
+            )
+
+        elif tool_name == "get_dividend_info":
+            result = get_dividend_info(
+                symbol=tool_input.get("symbol", "")
+            )
+
+        elif tool_name == "calculate_risk_metrics":
+            result = calculate_risk_metrics(
+                symbol=tool_input.get("symbol", ""),
+                period=tool_input.get("period", "1y"),
+                benchmark=tool_input.get("benchmark", "SPY"),
+                risk_free_rate=tool_input.get("risk_free_rate", 0.05)
+            )
+
+        elif tool_name == "get_market_overview":
+            result = get_market_overview()
+
+        elif tool_name == "backtest_quick":
+            result = backtest_quick(
+                symbol=tool_input.get("symbol", ""),
+                strategy=tool_input.get("strategy", "sma_crossover"),
+                period=tool_input.get("period", "1y"),
+                fast_period=tool_input.get("fast_period", 20),
+                slow_period=tool_input.get("slow_period", 50)
+            )
+
+        elif tool_name == "get_options_snapshot":
+            result = get_options_snapshot(
+                symbol=tool_input.get("symbol", "")
             )
 
         else:

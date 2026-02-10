@@ -566,51 +566,46 @@ Be direct and helpful. Generate AFL code when asked. After using tools, always p
                                 yield encoder.encode_tool_call(tool_call_id, tool_name, tool_input)
                                 
                                 # Execute custom tool (not web_search - Claude handles that internally)
-                                if tool_name in ["execute_python", "search_knowledge_base", "get_stock_data",
-                                                 "validate_afl", "research_strategy", "search_sec_filings",
-                                                 "get_market_context", "generate_afl_code", "debug_afl_code",
-                                                 "optimize_afl_code", "explain_afl_code", "sanity_check_afl",
-                                                 "get_stock_chart", "technical_analysis", "get_weather",
-                                                 "get_news", "create_chart", "code_sandbox"]:
-                                    try:
-                                        result = handle_tool_call(
-                                            tool_name=tool_name,
-                                            tool_input=tool_input,
-                                            supabase_client=db,
-                                            api_key=api_keys.get("claude")
-                                        )
-                                    except Exception as tool_error:
-                                        result = json.dumps({"error": str(tool_error)})
+                                if tool_name not in ["web_search"]:
+                                        try:
+                                            result = handle_tool_call(
+                                                tool_name=tool_name,
+                                                tool_input=tool_input,
+                                                supabase_client=db,
+                                                api_key=api_keys.get("claude")
+                                            )
+                                        except Exception as tool_error:
+                                            result = json.dumps({"error": str(tool_error)})
                                     
-                                    # Parse result for persistence - include full output for UI
-                                    try:
-                                        result_data = json.loads(result) if isinstance(result, str) else result
-                                    except (json.JSONDecodeError, TypeError):
-                                        result_data = {"raw": str(result)}
+                                        # Parse result for persistence - include full output for UI
+                                        try:
+                                            result_data = json.loads(result) if isinstance(result, str) else result
+                                        except (json.JSONDecodeError, TypeError):
+                                            result_data = {"raw": str(result)}
 
-                                    tools_used.append({
-                                        "tool": tool_name,
-                                        "input": tool_input,
-                                        "result": result_data,
-                                    })
+                                        tools_used.append({
+                                            "tool": tool_name,
+                                            "input": tool_input,
+                                            "result": result_data,
+                                        })
                                     
-                                    # Emit tool result to frontend
-                                    yield encoder.encode_tool_result(tool_call_id, result)
+                                        # Emit tool result to frontend
+                                        yield encoder.encode_tool_result(tool_call_id, result)
                                     
-                                    # Store for continuation
-                                    tool_results_for_next_call.append({
-                                        "type": "tool_result",
-                                        "tool_use_id": tool_call_id,
-                                        "content": result
-                                    })
+                                        # Store for continuation
+                                        tool_results_for_next_call.append({
+                                            "type": "tool_result",
+                                            "tool_use_id": tool_call_id,
+                                            "content": result
+                                        })
                                     
-                                    # Store tool use block for messages
-                                    assistant_content_blocks.append({
-                                        "type": "tool_use",
-                                        "id": tool_call_id,
-                                        "name": tool_name,
-                                        "input": tool_input
-                                    })
+                                        # Store tool use block for messages
+                                        assistant_content_blocks.append({
+                                            "type": "tool_use",
+                                            "id": tool_call_id,
+                                            "name": tool_name,
+                                            "input": tool_input
+                                        })
                                 
                                 pending_tool_calls.pop()
 
@@ -1005,12 +1000,7 @@ Be direct and helpful. Generate AFL code when asked. After using tools, always p
                                 
                                 yield encoder.encode_tool_call(tool_call_id, tool_name, tool_input)
                                 
-                                if tool_name in ["execute_python", "search_knowledge_base", "get_stock_data",
-                                                 "validate_afl", "research_strategy", "search_sec_filings",
-                                                 "get_market_context", "generate_afl_code", "debug_afl_code",
-                                                 "optimize_afl_code", "explain_afl_code", "sanity_check_afl",
-                                                 "get_stock_chart", "technical_analysis", "get_weather",
-                                                 "get_news", "create_chart", "code_sandbox"]:
+                                if tool_name not in ["web_search"]:
                                     try:
                                         result = handle_tool_call(
                                             tool_name=tool_name,

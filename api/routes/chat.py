@@ -13,7 +13,7 @@ from api.dependencies import get_current_user_id, get_user_api_keys
 from core.claude_engine import ClaudeAFLEngine
 from core.context_manager import build_optimized_context
 from core.prompts import get_base_prompt, get_chat_prompt
-from core.tools import get_all_tools, handle_tool_call, get_presentation_bytes
+from core.tools import get_all_tools, handle_tool_call, get_presentation_bytes, store_template, list_templates
 from core.artifact_parser import ArtifactParser
 from core.streaming import (
     VercelAIStreamEncoder,
@@ -896,6 +896,32 @@ async def text_to_speech(
         raise HTTPException(status_code=500, detail="edge-tts not installed. Run: pip install edge-tts")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"TTS failed: {str(e)}")
+
+
+@router.post("/template/upload")
+async def upload_presentation_template(
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Upload a .pptx brand template. Returns template_id + layout analysis for the AI to use."""
+    if not file.filename or not file.filename.endswith('.pptx'):
+        raise HTTPException(status_code=400, detail="File must be a .pptx PowerPoint file")
+
+    content = await file.read()
+    if len(content) > 50 * 1024 * 1024:  # 50MB limit
+        raise HTTPException(status_code=400, detail="Template file too large (max 50MB)")
+
+    result = store_template(content, file.filename)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Template upload failed"))
+
+    return result
+
+
+@router.get("/templates")
+async def get_templates(user_id: str = Depends(get_current_user_id)):
+    """List all uploaded presentation templates."""
+    return {"templates": list_templates()}
 
 
 @router.get("/presentation/{presentation_id}")

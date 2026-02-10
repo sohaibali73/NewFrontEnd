@@ -646,10 +646,10 @@ TOOL_DEFINITIONS = [
             "required": ["symbol"]
         }
     },
-    # Custom: Create Presentation (PowerPoint)
+    # Custom: Create Presentation (PowerPoint) — supports brand template cloning
     {
         "name": "create_presentation",
-        "description": "Create a PowerPoint presentation (.pptx) with multiple slides. Use when the user asks to create a presentation, slide deck, pitch deck, or PowerPoint. Each slide can have a title, bullet points, and optional notes. Returns a download link and slide preview.",
+        "description": "Create a PowerPoint presentation (.pptx) with multiple slides. Supports brand template cloning: if the user has uploaded a .pptx template, pass its template_id to clone its slide masters, fonts, colors, logos, and layouts 1:1. Without a template, uses built-in themes. Use when the user asks to create a presentation, slide deck, pitch deck, or PowerPoint.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -664,7 +664,7 @@ TOOL_DEFINITIONS = [
                 },
                 "slides": {
                     "type": "array",
-                    "description": "Array of slide objects. Each slide has 'title' (string), 'bullets' (array of strings), and optional 'notes' (string) and 'layout' ('bullets', 'two_column', 'blank').",
+                    "description": "Array of slide objects. Each slide has 'title' (string), 'bullets' (array of strings), and optional 'notes' (string) and 'layout_index' (integer index of the template layout to use, from analyze_template results).",
                     "items": {
                         "type": "object",
                         "properties": {
@@ -684,16 +684,24 @@ TOOL_DEFINITIONS = [
                             "layout": {
                                 "type": "string",
                                 "enum": ["bullets", "two_column", "blank"],
-                                "description": "Slide layout type",
+                                "description": "Slide layout type (used when no template)",
                                 "default": "bullets"
+                            },
+                            "layout_index": {
+                                "type": "integer",
+                                "description": "Index of the slide layout from the template to use (0-based). Use analyze_template to discover available layouts."
                             }
                         },
                         "required": ["title"]
                     }
                 },
+                "template_id": {
+                    "type": "string",
+                    "description": "ID of an uploaded brand template (.pptx) to clone. When provided, the presentation uses the template's slide masters, fonts, colors, backgrounds, and logos 1:1. Use analyze_template first to discover available layouts."
+                },
                 "theme": {
                     "type": "string",
-                    "description": "Color theme for the presentation",
+                    "description": "Color theme (only used when no template_id is provided)",
                     "enum": ["dark", "light", "corporate", "potomac"],
                     "default": "potomac"
                 },
@@ -2219,166 +2227,291 @@ def get_options_snapshot(symbol: str) -> Dict[str, Any]:
 # In-memory store for generated presentations (keyed by presentation_id)
 _presentation_store: Dict[str, bytes] = {}
 
-def create_presentation(title: str, slides: list, subtitle: str = "", theme: str = "potomac", author: str = "Analyst by Potomac") -> Dict[str, Any]:
+# In-memory store for uploaded brand templates (keyed by template_id)
+_template_store: Dict[str, Dict[str, Any]] = {}
+
+def store_template(template_bytes: bytes, filename: str) -> Dict[str, Any]:
     """
-    Create a PowerPoint (.pptx) presentation with python-pptx.
-    Stores the binary in memory and returns metadata + a download_id.
+    Store an uploaded .pptx brand template and analyze its layouts.
+    Returns template_id and layout info for the AI to use.
+    """
+    import uuid
+    try:
+        from pptx import Presentation as PptxPresentation
+        import io
+
+        prs = PptxPresentation(io.BytesIO(template_bytes))
+        template_id = str(uuid.uuid4())
+
+        # Analyze all slide layouts in the template
+        layouts_info = []
+        for idx, layout in enumerate(prs.slide_layouts):
+            placeholders = []
+            for ph in layout.placeholders:
+                placeholders.append({
+                    "idx": ph.placeholder_format.idx,
+                    "name": ph.name,
+                    "type": str(ph.placeholder_format.type) if ph.placeholder_format.type else "unknown",
+                    "width": round(ph.width / 914400, 1) if ph.width else None,  # EMU to inches
+                    "height": round(ph.height / 914400, 1) if ph.height else None,
+                })
+            layouts_info.append({
+                "index": idx,
+                "name": layout.name,
+                "placeholder_count": len(placeholders),
+                "placeholders": placeholders,
+            })
+
+        # Count existing slides in template (may have sample/reference slides)
+        existing_slides = len(prs.slides)
+
+        _template_store[template_id] = {
+            "bytes": template_bytes,
+            "filename": filename,
+            "layouts": layouts_info,
+            "existing_slides": existing_slides,
+            "slide_width": round(prs.slide_width / 914400, 2),
+            "slide_height": round(prs.slide_height / 914400, 2),
+            "uploaded_at": time.time(),
+        }
+
+        # Keep max 10 templates
+        if len(_template_store) > 10:
+            oldest = min(_template_store, key=lambda k: _template_store[k].get("uploaded_at", 0))
+            del _template_store[oldest]
+
+        return {
+            "success": True,
+            "template_id": template_id,
+            "filename": filename,
+            "layout_count": len(layouts_info),
+            "existing_slides": existing_slides,
+            "layouts": layouts_info,
+            "slide_dimensions": f"{round(prs.slide_width / 914400, 2)}\" x {round(prs.slide_height / 914400, 2)}\"",
+        }
+
+    except Exception as e:
+        return {"success": False, "error": f"Template analysis failed: {str(e)}"}
+
+
+def get_template_info(template_id: str) -> Optional[Dict[str, Any]]:
+    """Get template metadata (not bytes) for the AI."""
+    tmpl = _template_store.get(template_id)
+    if not tmpl:
+        return None
+    return {
+        "template_id": template_id,
+        "filename": tmpl["filename"],
+        "layouts": tmpl["layouts"],
+        "existing_slides": tmpl["existing_slides"],
+    }
+
+
+def list_templates() -> List[Dict[str, Any]]:
+    """List all stored templates."""
+    return [
+        {"template_id": tid, "filename": t["filename"], "layout_count": len(t["layouts"]),
+         "uploaded_at": t.get("uploaded_at")}
+        for tid, t in _template_store.items()
+    ]
+
+
+def create_presentation(title: str, slides: list, subtitle: str = "", theme: str = "potomac",
+                        author: str = "Analyst by Potomac", template_id: str = None) -> Dict[str, Any]:
+    """
+    Create a PowerPoint (.pptx) presentation.
+    
+    If template_id is provided: clones the uploaded brand template 1:1,
+    using its slide masters, fonts, colors, backgrounds, and logos.
+    Content is populated into the template's placeholder shapes.
+    
+    If no template_id: builds from scratch using built-in color themes.
     """
     import uuid
 
     try:
-        from pptx import Presentation
-        from pptx.util import Inches, Pt, Emu
+        from pptx import Presentation as PptxPresentation
+        from pptx.util import Inches, Pt
         from pptx.dml.color import RGBColor
-        from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+        from pptx.enum.text import PP_ALIGN
         import io
 
         start_time = time.time()
+        using_template = False
+        template_name = None
 
-        # Theme colour palettes
-        themes = {
-            "potomac": {"bg": RGBColor(0x12, 0x12, 0x12), "title_color": RGBColor(0xFE, 0xC0, 0x0F), "text_color": RGBColor(0xFF, 0xFF, 0xFF), "accent": RGBColor(0xFE, 0xC0, 0x0F), "subtitle_color": RGBColor(0x9E, 0x9E, 0x9E)},
-            "dark":    {"bg": RGBColor(0x1E, 0x1E, 0x2E), "title_color": RGBColor(0x82, 0xAA, 0xFF), "text_color": RGBColor(0xE0, 0xE0, 0xE0), "accent": RGBColor(0x82, 0xAA, 0xFF), "subtitle_color": RGBColor(0x9E, 0x9E, 0x9E)},
-            "light":   {"bg": RGBColor(0xFF, 0xFF, 0xFF), "title_color": RGBColor(0x21, 0x21, 0x21), "text_color": RGBColor(0x42, 0x42, 0x42), "accent": RGBColor(0x3B, 0x82, 0xF6), "subtitle_color": RGBColor(0x75, 0x75, 0x75)},
-            "corporate": {"bg": RGBColor(0xF8, 0xF9, 0xFA), "title_color": RGBColor(0x1A, 0x1A, 0x2E), "text_color": RGBColor(0x33, 0x33, 0x33), "accent": RGBColor(0x00, 0x66, 0xCC), "subtitle_color": RGBColor(0x66, 0x66, 0x66)},
-        }
-        t = themes.get(theme, themes["potomac"])
+        # ================================================================
+        # PATH A: Clone from uploaded brand template
+        # ================================================================
+        if template_id and template_id in _template_store:
+            tmpl = _template_store[template_id]
+            template_name = tmpl["filename"]
+            using_template = True
 
-        prs = Presentation()
-        prs.slide_width = Inches(13.333)
-        prs.slide_height = Inches(7.5)
+            # Open the template — this preserves ALL branding:
+            # slide masters, theme colors, fonts, backgrounds, logos, shapes
+            prs = PptxPresentation(io.BytesIO(tmpl["bytes"]))
+            available_layouts = prs.slide_layouts
+            num_layouts = len(available_layouts)
 
-        # Helper: set slide background colour
-        def set_bg(slide, color):
-            background = slide.background
-            fill = background.fill
-            fill.solid()
-            fill.fore_color.rgb = color
+            # Remove any existing sample slides from the template
+            # (work backwards to avoid index shifting)
+            xml_slides = prs.slides._sldIdLst
+            existing_ids = [sldId for sldId in xml_slides]
+            for sldId in existing_ids:
+                rId = sldId.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
+                if rId:
+                    prs.part.drop_rel(rId)
+                xml_slides.remove(sldId)
 
-        # Helper: add a text box
-        def add_textbox(slide, left, top, width, height, text, font_size=18, color=None, bold=False, alignment=PP_ALIGN.LEFT):
-            txBox = slide.shapes.add_textbox(left, top, width, height)
-            tf = txBox.text_frame
-            tf.word_wrap = True
-            p = tf.paragraphs[0]
-            p.text = text
-            p.font.size = Pt(font_size)
-            p.font.color.rgb = color or t["text_color"]
-            p.font.bold = bold
-            p.alignment = alignment
-            return tf
+            # Helper: pick best layout for a slide
+            def pick_layout(slide_data, is_title_slide=False):
+                layout_idx = slide_data.get("layout_index")
+                if layout_idx is not None and 0 <= layout_idx < num_layouts:
+                    return available_layouts[layout_idx]
+                # Auto-detect: title slide = layout 0, content = layout 1, blank = last
+                if is_title_slide:
+                    return available_layouts[0]
+                # Find a "Title and Content" or similar layout
+                for layout in available_layouts:
+                    name_lower = layout.name.lower()
+                    if "content" in name_lower or "body" in name_lower or "text" in name_lower:
+                        return layout
+                # Fallback: layout index 1 if available, else 0
+                return available_layouts[min(1, num_layouts - 1)]
 
-        # ---- Title Slide ----
-        title_slide = prs.slides.add_slide(prs.slide_layouts[6])  # Blank layout
-        set_bg(title_slide, t["bg"])
+            # Helper: populate placeholders from slide data
+            def populate_slide(slide, slide_title, bullets, notes=""):
+                for ph in slide.placeholders:
+                    ph_type = ph.placeholder_format.type
+                    ph_idx = ph.placeholder_format.idx
+                    ph_name = ph.name.lower()
+                    # Title placeholder (idx 0 or type TITLE/CENTER_TITLE)
+                    if ph_idx == 0 or "title" in ph_name:
+                        ph.text = slide_title
+                    # Subtitle placeholder (idx 1 on title slides)
+                    elif ph_idx == 1 and not bullets:
+                        ph.text = subtitle if subtitle else ""
+                    # Body/Content placeholder — fill with bullets
+                    elif bullets and (ph_idx == 1 or "content" in ph_name or "body" in ph_name
+                                     or "text" in ph_name or "object" in ph_name):
+                        tf = ph.text_frame
+                        tf.clear()
+                        for bi, bullet in enumerate(bullets):
+                            p = tf.add_paragraph() if bi > 0 else tf.paragraphs[0]
+                            p.text = bullet
+                            p.level = 0
+                if notes:
+                    try:
+                        slide.notes_slide.notes_text_frame.text = notes
+                    except Exception:
+                        pass
 
-        # Accent bar
-        from pptx.shapes.autoshape import Shape
-        bar = title_slide.shapes.add_shape(
-            1,  # Rectangle
-            Inches(0), Inches(3.2), Inches(13.333), Inches(0.08)
-        )
-        bar.fill.solid()
-        bar.fill.fore_color.rgb = t["accent"]
-        bar.line.fill.background()
+            # ---- Title Slide (using template layout 0) ----
+            title_layout = pick_layout({"layout_index": 0}, is_title_slide=True)
+            title_slide = prs.slides.add_slide(title_layout)
+            populate_slide(title_slide, title, [], "")
+            # Try to set subtitle in placeholder idx 1
+            for ph in title_slide.placeholders:
+                if ph.placeholder_format.idx == 1:
+                    ph.text = subtitle or author
+                    break
 
-        add_textbox(title_slide, Inches(1), Inches(1.5), Inches(11), Inches(1.5),
-                    title, font_size=40, color=t["title_color"], bold=True, alignment=PP_ALIGN.CENTER)
-        if subtitle:
-            add_textbox(title_slide, Inches(1), Inches(3.5), Inches(11), Inches(0.8),
-                        subtitle, font_size=20, color=t["subtitle_color"], alignment=PP_ALIGN.CENTER)
-        add_textbox(title_slide, Inches(1), Inches(5.5), Inches(11), Inches(0.5),
-                    author, font_size=14, color=t["subtitle_color"], alignment=PP_ALIGN.CENTER)
+            # ---- Content Slides (using template layouts) ----
+            slide_previews = []
+            for i, slide_data in enumerate(slides):
+                slide_title = slide_data.get("title", f"Slide {i + 2}")
+                bullets = slide_data.get("bullets", [])
+                notes = slide_data.get("notes", "")
 
-        # ---- Content Slides ----
-        slide_previews = []
-        for i, slide_data in enumerate(slides):
-            slide_title = slide_data.get("title", f"Slide {i + 2}")
-            bullets = slide_data.get("bullets", [])
-            notes = slide_data.get("notes", "")
-            layout = slide_data.get("layout", "bullets")
+                content_layout = pick_layout(slide_data)
+                slide = prs.slides.add_slide(content_layout)
+                populate_slide(slide, slide_title, bullets, notes)
 
-            slide = prs.slides.add_slide(prs.slide_layouts[6])  # Blank
-            set_bg(slide, t["bg"])
+                slide_previews.append({
+                    "number": i + 2,
+                    "title": slide_title,
+                    "bullet_count": len(bullets),
+                    "layout": content_layout.name,
+                    "has_notes": bool(notes),
+                    "preview_text": bullets[0][:80] + "..." if bullets and len(bullets[0]) > 80 else (bullets[0] if bullets else ""),
+                })
 
-            # Title bar accent line
-            accent_bar = slide.shapes.add_shape(
-                1, Inches(0.8), Inches(1.25), Inches(1.5), Inches(0.05)
-            )
-            accent_bar.fill.solid()
-            accent_bar.fill.fore_color.rgb = t["accent"]
-            accent_bar.line.fill.background()
+        # ================================================================
+        # PATH B: Build from scratch with built-in themes
+        # ================================================================
+        else:
+            themes = {
+                "potomac": {"bg": RGBColor(0x12, 0x12, 0x12), "title_color": RGBColor(0xFE, 0xC0, 0x0F), "text_color": RGBColor(0xFF, 0xFF, 0xFF), "accent": RGBColor(0xFE, 0xC0, 0x0F), "subtitle_color": RGBColor(0x9E, 0x9E, 0x9E)},
+                "dark":    {"bg": RGBColor(0x1E, 0x1E, 0x2E), "title_color": RGBColor(0x82, 0xAA, 0xFF), "text_color": RGBColor(0xE0, 0xE0, 0xE0), "accent": RGBColor(0x82, 0xAA, 0xFF), "subtitle_color": RGBColor(0x9E, 0x9E, 0x9E)},
+                "light":   {"bg": RGBColor(0xFF, 0xFF, 0xFF), "title_color": RGBColor(0x21, 0x21, 0x21), "text_color": RGBColor(0x42, 0x42, 0x42), "accent": RGBColor(0x3B, 0x82, 0xF6), "subtitle_color": RGBColor(0x75, 0x75, 0x75)},
+                "corporate": {"bg": RGBColor(0xF8, 0xF9, 0xFA), "title_color": RGBColor(0x1A, 0x1A, 0x2E), "text_color": RGBColor(0x33, 0x33, 0x33), "accent": RGBColor(0x00, 0x66, 0xCC), "subtitle_color": RGBColor(0x66, 0x66, 0x66)},
+            }
+            t = themes.get(theme, themes["potomac"])
+            prs = PptxPresentation()
+            prs.slide_width = Inches(13.333)
+            prs.slide_height = Inches(7.5)
 
-            # Slide title
-            add_textbox(slide, Inches(0.8), Inches(0.5), Inches(11.5), Inches(0.8),
-                        slide_title, font_size=28, color=t["title_color"], bold=True)
+            def set_bg(slide, color):
+                fill = slide.background.fill; fill.solid(); fill.fore_color.rgb = color
 
-            # Bullet content
-            if layout == "two_column" and len(bullets) > 1:
-                mid = len(bullets) // 2
-                left_bullets = bullets[:mid]
-                right_bullets = bullets[mid:]
+            def add_textbox(slide, left, top, width, height, text, font_size=18, color=None, bold=False, alignment=PP_ALIGN.LEFT):
+                txBox = slide.shapes.add_textbox(left, top, width, height)
+                tf = txBox.text_frame; tf.word_wrap = True
+                p = tf.paragraphs[0]; p.text = text; p.font.size = Pt(font_size)
+                p.font.color.rgb = color or t["text_color"]; p.font.bold = bold; p.alignment = alignment
+                return tf
 
-                # Left column
-                left_box = slide.shapes.add_textbox(Inches(0.8), Inches(1.6), Inches(5.5), Inches(5))
-                left_tf = left_box.text_frame
-                left_tf.word_wrap = True
-                for bi, bullet in enumerate(left_bullets):
-                    p = left_tf.add_paragraph() if bi > 0 else left_tf.paragraphs[0]
-                    p.text = f"• {bullet}"
-                    p.font.size = Pt(16)
-                    p.font.color.rgb = t["text_color"]
-                    p.space_after = Pt(8)
+            # Title Slide
+            ts = prs.slides.add_slide(prs.slide_layouts[6]); set_bg(ts, t["bg"])
+            bar = ts.shapes.add_shape(1, Inches(0), Inches(3.2), Inches(13.333), Inches(0.08))
+            bar.fill.solid(); bar.fill.fore_color.rgb = t["accent"]; bar.line.fill.background()
+            add_textbox(ts, Inches(1), Inches(1.5), Inches(11), Inches(1.5), title, 40, t["title_color"], True, PP_ALIGN.CENTER)
+            if subtitle:
+                add_textbox(ts, Inches(1), Inches(3.5), Inches(11), Inches(0.8), subtitle, 20, t["subtitle_color"], False, PP_ALIGN.CENTER)
+            add_textbox(ts, Inches(1), Inches(5.5), Inches(11), Inches(0.5), author, 14, t["subtitle_color"], False, PP_ALIGN.CENTER)
 
-                # Right column
-                right_box = slide.shapes.add_textbox(Inches(7), Inches(1.6), Inches(5.5), Inches(5))
-                right_tf = right_box.text_frame
-                right_tf.word_wrap = True
-                for bi, bullet in enumerate(right_bullets):
-                    p = right_tf.add_paragraph() if bi > 0 else right_tf.paragraphs[0]
-                    p.text = f"• {bullet}"
-                    p.font.size = Pt(16)
-                    p.font.color.rgb = t["text_color"]
-                    p.space_after = Pt(8)
-            elif layout != "blank" and bullets:
-                content_box = slide.shapes.add_textbox(Inches(0.8), Inches(1.6), Inches(11.5), Inches(5))
-                content_tf = content_box.text_frame
-                content_tf.word_wrap = True
-                for bi, bullet in enumerate(bullets):
-                    p = content_tf.add_paragraph() if bi > 0 else content_tf.paragraphs[0]
-                    p.text = f"• {bullet}"
-                    p.font.size = Pt(18)
-                    p.font.color.rgb = t["text_color"]
-                    p.space_after = Pt(10)
+            # Content Slides
+            slide_previews = []
+            for i, sd in enumerate(slides):
+                stitle = sd.get("title", f"Slide {i+2}"); bullets = sd.get("bullets", [])
+                notes = sd.get("notes", ""); layout = sd.get("layout", "bullets")
+                s = prs.slides.add_slide(prs.slide_layouts[6]); set_bg(s, t["bg"])
+                ab = s.shapes.add_shape(1, Inches(0.8), Inches(1.25), Inches(1.5), Inches(0.05))
+                ab.fill.solid(); ab.fill.fore_color.rgb = t["accent"]; ab.line.fill.background()
+                add_textbox(s, Inches(0.8), Inches(0.5), Inches(11.5), Inches(0.8), stitle, 28, t["title_color"], True)
+                if layout == "two_column" and len(bullets) > 1:
+                    mid = len(bullets)//2
+                    for col_bullets, left in [(bullets[:mid], 0.8), (bullets[mid:], 7)]:
+                        box = s.shapes.add_textbox(Inches(left), Inches(1.6), Inches(5.5), Inches(5))
+                        tf = box.text_frame; tf.word_wrap = True
+                        for bi, b in enumerate(col_bullets):
+                            p = tf.add_paragraph() if bi > 0 else tf.paragraphs[0]
+                            p.text = f"• {b}"; p.font.size = Pt(16); p.font.color.rgb = t["text_color"]; p.space_after = Pt(8)
+                elif layout != "blank" and bullets:
+                    box = s.shapes.add_textbox(Inches(0.8), Inches(1.6), Inches(11.5), Inches(5))
+                    tf = box.text_frame; tf.word_wrap = True
+                    for bi, b in enumerate(bullets):
+                        p = tf.add_paragraph() if bi > 0 else tf.paragraphs[0]
+                        p.text = f"• {b}"; p.font.size = Pt(18); p.font.color.rgb = t["text_color"]; p.space_after = Pt(10)
+                if notes:
+                    try: s.notes_slide.notes_text_frame.text = notes
+                    except: pass
+                slide_previews.append({"number": i+2, "title": stitle, "bullet_count": len(bullets),
+                    "layout": layout, "has_notes": bool(notes),
+                    "preview_text": bullets[0][:80]+"..." if bullets and len(bullets[0])>80 else (bullets[0] if bullets else "")})
 
-            # Speaker notes
-            if notes:
-                notes_slide = slide.notes_slide
-                notes_slide.notes_text_frame.text = notes
-
-            # Build preview data
-            slide_previews.append({
-                "number": i + 2,
-                "title": slide_title,
-                "bullet_count": len(bullets),
-                "layout": layout,
-                "has_notes": bool(notes),
-                "preview_text": bullets[0][:80] + "..." if bullets and len(bullets[0]) > 80 else (bullets[0] if bullets else "")
-            })
-
-        # Save to bytes
+        # ================================================================
+        # Save and return
+        # ================================================================
         pptx_buffer = io.BytesIO()
         prs.save(pptx_buffer)
         pptx_bytes = pptx_buffer.getvalue()
 
-        # Store in memory with unique ID
         presentation_id = str(uuid.uuid4())
         _presentation_store[presentation_id] = pptx_bytes
-
-        # Clean up old presentations (keep max 20)
         if len(_presentation_store) > 20:
-            oldest_key = next(iter(_presentation_store))
-            del _presentation_store[oldest_key]
+            del _presentation_store[next(iter(_presentation_store))]
 
         file_size_kb = round(len(pptx_bytes) / 1024, 1)
         safe_title = "".join(c for c in title if c.isalnum() or c in " -_").strip().replace(" ", "_")
@@ -2391,15 +2524,16 @@ def create_presentation(title: str, slides: list, subtitle: str = "", theme: str
             "filename": filename,
             "title": title,
             "subtitle": subtitle,
-            "theme": theme,
+            "theme": theme if not using_template else "template",
+            "template_used": template_name,
+            "template_id": template_id if using_template else None,
             "author": author,
-            "slide_count": len(slides) + 1,  # +1 for title slide
+            "slide_count": len(slides) + 1,
             "file_size_kb": file_size_kb,
             "slides": slide_previews,
             "download_url": f"/api/presentation/{presentation_id}",
             "fetch_time_ms": round((time.time() - start_time) * 1000, 2)
         }
-
         return response
 
     except ImportError:
@@ -2597,7 +2731,8 @@ def handle_tool_call(tool_name: str, tool_input: Dict[str, Any], supabase_client
                 slides=tool_input.get("slides", []),
                 subtitle=tool_input.get("subtitle", ""),
                 theme=tool_input.get("theme", "potomac"),
-                author=tool_input.get("author", "Analyst by Potomac")
+                author=tool_input.get("author", "Analyst by Potomac"),
+                template_id=tool_input.get("template_id"),
             )
 
         else:

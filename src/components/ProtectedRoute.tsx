@@ -12,16 +12,8 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { user, loading } = useAuth();
   const router = useRouter();
-  
-  // FIXED: Use theme context for theme-aware loading state
-  let isDark = true;
-  try {
-    const { resolvedTheme } = useTheme();
-    isDark = resolvedTheme === 'dark';
-  } catch {
-    // ThemeProvider may not be available yet during initial load
-    isDark = true;
-  }
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
 
   useEffect(() => {
     if (!loading && !user) {

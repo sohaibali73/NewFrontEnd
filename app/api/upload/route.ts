@@ -125,6 +125,13 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await backendResponse.json();
+
+    // If backend auto-registered a .pptx as template, include that info
+    // so the frontend can show a toast about it
+    if (data.is_template && data.template_id) {
+      data.message = `📎 Uploaded ${file.name} — also registered as presentation template (${data.template_layouts} layouts). Say "use my template" when creating presentations.`;
+    }
+
     return new Response(JSON.stringify(data), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

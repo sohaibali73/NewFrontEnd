@@ -50,5 +50,38 @@ export { WebSearchResults } from './WebSearchResults';
 // Loading state for any tool
 export { ToolLoading } from './ToolLoading';
 
+// NEW: Stock Screener (screen_stocks tool)
+export { StockScreener } from './StockScreener';
+
+// NEW: Stock Comparison (compare_stocks tool)
+export { StockComparison } from './StockComparison';
+
+// NEW: Sector Performance heatmap (get_sector_performance tool)
+export { SectorPerformance } from './SectorPerformance';
+
+// NEW: Position Size Calculator (calculate_position_size tool)
+export { PositionSizer } from './PositionSizer';
+
+// NEW: Correlation Matrix (get_correlation_matrix tool)
+export { CorrelationMatrix } from './CorrelationMatrix';
+
+// NEW: Dividend Info Card (get_dividend_info tool)
+export { DividendCard } from './DividendCard';
+
+// NEW: Risk Metrics (calculate_risk_metrics tool)
+export { RiskMetrics } from './RiskMetrics';
+
+// NEW: Market Overview (get_market_overview tool)
+export { MarketOverview } from './MarketOverview';
+
+// NEW: Quick Backtest Results (backtest_quick tool)
+export { BacktestResults } from './BacktestResults';
+
+// NEW: Options Snapshot (get_options_snapshot tool)
+export { OptionsSnapshot } from './OptionsSnapshot';
+
+// NEW: Presentation Card (create_presentation tool)
+export { PresentationCard } from './PresentationCard';
+
 // Legacy React component wrapper
 export { default as ReactComponent } from './ReactComponent';

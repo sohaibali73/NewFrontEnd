@@ -612,6 +612,184 @@ class APIClient {
     return `${API_BASE_URL}/chat/stream`;
   }
 
+  /**
+   * Get the direct AI SDK v6 streaming endpoint URL
+   */
+  getStreamV6Endpoint(): string {
+    return `${API_BASE_URL}/chat/v6`;
+  }
+
+  /**
+   * Send a message using direct AI SDK Data Stream Protocol (v6 endpoint).
+   * Bypasses the protocol translation wrapper for cleaner integration.
+   */
+  async sendMessageStreamV6(
+    content: string,
+    conversationId?: string,
+    options?: {
+      signal?: AbortSignal;
+      onText?: (text: string) => void;
+      onToolCall?: (toolCallId: string, toolName: string, args: any) => void;
+      onToolResult?: (toolCallId: string, result: any) => void;
+      onData?: (data: any) => void;
+      onError?: (error: string) => void;
+      onFinish?: (finishReason: string, usage: any) => void;
+    }
+  ): Promise<{ conversationId: string }> {
+    const token = this.getToken();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      // Use direct v6 endpoint (bypasses protocol translation)
+      const url = `${API_BASE_URL}/chat/v6`;
+      console.log(`Direct V6 Streaming Request: POST ${url}`);
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        mode: 'cors',
+        credentials: 'omit',
+        signal: options?.signal,
+        body: JSON.stringify({
+          content,
+          conversation_id: conversationId,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ 
+          detail: `Request failed with status ${response.status}` 
+        }));
+        throw new Error(error.detail || error.message || `HTTP ${response.status}`);
+      }
+
+      // Extract conversation ID from response headers
+      const newConversationId = response.headers.get('X-Conversation-Id') || conversationId || '';
+
+      if (!response.body) {
+        throw new Error('Response body is null');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+
+        // Decode the chunk and add to buffer
+        const chunk = decoder.decode(value, { stream: true });
+        buffer += chunk;
+
+        // Process complete lines from buffer
+        const lines = buffer.split('\n');
+        // Keep the last incomplete line in the buffer
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          try {
+            // Direct AI SDK Data Stream Protocol parsing
+            // Format is "TYPE:JSON_DATA" where TYPE is a single character
+            const typeCode = line[0];
+            const content = line.substring(2); // Skip "TYPE:" prefix
+
+            if (!content) continue;
+
+            try {
+              const parsed = JSON.parse(content);
+              
+              // Route based on AI SDK Data Stream Protocol type codes
+              switch (typeCode) {
+                case '0': // Text Part
+                  if (typeof parsed === 'string') {
+                    options?.onText?.(parsed);
+                  } else if (parsed.text) {
+                    options?.onText?.(parsed.text);
+                  }
+                  break;
+
+                case '2': // Data Part (Artifacts)
+                  options?.onData?.(parsed);
+                  break;
+
+                case '3': // Error Part
+                  console.error('Stream error:', parsed);
+                  options?.onError?.(typeof parsed === 'string' ? parsed : parsed.message || 'Unknown error');
+                  break;
+
+                case '9': // Tool Call Part
+                  if (parsed.toolCallId && parsed.toolName) {
+                    options?.onToolCall?.(parsed.toolCallId, parsed.toolName, parsed.args || {});
+                  }
+                  break;
+
+                case 'a': // Tool Result Part
+                  if (parsed.toolCallId) {
+                    options?.onToolResult?.(parsed.toolCallId, parsed.result);
+                  }
+                  break;
+
+                case 'd': // Finish Message Part
+                  if (parsed.finishReason) {
+                    options?.onFinish?.(parsed.finishReason, parsed.usage || {});
+                  }
+                  break;
+
+                case 'e': // Finish Step Part (currently unused)
+                  break;
+
+                default:
+                  console.warn('Unknown stream type code:', typeCode, 'Content:', content.substring(0, 100));
+              }
+            } catch (parseError) {
+              console.warn('Failed to parse protocol content:', content.substring(0, 100), parseError);
+            }
+          } catch (error) {
+            console.error('Error processing line:', error);
+          }
+        }
+      }
+
+      // Process any remaining data in buffer
+      if (buffer.trim()) {
+        try {
+          const typeCode = buffer[0];
+          const content = buffer.substring(2);
+          
+          if (content) {
+            const parsed = JSON.parse(content);
+            
+            if (typeCode === 'd' && parsed.finishReason) {
+              options?.onFinish?.(parsed.finishReason, parsed.usage || {});
+            } else if (typeCode === '2') {
+              options?.onData?.(parsed);
+            }
+          }
+        } catch (error) {
+          console.error('Error processing final buffer:', error);
+        }
+      }
+
+      return { conversationId: newConversationId };
+
+    } catch (error) {
+      console.error('V6 Stream error:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      options?.onError?.(errorMsg);
+      throw error;
+    }
+  }
+
   async getChatTools() {
     return this.request<{ tools: any[]; count: number }>('/chat/tools');
   }
@@ -1096,8 +1274,10 @@ export const api = {
     deleteConversation: (conversationId: string) => apiClient.deleteConversation(conversationId),
     sendMessage: (content: string, conversationId?: string) => apiClient.sendMessage(content, conversationId),
     sendMessageStream: (content: string, conversationId?: string, options?: any) => apiClient.sendMessageStream(content, conversationId, options),
+    sendMessageStreamV6: (content: string, conversationId?: string, options?: any) => apiClient.sendMessageStreamV6(content, conversationId, options),
     uploadFile: (conversationId: string, formData: FormData) => apiClient.uploadFile(conversationId, formData),
     getStreamEndpoint: () => apiClient.getStreamEndpoint(),
+    getStreamV6Endpoint: () => apiClient.getStreamV6Endpoint(),
     getTools: () => apiClient.getChatTools(),
   },
   brain: {

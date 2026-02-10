@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Plus, MessageSquare, Paperclip, Trash2, ChevronLeft, ChevronRight, Loader2, RefreshCw, Search, Pencil, X, Wifi, WifiOff, CopyIcon, ThumbsUpIcon, ThumbsDownIcon } from 'lucide-react';
+import { Plus, MessageSquare, Paperclip, Trash2, ChevronLeft, ChevronRight, Loader2, RefreshCw, Search, Pencil, X, Wifi, WifiOff, CopyIcon, ThumbsUpIcon, ThumbsDownIcon, Volume2, VolumeX } from 'lucide-react';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
@@ -29,6 +29,15 @@ import { Artifact, ArtifactHeader, ArtifactTitle, ArtifactContent, ArtifactActio
 import { ChainOfThought, ChainOfThoughtHeader, ChainOfThoughtContent, ChainOfThoughtStep } from '@/components/ai-elements/chain-of-thought';
 import { SpeechInput } from '@/components/ai-elements/speech-input';
 import { WebPreview, WebPreviewNavigation, WebPreviewNavigationButton, WebPreviewBody, WebPreviewConsole } from '@/components/ai-elements/web-preview';
+import { Terminal, TerminalHeader, TerminalTitle, TerminalContent, TerminalCopyButton, TerminalActions } from '@/components/ai-elements/terminal';
+import { Image as AIImage } from '@/components/ai-elements/image';
+import { Plan, PlanHeader, PlanTitle, PlanDescription, PlanContent, PlanTrigger } from '@/components/ai-elements/plan';
+import { Task, TaskTrigger, TaskContent, TaskItem } from '@/components/ai-elements/task';
+import { StackTrace, StackTraceHeader, StackTraceError, StackTraceErrorType, StackTraceErrorMessage, StackTraceContent, StackTraceFrames, StackTraceCopyButton, StackTraceActions, StackTraceExpandButton } from '@/components/ai-elements/stack-trace';
+import { Confirmation, ConfirmationTitle, ConfirmationRequest, ConfirmationAccepted, ConfirmationRejected, ConfirmationActions, ConfirmationAction } from '@/components/ai-elements/confirmation';
+import { Sandbox, SandboxHeader, SandboxContent, SandboxTabs, SandboxTabsBar, SandboxTabsList, SandboxTabsTrigger, SandboxTabContent } from '@/components/ai-elements/sandbox';
+import { InlineCitation, InlineCitationText, InlineCitationCard, InlineCitationCardTrigger, InlineCitationCardBody, InlineCitationSource } from '@/components/ai-elements/inline-citation';
+import VoiceMode from '@/components/VoiceMode';
 import {
   StockCard,
   LiveStockChart,
@@ -46,6 +55,17 @@ import {
   AFLSanityCheckCard,
   WebSearchResults,
   ToolLoading,
+  StockScreener,
+  StockComparison,
+  SectorPerformance,
+  PositionSizer,
+  CorrelationMatrix,
+  DividendCard,
+  RiskMetrics,
+  MarketOverview,
+  BacktestResults,
+  OptionsSnapshot,
+  PresentationCard,
 } from '@/components/generative-ui';
 
 const logo = '/yellowlogo.png';
@@ -98,7 +118,6 @@ export function ChatPage() {
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(isMobile);
   const [pageError, setPageError] = useState('');
-  const [historicalMessages, setHistoricalMessages] = useState<any[]>([]);
   
   // Local input state - per the v5 docs pattern
   const [input, setInput] = useState('');
@@ -111,6 +130,49 @@ export function ChatPage() {
   // Connection status
   const { status: connStatus, check: recheckConnection } = useConnectionStatus({ interval: 60000 });
 
+  // Voice mode state
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [voiceModeOpen, setVoiceModeOpen] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lastSpokenMsgId = useRef<string | null>(null);
+
+  // TTS: Play text as speech via backend edge-tts
+  const speakText = useCallback(async (text: string, messageId: string) => {
+    if (!text.trim() || lastSpokenMsgId.current === messageId) return;
+    lastSpokenMsgId.current = messageId;
+    
+    try {
+      setIsSpeaking(true);
+      const token = getAuthToken();
+      const resp = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
+        body: JSON.stringify({ text, voice: 'en-US-AriaNeural' }),
+      });
+      
+      if (!resp.ok) { setIsSpeaking(false); return; }
+      
+      const audioBlob = await resp.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      // Stop any currently playing audio
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+      
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      audio.onended = () => { setIsSpeaking(false); URL.revokeObjectURL(audioUrl); audioRef.current = null; };
+      audio.onerror = () => { setIsSpeaking(false); URL.revokeObjectURL(audioUrl); audioRef.current = null; };
+      audio.play().catch(() => setIsSpeaking(false));
+    } catch { setIsSpeaking(false); }
+  }, []);
+
+  // Stop TTS playback
+  const stopSpeaking = useCallback(() => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    setIsSpeaking(false);
+  }, []);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -118,126 +180,17 @@ export function ChatPage() {
   // Ref to track current conversationId synchronously (avoids stale state in body callback)
   const conversationIdRef = useRef<string | null>(null);
 
-  // ===== Message Parts Cache =====
-  // Cache completed message parts (including tool outputs) in localStorage
-  // so they survive page navigation and reload
-  const saveMessagePartsToCache = (messageId: string, parts: any[]) => {
-    try {
-      const cacheKey = 'msg_parts_cache';
-      const cache = JSON.parse(localStorage.getItem(cacheKey) || '{}');
-      cache[messageId] = parts;
-      // Keep cache under 200 entries to prevent unlimited growth
-      const keys = Object.keys(cache);
-      if (keys.length > 200) {
-        keys.slice(0, keys.length - 200).forEach(k => delete cache[k]);
-      }
-      localStorage.setItem(cacheKey, JSON.stringify(cache));
-    } catch { /* Silently fail */ }
-  };
-
-  const getMessagePartsFromCache = (messageId: string): any[] | null => {
-    try {
-      const cache = JSON.parse(localStorage.getItem('msg_parts_cache') || '{}');
-      return cache[messageId] || null;
-    } catch { return null; }
-  };
-
-  // Reconstruct message parts from backend data (tools_used, metadata, artifacts)
-  const reconstructParts = (m: any): any[] => {
-    // Gather tools_used from all possible locations
-    const toolsUsed = m.metadata?.tools_used || m.tools_used || [];
-
-    // 1. If metadata.parts exists (backend stored full parts), merge with tools_used
-    if (m.metadata?.parts && Array.isArray(m.metadata.parts) && m.metadata.parts.length > 0) {
-      const storedParts = [...m.metadata.parts];
-
-      // Check if tool parts are already present in stored parts
-      const hasToolParts = storedParts.some((p: any) => p.type?.startsWith('tool-') && p.state === 'output-available');
-
-      // If tools were used but not in stored parts, prepend them
-      if (!hasToolParts && Array.isArray(toolsUsed) && toolsUsed.length > 0) {
-        const toolParts = toolsUsed.map((tool: any) => {
-          const toolName = tool.tool || tool.toolName || 'unknown';
-          return {
-            type: `tool-${toolName}`,
-            state: 'output-available',
-            input: tool.input || tool.args || {},
-            output: tool.result || tool.output || tool.result_data || {},
-          };
-        });
-        return [...toolParts, ...storedParts];
-      }
-
-      return storedParts;
-    }
-
-    // 2. Check local cache for this message's parts
-    const cachedParts = getMessagePartsFromCache(m.id);
-    if (cachedParts && cachedParts.length > 0) {
-      return cachedParts;
-    }
-
-    // 3. Reconstruct from tools_used + content
-    const parts: any[] = [];
-
-    // Add tool parts from tools_used array
-    if (Array.isArray(toolsUsed) && toolsUsed.length > 0) {
-      for (const tool of toolsUsed) {
-        const toolName = tool.tool || tool.toolName || 'unknown';
-        parts.push({
-          type: `tool-${toolName}`,
-          state: 'output-available',
-          input: tool.input || tool.args || {},
-          output: tool.result || tool.output || tool.result_data || {},
-        });
-      }
-    }
-
-    // Add artifact parts
-    if (m.artifacts && Array.isArray(m.artifacts) && m.artifacts.length > 0) {
-      for (const artifact of m.artifacts) {
-        parts.push({
-          type: `data-${artifact.type || 'code'}`,
-          data: artifact,
-        });
-      }
-    } else if (m.metadata?.artifacts && Array.isArray(m.metadata.artifacts)) {
-      for (const artifact of m.metadata.artifacts) {
-        parts.push({
-          type: `data-${artifact.type || 'code'}`,
-          data: artifact,
-        });
-      }
-    }
-
-    // Add text content
-    if (m.content) {
-      parts.push({ type: 'text', text: m.content });
-    }
-
-    // FALLBACK: Ensure old messages always have at least a text part to render
-    if (parts.length === 0) {
-      const fallbackContent = m.content || m.text || m.message || '';
-      if (fallbackContent) {
-        parts.push({ type: 'text', text: fallbackContent });
-      } else {
-        // Last resort: create a minimal text part so message doesn't disappear
-        parts.push({ type: 'text', text: '[Message content unavailable]' });
-      }
-    }
-
-    return parts;
-  };
+  // Simplified: Use AI SDK parts directly, no manual reconstruction needed
 
   // Get auth token for transport
   const getAuthToken = () => {
     try { return localStorage.getItem('auth_token') || ''; } catch { return ''; }
   };
 
-  // ===== Vercel AI SDK v5 useChat =====
+  // ===== Vercel AI SDK v6 useChat with UI Message Stream Protocol =====
   const { messages: streamMessages, sendMessage, status, stop, error: chatError, setMessages, regenerate } = useChat({
     transport: new DefaultChatTransport({
-      api: '/api/chat',
+      api: '/api/chat',  // Uses UI Message Stream protocol (SSE with x-vercel-ai-ui-message-stream: v1)
       headers: () => {
         const token = getAuthToken();
         return { 'Authorization': token ? `Bearer ${token}` : '' };
@@ -248,23 +201,13 @@ export function ChatPage() {
       }),
     }),
     onFinish: ({ message }) => {
-      // Cache the completed message's parts (including tool outputs) to localStorage
-      // so they persist when user navigates away and comes back
-      if (message?.id && message?.parts && message.parts.length > 0) {
-        // Filter to only cache parts that have meaningful data (tool outputs, text, artifacts)
-        const cachableParts = message.parts.filter((p: any) => {
-          if (p.type === 'text' && p.text) return true;
-          if (p.type?.startsWith('tool-') && p.state === 'output-available') return true;
-          if (p.type === 'dynamic-tool' && p.state === 'output-available') return true;
-          if (p.type?.startsWith('data-') && p.data) return true;
-          return false;
-        });
-        if (cachableParts.length > 0) {
-          saveMessagePartsToCache(message.id, cachableParts);
-        }
-      }
       // Refresh conversation list when a message completes
       loadConversations();
+      // Voice mode: auto-speak assistant responses
+      if (voiceMode && message.role === 'assistant') {
+        const text = message.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text || '').join('') || '';
+        if (text.trim()) speakText(text, message.id);
+      }
     },
     onError: (error) => {
       const msg = error.message || 'An error occurred';
@@ -306,7 +249,19 @@ export function ChatPage() {
       loadPreviousMessages(selectedConversation.id);
     }
   }, [selectedConversation]);
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [streamMessages, historicalMessages]);
+  // Edge-compatible auto-scroll: use scrollTop instead of scrollIntoView for better compatibility
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      const scrollContainer = messagesEndRef.current.closest('[data-scroll-container]');
+      if (scrollContainer) {
+        // Use scrollTop for Edge compatibility (avoids scrollIntoView quirks)
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      } else {
+        // Fallback: scrollIntoView with block:'end' for better Edge support
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' });
+      }
+    }
+  }, [streamMessages]);
   useEffect(() => { if (chatError) setPageError(chatError.message); }, [chatError]);
 
   // Auto-resize textarea
@@ -330,14 +285,16 @@ export function ChatPage() {
   const loadPreviousMessages = async (conversationId: string) => {
     try {
       const data = await apiClient.getMessages(conversationId);
-      setHistoricalMessages(data.map((m: any) => ({
-        id: m.id, role: m.role, content: m.content || '',
-        // FIXED: Reconstruct full parts (including tool outputs) from backend data + local cache
-        parts: reconstructParts(m),
+      // Simplified: Use AI SDK messages directly
+      setMessages(data.map((m: any) => ({
+        id: m.id, 
+        role: m.role, 
+        content: m.content || '',
+        // Use stored parts from backend metadata, fallback to simple text
+        parts: m.metadata?.parts || [{ type: 'text', text: m.content || '' }],
         createdAt: m.created_at ? new Date(m.created_at) : new Date(),
       })));
-      setMessages([]);
-    } catch { setHistoricalMessages([]); }
+    } catch { setMessages([]); }
   };
 
   // Track whether we just created a new conversation (to skip re-loading messages)
@@ -350,7 +307,6 @@ export function ChatPage() {
       setConversations(prev => [newConv, ...prev]);
       setSelectedConversation(newConv);
       conversationIdRef.current = newConv.id; // Sync ref immediately
-      setHistoricalMessages([]);
       setMessages([]);
       setPageError('');
     } catch (err) { setPageError(err instanceof Error ? err.message : 'Failed'); }
@@ -361,7 +317,7 @@ export function ChatPage() {
     try {
       await apiClient.deleteConversation(id);
       setConversations(prev => prev.filter(c => c.id !== id));
-      if (selectedConversation?.id === id) { setSelectedConversation(null); setMessages([]); setHistoricalMessages([]); }
+      if (selectedConversation?.id === id) { setSelectedConversation(null); setMessages([]); }
     } catch { setPageError('Failed to delete'); }
   };
 
@@ -393,32 +349,12 @@ export function ChatPage() {
     sendMessage({ text }, { body: { conversationId: convId } });
   };
 
-  // Combine historical + streaming messages
-  const allMessages = useMemo(() => [...historicalMessages, ...streamMessages], [historicalMessages, streamMessages]);
+  // Use AI SDK messages as single source of truth
+  const allMessages = useMemo(() => streamMessages, [streamMessages]);
   const lastIdx = allMessages.length - 1;
   const userName = user?.name || 'You';
 
-  // Strip large code blocks from text when artifacts exist (prevents duplication)
-  const deduplicateTextWithArtifacts = (text: string, parts: any[], isCurrentlyStreaming: boolean): string => {
-    // Only deduplicate for completed messages (not during streaming)
-    if (isCurrentlyStreaming) return text;
-    
-    // Check if there are artifact/data parts in this message
-    const hasArtifacts = parts.some((p: any) => 
-      p.type?.startsWith('data-') || 
-      (p.type?.startsWith('tool-') && p.state === 'output-available' && 
-       ['generate_afl_code', 'debug_afl_code'].includes(p.type.replace('tool-', '')))
-    );
-    
-    if (!hasArtifacts) return text;
-    
-    // Strip the largest code block (```...```) from text if artifact covers the same content
-    // This regex matches fenced code blocks with 10+ lines (substantial code)
-    return text.replace(/```[\w]*\n([\s\S]{200,}?)```/g, (match) => {
-      // Replace large code blocks with a note, since the artifact card shows them
-      return '*(See the rendered component below)*';
-    });
-  };
+  // Simplified: Direct protocol handles deduplication better
 
   // Helper: Copy message text to clipboard
   const handleCopyMessage = useCallback((text: string) => {
@@ -498,10 +434,8 @@ export function ChatPage() {
               case 'text':
                 if (!part.text) return null;
                 if (message.role === 'assistant') {
-                  const displayText = deduplicateTextWithArtifacts(part.text, parts, msgIsStreaming);
-                  if (!displayText.trim()) return null;
                   // Use AI Elements MessageResponse (Streamdown) for assistant markdown
-                  return <MessageResponse key={pIdx}>{displayText}</MessageResponse>;
+                  return <MessageResponse key={pIdx}>{part.text}</MessageResponse>;
                 }
                 return (
                   <p key={pIdx} className="whitespace-pre-wrap break-words text-sm leading-relaxed">
@@ -521,7 +455,21 @@ export function ChatPage() {
                 // Now handled by Sources component above - skip individual rendering
                 return null;
 
+              // AI Elements: Step boundaries for multi-step tool flows
+              case 'step-start':
+                return pIdx > 0 ? (
+                  <div key={pIdx} className="my-3 flex items-center gap-2 text-muted-foreground">
+                    <div className="h-px flex-1 bg-border" />
+                    <span className="text-xs">Step {pIdx}</span>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+                ) : null;
+
               case 'file':
+                if (part.mediaType?.startsWith('image/') && part.base64) {
+                  // Use AI Elements Image for base64-encoded generated images
+                  return <AIImage key={pIdx} base64={part.base64} uint8Array={undefined as any} mediaType={part.mediaType} alt="Generated image" className="max-w-full rounded-lg mt-2" />;
+                }
                 if (part.mediaType?.startsWith('image/')) {
                   return <img key={pIdx} src={part.url} alt="Generated" className="max-w-full rounded-lg mt-2" />;
                 }
@@ -740,6 +688,107 @@ export function ChatPage() {
                   default: return null;
                 }
 
+              // ===== 10 NEW GENERATIVE UI TOOLS =====
+
+              // Stock Screener
+              case 'tool-screen_stocks':
+                switch (part.state) {
+                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="screen_stocks" input={part.input} />;
+                  case 'output-available': return <StockScreener key={pIdx} {...(typeof part.output === 'object' ? part.output : {})} />;
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Screener error: {part.errorText}</div>;
+                  default: return null;
+                }
+
+              // Stock Comparison
+              case 'tool-compare_stocks':
+                switch (part.state) {
+                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="compare_stocks" input={part.input} />;
+                  case 'output-available': return <StockComparison key={pIdx} {...(typeof part.output === 'object' ? part.output : {})} />;
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Compare error: {part.errorText}</div>;
+                  default: return null;
+                }
+
+              // Sector Performance
+              case 'tool-get_sector_performance':
+                switch (part.state) {
+                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="get_sector_performance" input={part.input} />;
+                  case 'output-available': return <SectorPerformance key={pIdx} {...(typeof part.output === 'object' ? part.output : {})} />;
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Sector error: {part.errorText}</div>;
+                  default: return null;
+                }
+
+              // Position Size Calculator
+              case 'tool-calculate_position_size':
+                switch (part.state) {
+                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="calculate_position_size" input={part.input} />;
+                  case 'output-available': return <PositionSizer key={pIdx} {...(typeof part.output === 'object' ? part.output : {})} />;
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Position size error: {part.errorText}</div>;
+                  default: return null;
+                }
+
+              // Correlation Matrix
+              case 'tool-get_correlation_matrix':
+                switch (part.state) {
+                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="get_correlation_matrix" input={part.input} />;
+                  case 'output-available': return <CorrelationMatrix key={pIdx} {...(typeof part.output === 'object' ? part.output : {})} />;
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Correlation error: {part.errorText}</div>;
+                  default: return null;
+                }
+
+              // Dividend Info
+              case 'tool-get_dividend_info':
+                switch (part.state) {
+                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="get_dividend_info" input={part.input} />;
+                  case 'output-available': return <DividendCard key={pIdx} {...(typeof part.output === 'object' ? part.output : {})} />;
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Dividend error: {part.errorText}</div>;
+                  default: return null;
+                }
+
+              // Risk Metrics
+              case 'tool-calculate_risk_metrics':
+                switch (part.state) {
+                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="calculate_risk_metrics" input={part.input} />;
+                  case 'output-available': return <RiskMetrics key={pIdx} {...(typeof part.output === 'object' ? part.output : {})} />;
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Risk error: {part.errorText}</div>;
+                  default: return null;
+                }
+
+              // Market Overview
+              case 'tool-get_market_overview':
+                switch (part.state) {
+                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="get_market_overview" input={part.input} />;
+                  case 'output-available': return <MarketOverview key={pIdx} {...(typeof part.output === 'object' ? part.output : {})} />;
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Market error: {part.errorText}</div>;
+                  default: return null;
+                }
+
+              // Quick Backtest
+              case 'tool-backtest_quick':
+                switch (part.state) {
+                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="backtest_quick" input={part.input} />;
+                  case 'output-available': return <BacktestResults key={pIdx} {...(typeof part.output === 'object' ? part.output : {})} />;
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Backtest error: {part.errorText}</div>;
+                  default: return null;
+                }
+
+              // Options Snapshot
+              case 'tool-get_options_snapshot':
+                switch (part.state) {
+                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="get_options_snapshot" input={part.input} />;
+                  case 'output-available': return <OptionsSnapshot key={pIdx} {...(typeof part.output === 'object' ? part.output : {})} />;
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Options error: {part.errorText}</div>;
+                  default: return null;
+                }
+
+              // Create Presentation (PowerPoint)
+              case 'tool-create_presentation':
+                switch (part.state) {
+                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="create_presentation" input={part.input} />;
+                  case 'output-available': return <PresentationCard key={pIdx} {...(typeof part.output === 'object' ? part.output : {})} />;
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Presentation error: {part.errorText}</div>;
+                  default: return null;
+                }
+
               // v6: Dynamic tools — use AI Elements Tool composable
               case 'dynamic-tool': {
                 const dynToolName = part.toolName || 'unknown';
@@ -893,9 +942,9 @@ export function ChatPage() {
   };
 
   return (
-    <div style={{ height: '100vh', backgroundColor: colors.background, display: 'flex' }}>
+    <div style={{ height: '100dvh', maxHeight: '100vh', backgroundColor: colors.background, display: 'flex', overflow: 'hidden', position: 'relative' }}>
       {/* Sidebar */}
-      <div style={{ width: sidebarCollapsed ? '0px' : '280px', backgroundColor: colors.sidebar, borderRight: sidebarCollapsed ? 'none' : `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', transition: 'width 0.3s ease' }}>
+      <div style={{ width: sidebarCollapsed ? '0px' : '280px', backgroundColor: colors.sidebar, borderRight: sidebarCollapsed ? 'none' : `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', height: '100dvh', maxHeight: '100vh', overflow: 'hidden', transition: 'width 0.3s ease', flexShrink: 0 }}>
         <div style={{ padding: '24px 20px', borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <img src={logo} alt="Logo" style={{ width: '32px', height: '32px' }} />
@@ -938,7 +987,7 @@ export function ChatPage() {
             )}
           </div>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px', maxHeight: 'calc(100vh - 140px)' }}>
           {loadingConversations ? (
             <div className="space-y-3 px-2 py-4">
               {/* AI Elements: Shimmer skeleton for conversation list loading */}
@@ -1011,7 +1060,7 @@ export function ChatPage() {
       </div>
 
       {/* Main */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', height: '100%' }}>
         {sidebarCollapsed && (
           <button onClick={() => setSidebarCollapsed(false)} style={{ position: 'absolute', top: '24px', left: '24px', zIndex: 100, background: 'rgba(254, 192, 15, 0.3)', border: '1px solid rgba(254, 192, 15, 0.5)', borderRadius: '8px', padding: '8px', cursor: 'pointer' }}>
             <ChevronRight size={18} color="#FEC00F" />
@@ -1019,7 +1068,8 @@ export function ChatPage() {
         )}
 
         {/* AI Elements: Conversation with auto-scroll */}
-        <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
+        <div className="flex-1" style={{ minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div data-scroll-container style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' } as React.CSSProperties}>
           <div className="max-w-[900px] mx-auto px-6 py-8">
             {allMessages.length === 0 ? (
               <ConversationEmptyState
@@ -1035,10 +1085,10 @@ export function ChatPage() {
                   </div>
                   {/* AI Elements: Quick Suggestions */}
                   <Suggestions className="justify-center mt-4">
-                    <Suggestion suggestion="Generate a moving average crossover AFL" onClick={(s) => { setInput(s); }} />
-                    <Suggestion suggestion="Explain RSI divergence strategy" onClick={(s) => { setInput(s); }} />
-                    <Suggestion suggestion="Show me AAPL stock data" onClick={(s) => { setInput(s); }} />
-                    <Suggestion suggestion="Search knowledge base for Bollinger Bands" onClick={(s) => { setInput(s); }} />
+                    <Suggestion suggestion="Generate a moving average crossover AFL" onClick={(s: string) => { setInput(s); }} />
+                    <Suggestion suggestion="Explain RSI divergence strategy" onClick={(s: string) => { setInput(s); }} />
+                    <Suggestion suggestion="Show me AAPL stock data" onClick={(s: string) => { setInput(s); }} />
+                    <Suggestion suggestion="Search knowledge base for Bollinger Bands" onClick={(s: string) => { setInput(s); }} />
                   </Suggestions>
                   <p className="text-xs text-muted-foreground mt-2">Click a suggestion or type your own message below</p>
                 </div>
@@ -1064,6 +1114,7 @@ export function ChatPage() {
             <div ref={messagesEndRef} />
           </div>
         </div>
+        </div>
 
         {/* Error banner */}
         {(pageError || chatError) && (
@@ -1079,13 +1130,13 @@ export function ChatPage() {
         )}
 
         {/* AI Elements: PromptInput with file upload */}
-        <div className="border-t px-6 py-5">
+        <div className="border-t px-6 py-5" style={{ flexShrink: 0 }}>
           <div className="max-w-[900px] mx-auto">
             <TooltipProvider>
             <PromptInput
-              accept=".pdf,.csv,.json,.txt,.afl,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif"
+              accept=".pdf,.csv,.json,.txt,.afl,.doc,.docx,.xls,.xlsx,.pptx,.ppt,.png,.jpg,.jpeg,.gif"
               multiple
-              onSubmit={async ({ text, files }) => {
+              onSubmit={async ({ text, files }: { text: string; files: any[] }) => {
                 if ((!text.trim() && files.length === 0) || isStreaming) return;
                 setInput('');
                 setPageError('');
@@ -1111,14 +1162,24 @@ export function ChatPage() {
                   for (const file of files) {
                     const fileName = file.filename || 'upload';
                     try {
-                      // Convert blob URL to actual File if needed
+                      // Convert file URL (blob: or data:) to actual File object
                       let actualFile: File;
                       if (file.url?.startsWith('blob:')) {
                         const blob = await fetch(file.url).then(r => r.blob());
                         actualFile = new File([blob], fileName, { type: file.mediaType || 'application/octet-stream' });
+                      } else if (file.url?.startsWith('data:')) {
+                        // PromptInput converts blob URLs to data URLs — handle data: URIs
+                        const resp = await fetch(file.url);
+                        const blob = await resp.blob();
+                        actualFile = new File([blob], fileName, { type: file.mediaType || blob.type || 'application/octet-stream' });
+                      } else if (file.url) {
+                        // Regular URL — try fetching it
+                        const resp = await fetch(file.url);
+                        const blob = await resp.blob();
+                        actualFile = new File([blob], fileName, { type: file.mediaType || blob.type || 'application/octet-stream' });
                       } else {
-                        // This shouldn't happen with PromptInput but handle it
-                        throw new Error('No blob URL found');
+                        toast.error(`Cannot upload ${fileName}: No file data`);
+                        continue;
                       }
 
                       const toastId = toast.loading(`Uploading ${fileName}...`);
@@ -1132,8 +1193,16 @@ export function ChatPage() {
                       });
                       
                       if (resp.ok) {
+                        const respData = await resp.json();
                         uploaded.push(fileName);
-                        toast.success(`Uploaded ${fileName}`, { id: toastId });
+                        // Show special toast if .pptx was auto-registered as template
+                        if (respData.is_template && respData.template_id) {
+                          toast.success(`🎨 ${fileName} registered as brand template (${respData.template_layouts} layouts)`, { id: toastId, duration: 6000 });
+                          // Append template info so the AI knows about it
+                          uploaded.push(`🎨 Template ID: ${respData.template_id} (use this when creating presentations from "${fileName}")`);
+                        } else {
+                          toast.success(`Uploaded ${fileName}`, { id: toastId });
+                        }
                       } else {
                         throw new Error(`Upload failed: ${resp.status}`);
                       }
@@ -1144,7 +1213,7 @@ export function ChatPage() {
 
                   // Add file references to message text
                   if (uploaded.length > 0) {
-                    const fileList = uploaded.map(f => `📎 ${f}`).join('\n');
+                    const fileList = uploaded.map(f => f.startsWith('🎨') ? f : `📎 ${f}`).join('\n');
                     messageText = text.trim() ? `${text}\n\n${fileList}` : fileList;
                   }
                 }
@@ -1156,7 +1225,7 @@ export function ChatPage() {
               <AttachmentsDisplay />
               <PromptInputTextarea
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
                 placeholder={isStreaming ? "Yang is responding..." : "Type a message to start chatting..."}
                 disabled={status !== 'ready' && status !== 'error'}
               />
@@ -1165,23 +1234,32 @@ export function ChatPage() {
                   {/* AI Elements: File attachment button */}
                   <AttachmentButton disabled={isStreaming} />
 
+                  {/* Full Voice Mode (ChatGPT-style) */}
+                  <PromptInputButton
+                    tooltip="Voice conversation mode"
+                    onClick={() => setVoiceModeOpen(true)}
+                  >
+                    <Volume2 className="size-4" />
+                  </PromptInputButton>
+
                   {/* AI Elements: Voice dictation via Web Speech API / MediaRecorder fallback */}
                   <SpeechInput
                     size="icon-sm"
                     variant="ghost"
-                    onTranscriptionChange={(text) => {
+                    onTranscriptionChange={(text: string) => {
                       setInput(prev => {
                         const base = prev.trim();
                         return base ? `${base} ${text}` : text;
                       });
                     }}
-                    onAudioRecorded={async (audioBlob) => {
+                    onAudioRecorded={async (audioBlob: Blob) => {
                       // Fallback for Firefox/Safari: send audio to backend transcription
                       try {
                         const token = getAuthToken();
+                        const convId = selectedConversation?.id || conversationIdRef.current || 'default';
                         const formData = new FormData();
                         formData.append('audio', audioBlob, 'recording.webm');
-                        const resp = await fetch('/api/upload', {
+                        const resp = await fetch(`/api/upload?conversationId=${convId}`, {
                           method: 'POST',
                           headers: { 'Authorization': token ? `Bearer ${token}` : '' },
                           body: formData,
@@ -1213,6 +1291,34 @@ export function ChatPage() {
         {/* Note: PromptInput handles file attachments internally — no manual file input needed */}
         {/* The AI Elements PromptInput component automatically manages file attachments with proper preview */}
       </div>
+
+      {/* ChatGPT-style Voice Mode Overlay */}
+      <VoiceMode
+        isOpen={voiceModeOpen}
+        onClose={() => setVoiceModeOpen(false)}
+        onSendMessage={async (text) => {
+          let convId = selectedConversation?.id || conversationIdRef.current;
+          if (!convId) {
+            try {
+              skipNextLoadRef.current = true;
+              const conv = await apiClient.createConversation();
+              setConversations(prev => [conv, ...prev]);
+              setSelectedConversation(conv);
+              conversationIdRef.current = conv.id;
+              convId = conv.id;
+            } catch { return; }
+          }
+          sendMessage({ text }, { body: { conversationId: convId } });
+        }}
+        lastAssistantText={(() => {
+          const lastAssistant = [...allMessages].reverse().find(m => m.role === 'assistant');
+          if (!lastAssistant) return '';
+          const parts = lastAssistant.parts || [];
+          return parts.filter((p: any) => p.type === 'text').map((p: any) => p.text || '').join('');
+        })()}
+        isStreaming={isStreaming}
+        getAuthToken={getAuthToken}
+      />
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }

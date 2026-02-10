@@ -138,20 +138,46 @@ const getTokensCacheKey = (code: string, language: BundledLanguage) => {
   return `${language}:${code.length}:${start}:${end}`;
 };
 
+// Map unsupported languages to closest Shiki-supported equivalent
+const LANGUAGE_FALLBACK_MAP: Record<string, BundledLanguage> = {
+  afl: "c",           // AmiBroker Formula Language → C (similar syntax)
+  text: "plaintext" as BundledLanguage,
+  txt: "plaintext" as BundledLanguage,
+  code: "plaintext" as BundledLanguage,
+  react: "tsx",
+  jsx: "tsx",
+  mermaid: "plaintext" as BundledLanguage,
+};
+
+const getSafeLanguage = (language: string): BundledLanguage => {
+  if (language in LANGUAGE_FALLBACK_MAP) {
+    return LANGUAGE_FALLBACK_MAP[language];
+  }
+  return language as BundledLanguage;
+};
+
 const getHighlighter = (
   language: BundledLanguage
 ): Promise<HighlighterGeneric<BundledLanguage, BundledTheme>> => {
-  const cached = highlighterCache.get(language);
+  const safeLang = getSafeLanguage(language);
+  const cached = highlighterCache.get(safeLang);
   if (cached) {
     return cached;
   }
 
   const highlighterPromise = createHighlighter({
-    langs: [language],
+    langs: [safeLang],
     themes: ["github-light", "github-dark"],
+  }).catch((err) => {
+    // If language still fails, fallback to plaintext
+    console.warn(`Shiki: Language "${language}" not supported, falling back to plaintext`);
+    return createHighlighter({
+      langs: ["plaintext" as BundledLanguage],
+      themes: ["github-light", "github-dark"],
+    });
   });
 
-  highlighterCache.set(language, highlighterPromise);
+  highlighterCache.set(safeLang, highlighterPromise);
   return highlighterPromise;
 };
 

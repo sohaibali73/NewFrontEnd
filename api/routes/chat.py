@@ -88,8 +88,24 @@ async def upload_file(
     # Read file content
     content = await file.read()
 
-    # For images/PDFs, convert to base64
-    if file.content_type.startswith('image/') or file.content_type == 'application/pdf':
+    # Detect binary file types that should be base64-encoded (not text-decoded)
+    binary_types = (
+        file.content_type.startswith('image/') or
+        file.content_type == 'application/pdf' or
+        file.content_type in [
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/msword',
+            'application/zip',
+            'application/octet-stream',
+        ] or
+        (file.filename and file.filename.endswith(('.pptx', '.xlsx', '.docx', '.zip', '.ppt', '.xls')))
+    )
+
+    if binary_types:
         base64_content = base64.b64encode(content).decode('utf-8')
         file_data = {
             "filename": file.filename,
@@ -112,7 +128,20 @@ async def upload_file(
         "file_data": file_data
     }).execute()
 
-    return {"file_id": result.data[0]["id"], "filename": file.filename}
+    response_data = {"file_id": result.data[0]["id"], "filename": file.filename}
+
+    # Auto-register .pptx files as presentation templates
+    if file.filename and file.filename.endswith('.pptx'):
+        try:
+            template_result = store_template(content, file.filename)
+            if template_result.get("success"):
+                response_data["template_id"] = template_result["template_id"]
+                response_data["template_layouts"] = template_result.get("layout_count", 0)
+                response_data["is_template"] = True
+        except Exception:
+            pass  # Template registration is optional
+
+    return response_data
 
 
 @router.get("/conversations/{conversation_id}/messages")

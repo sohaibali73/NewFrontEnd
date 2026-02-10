@@ -13,7 +13,7 @@ from api.dependencies import get_current_user_id, get_user_api_keys
 from core.claude_engine import ClaudeAFLEngine
 from core.context_manager import build_optimized_context
 from core.prompts import get_base_prompt, get_chat_prompt
-from core.tools import get_all_tools, handle_tool_call
+from core.tools import get_all_tools, handle_tool_call, get_presentation_bytes
 from core.artifact_parser import ArtifactParser
 from core.streaming import (
     VercelAIStreamEncoder,
@@ -252,7 +252,12 @@ Use these tools proactively when they would help provide better answers. For exa
                                      "get_market_context", "generate_afl_code", "debug_afl_code",
                                      "optimize_afl_code", "explain_afl_code", "sanity_check_afl",
                                      "get_stock_chart", "technical_analysis", "get_weather",
-                                     "get_news", "create_chart", "code_sandbox"]:
+                                     "get_news", "create_chart", "code_sandbox",
+                                     "screen_stocks", "compare_stocks", "get_sector_performance",
+                                     "calculate_position_size", "get_correlation_matrix",
+                                     "get_dividend_info", "calculate_risk_metrics",
+                                     "get_market_overview", "backtest_quick",
+                                     "get_options_snapshot", "create_presentation"]:
                         result = handle_tool_call(
                             tool_name=tool_name,
                             tool_input=tool_input,
@@ -891,6 +896,25 @@ async def text_to_speech(
         raise HTTPException(status_code=500, detail="edge-tts not installed. Run: pip install edge-tts")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"TTS failed: {str(e)}")
+
+
+@router.get("/presentation/{presentation_id}")
+async def download_presentation(presentation_id: str):
+    """Download a generated PowerPoint presentation by ID."""
+    import io
+
+    pptx_bytes = get_presentation_bytes(presentation_id)
+    if pptx_bytes is None:
+        raise HTTPException(status_code=404, detail="Presentation not found or expired")
+
+    return StreamingResponse(
+        io.BytesIO(pptx_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        headers={
+            "Content-Disposition": f'attachment; filename="presentation.pptx"',
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
 
 
 @router.get("/tts/voices")

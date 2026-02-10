@@ -645,6 +645,66 @@ TOOL_DEFINITIONS = [
             },
             "required": ["symbol"]
         }
+    },
+    # Custom: Create Presentation (PowerPoint)
+    {
+        "name": "create_presentation",
+        "description": "Create a PowerPoint presentation (.pptx) with multiple slides. Use when the user asks to create a presentation, slide deck, pitch deck, or PowerPoint. Each slide can have a title, bullet points, and optional notes. Returns a download link and slide preview.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Presentation title (shown on the title slide)"
+                },
+                "subtitle": {
+                    "type": "string",
+                    "description": "Subtitle for the title slide",
+                    "default": ""
+                },
+                "slides": {
+                    "type": "array",
+                    "description": "Array of slide objects. Each slide has 'title' (string), 'bullets' (array of strings), and optional 'notes' (string) and 'layout' ('bullets', 'two_column', 'blank').",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": {
+                                "type": "string",
+                                "description": "Slide title"
+                            },
+                            "bullets": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Bullet point text items"
+                            },
+                            "notes": {
+                                "type": "string",
+                                "description": "Speaker notes for the slide"
+                            },
+                            "layout": {
+                                "type": "string",
+                                "enum": ["bullets", "two_column", "blank"],
+                                "description": "Slide layout type",
+                                "default": "bullets"
+                            }
+                        },
+                        "required": ["title"]
+                    }
+                },
+                "theme": {
+                    "type": "string",
+                    "description": "Color theme for the presentation",
+                    "enum": ["dark", "light", "corporate", "potomac"],
+                    "default": "potomac"
+                },
+                "author": {
+                    "type": "string",
+                    "description": "Author name for metadata",
+                    "default": "Analyst by Potomac"
+                }
+            },
+            "required": ["title", "slides"]
+        }
     }
 ]
 
@@ -2153,6 +2213,208 @@ def get_options_snapshot(symbol: str) -> Dict[str, Any]:
 
 
 # ============================================================================
+# PRESENTATION TOOL HANDLER
+# ============================================================================
+
+# In-memory store for generated presentations (keyed by presentation_id)
+_presentation_store: Dict[str, bytes] = {}
+
+def create_presentation(title: str, slides: list, subtitle: str = "", theme: str = "potomac", author: str = "Analyst by Potomac") -> Dict[str, Any]:
+    """
+    Create a PowerPoint (.pptx) presentation with python-pptx.
+    Stores the binary in memory and returns metadata + a download_id.
+    """
+    import uuid
+
+    try:
+        from pptx import Presentation
+        from pptx.util import Inches, Pt, Emu
+        from pptx.dml.color import RGBColor
+        from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+        import io
+
+        start_time = time.time()
+
+        # Theme colour palettes
+        themes = {
+            "potomac": {"bg": RGBColor(0x12, 0x12, 0x12), "title_color": RGBColor(0xFE, 0xC0, 0x0F), "text_color": RGBColor(0xFF, 0xFF, 0xFF), "accent": RGBColor(0xFE, 0xC0, 0x0F), "subtitle_color": RGBColor(0x9E, 0x9E, 0x9E)},
+            "dark":    {"bg": RGBColor(0x1E, 0x1E, 0x2E), "title_color": RGBColor(0x82, 0xAA, 0xFF), "text_color": RGBColor(0xE0, 0xE0, 0xE0), "accent": RGBColor(0x82, 0xAA, 0xFF), "subtitle_color": RGBColor(0x9E, 0x9E, 0x9E)},
+            "light":   {"bg": RGBColor(0xFF, 0xFF, 0xFF), "title_color": RGBColor(0x21, 0x21, 0x21), "text_color": RGBColor(0x42, 0x42, 0x42), "accent": RGBColor(0x3B, 0x82, 0xF6), "subtitle_color": RGBColor(0x75, 0x75, 0x75)},
+            "corporate": {"bg": RGBColor(0xF8, 0xF9, 0xFA), "title_color": RGBColor(0x1A, 0x1A, 0x2E), "text_color": RGBColor(0x33, 0x33, 0x33), "accent": RGBColor(0x00, 0x66, 0xCC), "subtitle_color": RGBColor(0x66, 0x66, 0x66)},
+        }
+        t = themes.get(theme, themes["potomac"])
+
+        prs = Presentation()
+        prs.slide_width = Inches(13.333)
+        prs.slide_height = Inches(7.5)
+
+        # Helper: set slide background colour
+        def set_bg(slide, color):
+            background = slide.background
+            fill = background.fill
+            fill.solid()
+            fill.fore_color.rgb = color
+
+        # Helper: add a text box
+        def add_textbox(slide, left, top, width, height, text, font_size=18, color=None, bold=False, alignment=PP_ALIGN.LEFT):
+            txBox = slide.shapes.add_textbox(left, top, width, height)
+            tf = txBox.text_frame
+            tf.word_wrap = True
+            p = tf.paragraphs[0]
+            p.text = text
+            p.font.size = Pt(font_size)
+            p.font.color.rgb = color or t["text_color"]
+            p.font.bold = bold
+            p.alignment = alignment
+            return tf
+
+        # ---- Title Slide ----
+        title_slide = prs.slides.add_slide(prs.slide_layouts[6])  # Blank layout
+        set_bg(title_slide, t["bg"])
+
+        # Accent bar
+        from pptx.shapes.autoshape import Shape
+        bar = title_slide.shapes.add_shape(
+            1,  # Rectangle
+            Inches(0), Inches(3.2), Inches(13.333), Inches(0.08)
+        )
+        bar.fill.solid()
+        bar.fill.fore_color.rgb = t["accent"]
+        bar.line.fill.background()
+
+        add_textbox(title_slide, Inches(1), Inches(1.5), Inches(11), Inches(1.5),
+                    title, font_size=40, color=t["title_color"], bold=True, alignment=PP_ALIGN.CENTER)
+        if subtitle:
+            add_textbox(title_slide, Inches(1), Inches(3.5), Inches(11), Inches(0.8),
+                        subtitle, font_size=20, color=t["subtitle_color"], alignment=PP_ALIGN.CENTER)
+        add_textbox(title_slide, Inches(1), Inches(5.5), Inches(11), Inches(0.5),
+                    author, font_size=14, color=t["subtitle_color"], alignment=PP_ALIGN.CENTER)
+
+        # ---- Content Slides ----
+        slide_previews = []
+        for i, slide_data in enumerate(slides):
+            slide_title = slide_data.get("title", f"Slide {i + 2}")
+            bullets = slide_data.get("bullets", [])
+            notes = slide_data.get("notes", "")
+            layout = slide_data.get("layout", "bullets")
+
+            slide = prs.slides.add_slide(prs.slide_layouts[6])  # Blank
+            set_bg(slide, t["bg"])
+
+            # Title bar accent line
+            accent_bar = slide.shapes.add_shape(
+                1, Inches(0.8), Inches(1.25), Inches(1.5), Inches(0.05)
+            )
+            accent_bar.fill.solid()
+            accent_bar.fill.fore_color.rgb = t["accent"]
+            accent_bar.line.fill.background()
+
+            # Slide title
+            add_textbox(slide, Inches(0.8), Inches(0.5), Inches(11.5), Inches(0.8),
+                        slide_title, font_size=28, color=t["title_color"], bold=True)
+
+            # Bullet content
+            if layout == "two_column" and len(bullets) > 1:
+                mid = len(bullets) // 2
+                left_bullets = bullets[:mid]
+                right_bullets = bullets[mid:]
+
+                # Left column
+                left_box = slide.shapes.add_textbox(Inches(0.8), Inches(1.6), Inches(5.5), Inches(5))
+                left_tf = left_box.text_frame
+                left_tf.word_wrap = True
+                for bi, bullet in enumerate(left_bullets):
+                    p = left_tf.add_paragraph() if bi > 0 else left_tf.paragraphs[0]
+                    p.text = f"• {bullet}"
+                    p.font.size = Pt(16)
+                    p.font.color.rgb = t["text_color"]
+                    p.space_after = Pt(8)
+
+                # Right column
+                right_box = slide.shapes.add_textbox(Inches(7), Inches(1.6), Inches(5.5), Inches(5))
+                right_tf = right_box.text_frame
+                right_tf.word_wrap = True
+                for bi, bullet in enumerate(right_bullets):
+                    p = right_tf.add_paragraph() if bi > 0 else right_tf.paragraphs[0]
+                    p.text = f"• {bullet}"
+                    p.font.size = Pt(16)
+                    p.font.color.rgb = t["text_color"]
+                    p.space_after = Pt(8)
+            elif layout != "blank" and bullets:
+                content_box = slide.shapes.add_textbox(Inches(0.8), Inches(1.6), Inches(11.5), Inches(5))
+                content_tf = content_box.text_frame
+                content_tf.word_wrap = True
+                for bi, bullet in enumerate(bullets):
+                    p = content_tf.add_paragraph() if bi > 0 else content_tf.paragraphs[0]
+                    p.text = f"• {bullet}"
+                    p.font.size = Pt(18)
+                    p.font.color.rgb = t["text_color"]
+                    p.space_after = Pt(10)
+
+            # Speaker notes
+            if notes:
+                notes_slide = slide.notes_slide
+                notes_slide.notes_text_frame.text = notes
+
+            # Build preview data
+            slide_previews.append({
+                "number": i + 2,
+                "title": slide_title,
+                "bullet_count": len(bullets),
+                "layout": layout,
+                "has_notes": bool(notes),
+                "preview_text": bullets[0][:80] + "..." if bullets and len(bullets[0]) > 80 else (bullets[0] if bullets else "")
+            })
+
+        # Save to bytes
+        pptx_buffer = io.BytesIO()
+        prs.save(pptx_buffer)
+        pptx_bytes = pptx_buffer.getvalue()
+
+        # Store in memory with unique ID
+        presentation_id = str(uuid.uuid4())
+        _presentation_store[presentation_id] = pptx_bytes
+
+        # Clean up old presentations (keep max 20)
+        if len(_presentation_store) > 20:
+            oldest_key = next(iter(_presentation_store))
+            del _presentation_store[oldest_key]
+
+        file_size_kb = round(len(pptx_bytes) / 1024, 1)
+        safe_title = "".join(c for c in title if c.isalnum() or c in " -_").strip().replace(" ", "_")
+        filename = f"{safe_title}.pptx"
+
+        response = {
+            "success": True,
+            "tool": "create_presentation",
+            "presentation_id": presentation_id,
+            "filename": filename,
+            "title": title,
+            "subtitle": subtitle,
+            "theme": theme,
+            "author": author,
+            "slide_count": len(slides) + 1,  # +1 for title slide
+            "file_size_kb": file_size_kb,
+            "slides": slide_previews,
+            "download_url": f"/api/presentation/{presentation_id}",
+            "fetch_time_ms": round((time.time() - start_time) * 1000, 2)
+        }
+
+        return response
+
+    except ImportError:
+        return {"success": False, "error": "python-pptx not installed. Run: pip install python-pptx"}
+    except Exception as e:
+        logger.error(f"Presentation creation error: {e}", exc_info=True)
+        return {"success": False, "error": f"Presentation creation failed: {str(e)}"}
+
+
+def get_presentation_bytes(presentation_id: str) -> Optional[bytes]:
+    """Retrieve stored presentation bytes by ID (used by the download endpoint)."""
+    return _presentation_store.get(presentation_id)
+
+
+# ============================================================================
 # TOOL DISPATCHER - OPTIMIZED
 # ============================================================================
 
@@ -2327,6 +2589,15 @@ def handle_tool_call(tool_name: str, tool_input: Dict[str, Any], supabase_client
         elif tool_name == "get_options_snapshot":
             result = get_options_snapshot(
                 symbol=tool_input.get("symbol", "")
+            )
+
+        elif tool_name == "create_presentation":
+            result = create_presentation(
+                title=tool_input.get("title", "Untitled Presentation"),
+                slides=tool_input.get("slides", []),
+                subtitle=tool_input.get("subtitle", ""),
+                theme=tool_input.get("theme", "potomac"),
+                author=tool_input.get("author", "Analyst by Potomac")
             )
 
         else:

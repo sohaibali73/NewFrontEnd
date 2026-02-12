@@ -13,6 +13,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ||
     : 'https://potomac-analyst-workbench-production.up.railway.app');
 
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     // Get conversation ID from query params
     const conversationId = req.nextUrl.searchParams.get('conversationId');
@@ -27,16 +29,37 @@ export async function POST(req: NextRequest) {
     // Get auth token
     const authToken = req.headers.get('authorization') || '';
 
+    // Validate request content-length to prevent oversized uploads
+    const contentLength = req.headers.get('content-length');
+    if (contentLength && parseInt(contentLength) > 52428800) { // 50MB
+      return new Response(
+        JSON.stringify({ error: 'File is too large (max 50MB)' }), 
+        { status: 413, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Get the raw form data from the request
-    const incomingFormData = await req.formData();
+    let incomingFormData;
+    try {
+      incomingFormData = await req.formData();
+    } catch (err) {
+      console.error('[v0] FormData parse error:', err);
+      return new Response(
+        JSON.stringify({ error: 'Failed to parse request data' }), 
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     const file = incomingFormData.get('file') || incomingFormData.get('audio');
     
     if (!file || !(file instanceof File)) {
       return new Response(
-        JSON.stringify({ error: 'No file provided' }), 
+        JSON.stringify({ error: 'No file provided or invalid file format' }), 
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log(`[v0] Processing upload: ${file.name} (${file.size} bytes, ${file.type})`);
 
     // Handle audio transcription for SpeechInput fallback
     if (file.type.startsWith('audio/')) {
@@ -108,7 +131,7 @@ export async function POST(req: NextRequest) {
       let errorDetail = `Upload failed with status ${backendResponse.status}`;
       try {
         const errorBody = await backendResponse.json();
-        errorDetail = errorBody.detail || errorDetail;
+        errorDetail = errorBody.detail || errorBody.error || errorDetail;
       } catch {
         // Response may not be JSON
         try {
@@ -116,15 +139,22 @@ export async function POST(req: NextRequest) {
         } catch {}
       }
       
-      console.error(`Upload proxy error: ${backendResponse.status} - ${errorDetail}`);
+      const duration = Date.now() - startTime;
+      console.error(`[v0] Upload proxy error (${duration}ms): ${backendResponse.status} - ${errorDetail}`);
       
       return new Response(
-        JSON.stringify({ error: errorDetail }), 
+        JSON.stringify({ 
+          error: errorDetail,
+          status: backendResponse.status,
+          file: file.name
+        }), 
         { status: backendResponse.status, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
     const data = await backendResponse.json();
+    const duration = Date.now() - startTime;
+    console.log(`[v0] Upload successful (${duration}ms): ${file.name}`);
 
     // If backend auto-registered a .pptx as template, include that info
     // so the frontend can show a toast about it

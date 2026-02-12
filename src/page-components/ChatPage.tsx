@@ -97,11 +97,22 @@ function AttachmentsDisplay() {
 function AttachmentButton({ disabled }: { disabled?: boolean }) {
   const attachments = usePromptInputAttachments();
 
+  const handleAttachmentClick = useCallback(() => {
+    if (!disabled) {
+      attachments.openFileDialog();
+    }
+  }, [attachments, disabled]);
+
   return (
     <PromptInputButton
-      tooltip="Attach files"
-      onClick={() => attachments.openFileDialog()}
+      onClick={handleAttachmentClick}
       disabled={disabled}
+      tooltip="Attach files (PDF, CSV, JSON, Images, Docs, etc.)"
+      title="Click to upload files or drag and drop"
+      style={{
+        opacity: disabled ? 0.5 : 1,
+        transition: 'all 0.2s ease',
+      }}
     >
       <Paperclip className="size-4" />
     </PromptInputButton>
@@ -1173,12 +1184,29 @@ export function ChatPage() {
         )}
 
         {/* AI Elements: PromptInput with file upload */}
-        <div className="px-6 py-5" style={{ flexShrink: 0, borderTop: `2px solid ${colors.primaryYellow}`, backgroundColor: isDark ? 'rgba(254, 192, 15, 0.03)' : 'rgba(254, 192, 15, 0.05)' }}>
+        <div className="px-6 py-5" style={{ 
+          flexShrink: 0, 
+          borderTop: `2px solid ${colors.primaryYellow}`, 
+          backgroundColor: isDark ? 'rgba(254, 192, 15, 0.03)' : 'rgba(254, 192, 15, 0.05)',
+          transition: 'all 0.2s ease'
+        }}>
           <div className="max-w-[900px] mx-auto">
             <TooltipProvider>
               <PromptInput
-                accept=".pdf,.csv,.json,.txt,.afl,.doc,.docx,.xls,.xlsx,.pptx,.ppt,.png,.jpg,.jpeg,.gif"
+                accept=".pdf,.csv,.json,.txt,.afl,.doc,.docx,.xls,.xlsx,.pptx,.ppt,.png,.jpg,.jpeg,.gif,.mp3,.wav,.m4a"
                 multiple
+                globalDrop={false}
+                maxFiles={10}
+                maxFileSize={52428800}
+                onError={(err) => {
+                  if (err.code === 'max_file_size') {
+                    toast.error('File too large (max 50MB)', { duration: 3000 });
+                  } else if (err.code === 'max_files') {
+                    toast.error('Too many files (max 10)', { duration: 3000 });
+                  } else if (err.code === 'accept') {
+                    toast.error('File type not supported', { duration: 3000 });
+                  }
+                }}
                 onSubmit={async ({ text, files }: { text: string; files: any[] }) => {
                   if ((!text.trim() && files.length === 0) || isStreaming) return;
                   setInput('');
@@ -1225,33 +1253,47 @@ export function ChatPage() {
                           continue;
                         }
 
-                        const toastId = toast.loading(`Uploading ${fileName}...`);
+                        const toastId = toast.loading(`📤 Uploading ${fileName}...`, { duration: 10000 });
                         const formData = new FormData();
                         formData.append('file', actualFile);
 
-                        const resp = await fetch(`/api/upload?conversationId=${convId}`, {
-                          method: 'POST',
-                          headers: { 'Authorization': token ? `Bearer ${token}` : '' },
-                          body: formData
-                        });
+                        try {
+                          const controller = new AbortController();
+                          const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-                        if (resp.ok) {
+                          const resp = await fetch(`/api/upload?conversationId=${convId}`, {
+                            method: 'POST',
+                            headers: { 'Authorization': token ? `Bearer ${token}` : '' },
+                            body: formData,
+                            signal: controller.signal
+                          });
+
+                          clearTimeout(timeoutId);
+
+                          if (!resp.ok) {
+                            const errorData = await resp.json().catch(() => ({ error: `HTTP ${resp.status}` }));
+                            throw new Error(errorData.error || `Upload failed with status ${resp.status}`);
+                          }
+
                           const respData = await resp.json();
                           uploaded.push(fileName);
+                          
                           // Show special toast if .pptx was auto-registered as template
                           if (respData.is_template && respData.template_id) {
-                            toast.success(`🎨 ${fileName} registered as brand template (${respData.template_layouts} layouts)`, { id: toastId, duration: 6000 });
-                            // Append template info so the AI knows about it
-                            uploaded.push(`🎨 Template ID: ${respData.template_id} (use this when creating presentations from "${fileName}")`);
+                            toast.success(`✅ ${fileName} registered as template (${respData.template_layouts} layouts)`, { id: toastId, duration: 6000 });
+                            uploaded.push(`Template ID: ${respData.template_id}`);
                           } else {
-                            toast.success(`Uploaded ${fileName}`, { id: toastId });
+                            toast.success(`✅ Uploaded ${fileName}`, { id: toastId });
                           }
-                        } else {
-                          throw new Error(`Upload failed: ${resp.status}`);
+                        } catch (err) {
+                          const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+                          if (errorMsg.includes('AbortError') || errorMsg.includes('timeout')) {
+                            toast.error(`⏱️ Upload timeout for ${fileName}`, { id: toastId });
+                          } else {
+                            toast.error(`❌ Failed to upload ${fileName}: ${errorMsg}`, { id: toastId });
+                          }
+                          console.error(`[v0] File upload error for ${fileName}:`, err);
                         }
-                      } catch (err) {
-                        toast.error(`Failed to upload ${fileName}: ${err instanceof Error ? err.message : 'Unknown error'}`);
-                      }
                     }
 
                     // Add file references to message text

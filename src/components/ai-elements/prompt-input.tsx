@@ -680,10 +680,11 @@ export const PromptInput = ({
 
   const handleChange: ChangeEventHandler<HTMLInputElement> = useCallback(
     (event) => {
-      if (event.currentTarget.files) {
+      if (event.currentTarget.files && event.currentTarget.files.length > 0) {
+        console.log(`[v0] File input: ${event.currentTarget.files.length} file(s) selected`);
         add(event.currentTarget.files);
       }
-      // Reset input value to allow selecting files that were previously removed
+      // Reset input value to allow selecting the same file again
       event.currentTarget.value = "";
     },
     [add]
@@ -785,14 +786,19 @@ export const PromptInput = ({
     <>
       <input
         accept={accept}
-        aria-label="Upload files"
+        aria-label="Upload files or attachments"
+        aria-describedby="file-input-help"
         className="hidden"
         multiple={multiple}
         onChange={handleChange}
         ref={inputRef}
-        title="Upload files"
+        title="Select files to upload (PDF, CSV, JSON, TXT, Images, Documents, etc.)"
         type="file"
+        disabled={false}
       />
+      <div id="file-input-help" className="sr-only">
+        Upload files to attach to your message. You can select multiple files at once. Maximum 10 files, 50MB each.
+      </div>
       <form
         className={cn("w-full", className)}
         onSubmit={handleSubmit}

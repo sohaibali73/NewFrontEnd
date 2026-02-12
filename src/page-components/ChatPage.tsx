@@ -1184,9 +1184,9 @@ export function ChatPage() {
         )}
 
         {/* AI Elements: PromptInput with file upload */}
-        <div className="px-6 py-5" style={{ 
-          flexShrink: 0, 
-          borderTop: `2px solid ${colors.primaryYellow}`, 
+        <div className="px-6 py-5" style={{
+          flexShrink: 0,
+          borderTop: `2px solid ${colors.primaryYellow}`,
           backgroundColor: isDark ? 'rgba(254, 192, 15, 0.03)' : 'rgba(254, 192, 15, 0.05)',
           transition: 'all 0.2s ease'
         }}>
@@ -1277,7 +1277,7 @@ export function ChatPage() {
 
                           const respData = await resp.json();
                           uploaded.push(fileName);
-                          
+
                           // Show special toast if .pptx was auto-registered as template
                           if (respData.is_template && respData.template_id) {
                             toast.success(`✅ ${fileName} registered as template (${respData.template_layouts} layouts)`, { id: toastId, duration: 6000 });
@@ -1294,21 +1294,21 @@ export function ChatPage() {
                           }
                           console.error(`[v0] File upload error for ${fileName}:`, err);
                         }
-                    }
+                      }
 
                     // Add file references to message text
                     if (uploaded.length > 0) {
-                      const fileList = uploaded.map(f => f.startsWith('🎨') ? f : `📎 ${f}`).join('\n');
-                      messageText = text.trim() ? `${text}\n\n${fileList}` : fileList;
+                        const fileList = uploaded.map(f => f.startsWith('🎨') ? f : `📎 ${f}`).join('\n');
+                        messageText = text.trim() ? `${text}\n\n${fileList}` : fileList;
+                      }
                     }
-                  }
 
-                  sendMessage({ text: messageText }, { body: { conversationId: convId } });
-                }}
+                    sendMessage({ text: messageText }, { body: { conversationId: convId } });
+                  }
               >
-              
-                {/* AI Elements: File attachment previews */}
-                <AttachmentsDisplay />
+
+                    {/* AI Elements: File attachment previews */ }
+                    < AttachmentsDisplay />
                 <PromptInputTextarea
                   value={input}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
@@ -1370,15 +1370,15 @@ export function ChatPage() {
                   />
                 </PromptInputFooter>
               </PromptInput>
-            </TooltipProvider>
-          </div>
+          </TooltipProvider>
         </div>
-
-        {/* Note: PromptInput handles file attachments internally — no manual file input needed */}
-        {/* The AI Elements PromptInput component automatically manages file attachments with proper preview */}
       </div>
 
-      {/* ChatGPT-style Voice Mode Overlay */}
+      {/* Note: PromptInput handles file attachments internally — no manual file input needed */}
+      {/* The AI Elements PromptInput component automatically manages file attachments with proper preview */}
+    </div>
+
+      {/* ChatGPT-style Voice Mode Overlay */ }
       <VoiceMode
         isOpen={voiceModeOpen}
         onClose={() => setVoiceModeOpen(false)}
@@ -1411,7 +1411,7 @@ export function ChatPage() {
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
       `}</style>
-    </div>
+    </div >
   );
 }
 

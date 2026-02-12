@@ -6,6 +6,11 @@
   :root {
     --background: 0 0% 100%;
     --foreground: 224 71.4% 4.1%;
+    /* Potomac Brand Colors */
+    --potomac-yellow: #FEC00F;
+    --potomac-gray: #212121;
+    --potomac-turquoise: #00DED1;
+    --potomac-pink: #EB2F5C;
     /* Tailwind v4 color aliases for AI Elements (Shimmer, etc.) */
     --color-background: hsl(0 0% 100%);
     --color-foreground: hsl(224 71.4% 4.1%);
@@ -38,6 +43,11 @@
   .dark {
     --background: 224 71.4% 4.1%;
     --foreground: 210 20% 98%;
+    /* Potomac Brand Colors */
+    --potomac-yellow: #FEC00F;
+    --potomac-gray: #212121;
+    --potomac-turquoise: #00DED1;
+    --potomac-pink: #EB2F5C;
     /* Tailwind v4 color aliases for AI Elements (Shimmer, etc.) */
     --color-background: hsl(224 71.4% 4.1%);
     --color-foreground: hsl(210 20% 98%);
@@ -73,6 +83,13 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-quicksand), 'Quicksand', sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-rajdhani), 'Rajdhani', sans-serif;
+    text-transform: uppercase;
+    color: var(--potomac-gray);
+    letter-spacing: 0.5px;
   }
 }
 

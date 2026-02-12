@@ -225,12 +225,14 @@ export function ChatPage() {
 
   const colors = {
     background: isDark ? '#121212' : '#ffffff',
-    sidebar: isDark ? '#1E1E1E' : '#f8f9fa',
+    sidebar: isDark ? '#1E1E1E' : '#ffffff',
     cardBg: isDark ? '#1E1E1E' : '#ffffff',
     inputBg: isDark ? '#2A2A2A' : '#f5f5f5',
     border: isDark ? '#424242' : '#e0e0e0',
     text: isDark ? '#FFFFFF' : '#212121',
     textMuted: isDark ? '#9E9E9E' : '#757575',
+    primaryYellow: '#FEC00F',
+    darkGray: '#212121',
   };
 
   // Keep conversationIdRef in sync with selectedConversation state
@@ -945,10 +947,10 @@ export function ChatPage() {
     <div style={{ height: '100dvh', maxHeight: '100vh', backgroundColor: colors.background, display: 'flex', overflow: 'hidden', position: 'relative' }}>
       {/* Sidebar */}
       <div style={{ width: sidebarCollapsed ? '0px' : '280px', backgroundColor: colors.sidebar, borderRight: sidebarCollapsed ? 'none' : `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', height: '100dvh', maxHeight: '100vh', overflow: 'hidden', transition: 'width 0.3s ease', flexShrink: 0 }}>
-        <div style={{ padding: '24px 20px', borderBottom: `1px solid ${colors.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ padding: '24px 20px', borderBottom: `2px solid ${colors.primaryYellow}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(254, 192, 15, 0.05)' : 'rgba(254, 192, 15, 0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <img src={logo} alt="Logo" style={{ width: '32px', height: '32px' }} />
-            <h2 style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: '16px', fontWeight: 700, color: colors.text, margin: 0 }}>CHATS</h2>
+            <h2 style={{ fontFamily: "var(--font-rajdhani), 'Rajdhani', sans-serif", fontSize: '14px', fontWeight: 700, color: colors.darkGray, margin: 0, letterSpacing: '0.5px', textTransform: 'uppercase' }}>CHATS</h2>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {/* Connection status indicator */}
@@ -967,7 +969,7 @@ export function ChatPage() {
           </div>
         </div>
         <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <button onClick={handleNewConversation} style={{ width: '100%', padding: '12px', backgroundColor: '#FEC00F', border: 'none', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 700, color: '#212121' }}>
+          <button onClick={handleNewConversation} style={{ width: '100%', padding: '12px', backgroundColor: colors.primaryYellow, border: 'none', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 700, color: colors.darkGray, fontFamily: "var(--font-quicksand), 'Quicksand', sans-serif", fontSize: '14px', transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(254, 192, 15, 0.2)' }} onMouseOver={(e) => (e.currentTarget.style.transform = 'translateY(-2px)', e.currentTarget.style.boxShadow = '0 4px 12px rgba(254, 192, 15, 0.3)')} onMouseOut={(e) => (e.currentTarget.style.transform = 'translateY(0)', e.currentTarget.style.boxShadow = '0 2px 8px rgba(254, 192, 15, 0.2)')}>
             <Plus size={18} /> New Chat
           </button>
           {/* Search input */}
@@ -978,7 +980,7 @@ export function ChatPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search chats..."
-              style={{ width: '100%', padding: '8px 10px 8px 32px', backgroundColor: colors.inputBg, border: `1px solid ${colors.border}`, borderRadius: '8px', color: colors.text, fontSize: '12px', outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', padding: '8px 10px 8px 32px', backgroundColor: colors.inputBg, border: `1px solid ${colors.border}`, borderRadius: '8px', color: colors.text, fontSize: '12px', outline: 'none', boxSizing: 'border-box', fontFamily: "var(--font-quicksand), 'Quicksand', sans-serif", transition: 'border-color 0.2s ease' }} onFocus={(e) => (e.currentTarget.style.borderColor = colors.primaryYellow)} onBlur={(e) => (e.currentTarget.style.borderColor = colors.border)}
             />
             {searchQuery && (
               <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}>
@@ -1006,8 +1008,8 @@ export function ChatPage() {
               return <div style={{ textAlign: 'center', padding: '20px', color: colors.textMuted, fontSize: '12px' }}>No chats matching "{searchQuery}"</div>;
             }
             return filtered.map(conv => (
-              <div key={conv.id} onClick={() => { if (renamingId !== conv.id) setSelectedConversation(conv); }} style={{ padding: '10px 12px', marginBottom: '4px', backgroundColor: selectedConversation?.id === conv.id ? 'rgba(254, 192, 15, 0.1)' : 'transparent', border: selectedConversation?.id === conv.id ? '1px solid rgba(254, 192, 15, 0.4)' : '1px solid transparent', borderRadius: '10px', cursor: 'pointer', color: colors.text, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <MessageSquare size={14} style={{ flexShrink: 0 }} />
+              <div key={conv.id} onClick={() => { if (renamingId !== conv.id) setSelectedConversation(conv); }} style={{ padding: '10px 12px', marginBottom: '4px', backgroundColor: selectedConversation?.id === conv.id ? 'rgba(254, 192, 15, 0.15)' : 'transparent', border: selectedConversation?.id === conv.id ? `2px solid ${colors.primaryYellow}` : '1px solid transparent', borderRadius: '10px', cursor: 'pointer', color: colors.text, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: "var(--font-quicksand), 'Quicksand', sans-serif", transition: 'all 0.2s ease' }} onMouseOver={(e) => selectedConversation?.id !== conv.id && (e.currentTarget.style.backgroundColor = isDark ? 'rgba(254, 192, 15, 0.05)' : 'rgba(254, 192, 15, 0.08)')} onMouseOut={(e) => selectedConversation?.id !== conv.id && (e.currentTarget.style.backgroundColor = 'transparent')}>
+                <MessageSquare size={14} style={{ flexShrink: 0, color: selectedConversation?.id === conv.id ? colors.primaryYellow : colors.textMuted }} />
                 {renamingId === conv.id ? (
                   /* Inline rename input */
                   <input
@@ -1038,10 +1040,10 @@ export function ChatPage() {
                       apiClient.renameConversation(conv.id, newTitle).catch(() => {});
                     }}
                     onClick={(e) => e.stopPropagation()}
-                    style={{ flex: 1, background: colors.inputBg, border: `1px solid #FEC00F`, borderRadius: '4px', color: colors.text, fontSize: '13px', padding: '2px 6px', outline: 'none', minWidth: 0 }}
+                    style={{ flex: 1, background: colors.inputBg, border: `2px solid ${colors.primaryYellow}`, borderRadius: '4px', color: colors.text, fontSize: '13px', padding: '4px 8px', outline: 'none', minWidth: 0, fontFamily: "var(--font-quicksand), 'Quicksand', sans-serif" }}
                   />
                 ) : (
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{conv.title}</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, fontWeight: selectedConversation?.id === conv.id ? 600 : 400 }}>{conv.title}</span>
                 )}
                 {renamingId !== conv.id && (
                   <div style={{ display: 'flex', gap: '2px', opacity: 0.5 }}>
@@ -1074,14 +1076,14 @@ export function ChatPage() {
             {allMessages.length === 0 ? (
               <ConversationEmptyState
                 icon={<img src={logo} alt="Logo" className="w-20 opacity-30" />}
-                title="Welcome to Analyst Chat"
-                description="Ask me about AFL code, trading strategies, backtesting, or anything else."
+                title="Welcome to Potomac Analyst Chat"
+                description="Advanced analysis and trading strategy guidance powered by Potomac"
               >
-                <div className="flex flex-col items-center gap-4">
-                  <img src={logo} alt="Logo" className="w-20 opacity-30" />
-                  <div className="space-y-1">
-                    <h3 className="font-semibold text-lg">Welcome to Analyst Chat</h3>
-                    <p className="text-muted-foreground text-sm">Ask me about AFL code, trading strategies, backtesting, or anything else.</p>
+                <div className="flex flex-col items-center gap-4" style={{ padding: '20px' }}>
+                  <img src={logo} alt="Logo" className="w-24" style={{ filter: 'drop-shadow(0 4px 8px rgba(254, 192, 15, 0.2))' }} />
+                  <div className="space-y-1 text-center">
+                    <h3 style={{ fontFamily: "var(--font-rajdhani), 'Rajdhani', sans-serif", fontSize: '20px', fontWeight: 700, color: colors.darkGray, margin: '8px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>WELCOME TO POTOMAC ANALYST CHAT</h3>
+                    <p style={{ fontFamily: "var(--font-quicksand), 'Quicksand', sans-serif", fontSize: '14px', color: colors.textMuted, margin: '4px 0' }}>Advanced analysis and trading strategy guidance powered by Potomac</p>
                   </div>
                   {/* AI Elements: Quick Suggestions */}
                   <Suggestions className="justify-center mt-4">
@@ -1130,7 +1132,7 @@ export function ChatPage() {
         )}
 
         {/* AI Elements: PromptInput with file upload */}
-        <div className="border-t px-6 py-5" style={{ flexShrink: 0 }}>
+        <div className="px-6 py-5" style={{ flexShrink: 0, borderTop: `2px solid ${colors.primaryYellow}`, backgroundColor: isDark ? 'rgba(254, 192, 15, 0.03)' : 'rgba(254, 192, 15, 0.05)' }}>
           <div className="max-w-[900px] mx-auto">
             <TooltipProvider>
             <PromptInput

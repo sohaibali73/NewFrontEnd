@@ -74,7 +74,7 @@ const logo = '/yellowlogo.png';
 // Component to display file attachments inside PromptInput
 function AttachmentsDisplay() {
   const attachments = usePromptInputAttachments();
-  
+
   if (attachments.files.length === 0) {
     return null;
   }
@@ -96,7 +96,7 @@ function AttachmentsDisplay() {
 // Simple attachment button that opens file dialog
 function AttachmentButton({ disabled }: { disabled?: boolean }) {
   const attachments = usePromptInputAttachments();
-  
+
   return (
     <PromptInputButton
       tooltip="Attach files"
@@ -119,7 +119,7 @@ export function ChatPage() {
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(isMobile);
   const [pageError, setPageError] = useState('');
-  
+
   // Local input state - per the v5 docs pattern
   const [input, setInput] = useState('');
 
@@ -145,7 +145,7 @@ export function ChatPage() {
   const speakText = useCallback(async (text: string, messageId: string) => {
     if (!text.trim() || lastSpokenMsgId.current === messageId) return;
     lastSpokenMsgId.current = messageId;
-    
+
     try {
       setIsSpeaking(true);
       const token = getAuthToken();
@@ -154,15 +154,15 @@ export function ChatPage() {
         headers: { 'Content-Type': 'application/json', 'Authorization': token ? `Bearer ${token}` : '' },
         body: JSON.stringify({ text, voice: 'en-US-AriaNeural' }),
       });
-      
+
       if (!resp.ok) { setIsSpeaking(false); return; }
-      
+
       const audioBlob = await resp.blob();
       const audioUrl = URL.createObjectURL(audioBlob);
-      
+
       // Stop any currently playing audio
       if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
-      
+
       const audio = new Audio(audioUrl);
       audioRef.current = audio;
       audio.onended = () => { setIsSpeaking(false); URL.revokeObjectURL(audioUrl); audioRef.current = null; };
@@ -180,7 +180,7 @@ export function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  
+
   // Ref to track current conversationId synchronously (avoids stale state in body callback)
   const conversationIdRef = useRef<string | null>(null);
 
@@ -294,8 +294,8 @@ export function ChatPage() {
       const data = await apiClient.getMessages(conversationId);
       // Simplified: Use AI SDK messages directly
       setMessages(data.map((m: any) => ({
-        id: m.id, 
-        role: m.role, 
+        id: m.id,
+        role: m.role,
         content: m.content || '',
         // Use stored parts from backend metadata, fallback to simple text
         parts: m.metadata?.parts || [{ type: 'text', text: m.content || '' }],
@@ -503,7 +503,7 @@ export function ChatPage() {
               // AI SDK v6: part.type === 'tool-${toolName}', part.state, part.output
               // States: input-streaming, input-available, output-available, output-error
               // Also handle dynamic-tool for tools without static types
-              
+
               // Stock Data Tool
               case 'tool-get_stock_data':
                 switch (part.state) {
@@ -932,14 +932,14 @@ export function ChatPage() {
 
           {/* Shimmer loading for submitted state */}
           {status === 'submitted' && isLast && message.role === 'assistant' && parts.every((p: any) => !p.text) && (
-            <Shimmer duration={1.5}>Thinking...</Shimmer>
+            <Shimmer duration={1.5}>Yang is Thinking...</Shimmer>
           )}
         </MessageContent>
 
         {/* DocumentGenerator for creating documents from assistant responses */}
         {message.role === 'assistant' && !msgIsStreaming && fullText && /\b(document|proposal|report|memo|letter|policy|guide|plan|summary|brief|outline|form|checklist)\b/i.test(fullText) && (
           <div style={{ marginTop: '12px' }}>
-            <DocumentGenerator 
+            <DocumentGenerator
               title="Generated Document"
               content={fullText}
               onDocumentGenerated={handleDocumentGenerated}
@@ -1065,7 +1065,7 @@ export function ChatPage() {
                       if (selectedConversation?.id === conv.id) setSelectedConversation({ ...conv, title: newTitle });
                       setRenamingId(null);
                       // Persist to backend
-                      apiClient.renameConversation(conv.id, newTitle).catch(() => {});
+                      apiClient.renameConversation(conv.id, newTitle).catch(() => { });
                     }}
                     onClick={(e) => e.stopPropagation()}
                     style={{ flex: 1, background: colors.inputBg, border: `2px solid ${colors.primaryYellow}`, borderRadius: '4px', color: colors.text, fontSize: '13px', padding: '4px 8px', outline: 'none', minWidth: 0, fontFamily: "var(--font-quicksand), 'Quicksand', sans-serif" }}
@@ -1100,63 +1100,63 @@ export function ChatPage() {
         {/* AI Elements: Conversation with auto-scroll */}
         <div className="flex-1" style={{ minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <div data-scroll-container style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', backgroundColor: colors.background, color: colors.text } as React.CSSProperties}>
-          <div className="max-w-[900px] mx-auto px-6 py-8" style={{ color: colors.text }}>
-            {allMessages.length === 0 ? (
-              <ConversationEmptyState
-                icon={<img src={logo} alt="Logo" className="w-20 opacity-30" />}
-                title="Welcome to Potomac Analyst Chat"
-                description="Advanced analysis and trading strategy guidance powered by Potomac"
-              >
-                <div className="flex flex-col items-center gap-4" style={{ padding: '20px' }}>
-                  <img src={logo} alt="Logo" className="w-24" style={{ filter: 'drop-shadow(0 4px 8px rgba(254, 192, 15, 0.2))' }} />
-                  <div className="space-y-1 text-center">
-                    <h3 style={{ fontFamily: "var(--font-rajdhani), 'Rajdhani', sans-serif", fontSize: '20px', fontWeight: 700, color: colors.primaryYellow, margin: '8px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>WELCOME TO POTOMAC ANALYST CHAT</h3>
-                    <p style={{ fontFamily: "var(--font-quicksand), 'Quicksand', sans-serif", fontSize: '14px', color: colors.textMuted, margin: '4px 0' }}>Advanced analysis and trading strategy guidance powered by Potomac</p>
-                  </div>
-                  {/* AI Elements: Quick Suggestions */}
-                  <Suggestions className="justify-center mt-4">
-                    <Suggestion suggestion="Generate a moving average crossover AFL" onClick={(s: string) => { setInput(s); }} />
-                    <Suggestion suggestion="Explain RSI divergence strategy" onClick={(s: string) => { setInput(s); }} />
-                    <Suggestion suggestion="Show me AAPL stock data" onClick={(s: string) => { setInput(s); }} />
-                    <Suggestion suggestion="Search knowledge base for Bollinger Bands" onClick={(s: string) => { setInput(s); }} />
-                  </Suggestions>
-                  <p className="text-xs text-muted-foreground mt-2">Click a suggestion or type your own message below</p>
-                </div>
-              </ConversationEmptyState>
-            ) : (
-              <>
-                {allMessages.map((msg, idx) => renderMessage(msg, idx))}
-
-                {/* Display generated artifacts */}
-                {artifacts.length > 0 && (
-                  <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: `1px solid ${colors.border}` }}>
-                    {artifacts.map((artifact) => (
-                      <ArtifactRenderer 
-                        key={artifact.id} 
-                        artifact={artifact}
-                        onClose={() => setArtifacts(prev => prev.filter(a => a.id !== artifact.id))}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {/* Submitted state — waiting for first token */}
-                {status === 'submitted' && allMessages.length > 0 && allMessages[allMessages.length - 1]?.role === 'user' && (
-                  <AIMessage from="assistant">
-                    <div className="text-xs text-muted-foreground mb-1 flex items-center gap-2">
-                      <img src={logo} alt="AI" className="w-6 h-6 rounded" />
-                      <span>Assistant</span>
+            <div className="max-w-[900px] mx-auto px-6 py-8" style={{ color: colors.text }}>
+              {allMessages.length === 0 ? (
+                <ConversationEmptyState
+                  icon={<img src={logo} alt="Logo" className="w-20 opacity-30" />}
+                  title="Welcome to Potomac Analyst Chat"
+                  description="Advanced analysis and trading strategy guidance powered by Potomac"
+                >
+                  <div className="flex flex-col items-center gap-4" style={{ padding: '20px' }}>
+                    <img src={logo} alt="Logo" className="w-24" style={{ filter: 'drop-shadow(0 4px 8px rgba(254, 192, 15, 0.2))' }} />
+                    <div className="space-y-1 text-center">
+                      <h3 style={{ fontFamily: "var(--font-rajdhani), 'Rajdhani', sans-serif", fontSize: '20px', fontWeight: 700, color: colors.primaryYellow, margin: '8px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>WELCOME TO POTOMAC ANALYST CHAT</h3>
+                      <p style={{ fontFamily: "var(--font-quicksand), 'Quicksand', sans-serif", fontSize: '14px', color: colors.textMuted, margin: '4px 0' }}>Advanced analysis and trading strategy guidance powered by Potomac</p>
                     </div>
-                    <MessageContent>
-                      <Shimmer duration={1.5}>Thinking...</Shimmer>
-                    </MessageContent>
-                  </AIMessage>
-                )}
-              </>
-            )}
-            <div ref={messagesEndRef} />
+                    {/* AI Elements: Quick Suggestions */}
+                    <Suggestions className="justify-center mt-4">
+                      <Suggestion suggestion="Generate a moving average crossover AFL" onClick={(s: string) => { setInput(s); }} />
+                      <Suggestion suggestion="Explain RSI divergence strategy" onClick={(s: string) => { setInput(s); }} />
+                      <Suggestion suggestion="Show me AAPL stock data" onClick={(s: string) => { setInput(s); }} />
+                      <Suggestion suggestion="Search knowledge base for Bollinger Bands" onClick={(s: string) => { setInput(s); }} />
+                    </Suggestions>
+                    <p className="text-xs text-muted-foreground mt-2">Click a suggestion or type your own message below</p>
+                  </div>
+                </ConversationEmptyState>
+              ) : (
+                <>
+                  {allMessages.map((msg, idx) => renderMessage(msg, idx))}
+
+                  {/* Display generated artifacts */}
+                  {artifacts.length > 0 && (
+                    <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: `1px solid ${colors.border}` }}>
+                      {artifacts.map((artifact) => (
+                        <ArtifactRenderer
+                          key={artifact.id}
+                          artifact={artifact}
+                          onClose={() => setArtifacts(prev => prev.filter(a => a.id !== artifact.id))}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Submitted state — waiting for first token */}
+                  {status === 'submitted' && allMessages.length > 0 && allMessages[allMessages.length - 1]?.role === 'user' && (
+                    <AIMessage from="assistant">
+                      <div className="text-xs text-muted-foreground mb-1 flex items-center gap-2">
+                        <img src={logo} alt="AI" className="w-6 h-6 rounded" />
+                        <span>Assistant</span>
+                      </div>
+                      <MessageContent>
+                        <Shimmer duration={1.5}>Thinking...</Shimmer>
+                      </MessageContent>
+                    </AIMessage>
+                  )}
+                </>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
           </div>
-        </div>
         </div>
 
         {/* Error banner */}
@@ -1176,157 +1176,157 @@ export function ChatPage() {
         <div className="px-6 py-5" style={{ flexShrink: 0, borderTop: `2px solid ${colors.primaryYellow}`, backgroundColor: isDark ? 'rgba(254, 192, 15, 0.03)' : 'rgba(254, 192, 15, 0.05)' }}>
           <div className="max-w-[900px] mx-auto">
             <TooltipProvider>
-            <PromptInput
-              accept=".pdf,.csv,.json,.txt,.afl,.doc,.docx,.xls,.xlsx,.pptx,.ppt,.png,.jpg,.jpeg,.gif"
-              multiple
-              onSubmit={async ({ text, files }: { text: string; files: any[] }) => {
-                if ((!text.trim() && files.length === 0) || isStreaming) return;
-                setInput('');
-                setPageError('');
+              <PromptInput
+                accept=".pdf,.csv,.json,.txt,.afl,.doc,.docx,.xls,.xlsx,.pptx,.ppt,.png,.jpg,.jpeg,.gif"
+                multiple
+                onSubmit={async ({ text, files }: { text: string; files: any[] }) => {
+                  if ((!text.trim() && files.length === 0) || isStreaming) return;
+                  setInput('');
+                  setPageError('');
 
-                let convId = selectedConversation?.id || conversationIdRef.current;
-                if (!convId) {
-                  try {
-                    skipNextLoadRef.current = true;
-                    const conv = await apiClient.createConversation();
-                    setConversations(prev => [conv, ...prev]);
-                    setSelectedConversation(conv);
-                    conversationIdRef.current = conv.id;
-                    convId = conv.id;
-                  } catch { setPageError('Failed to create conversation'); return; }
-                }
-
-                // Upload files first if any
-                let messageText = text;
-                if (files.length > 0) {
-                  const token = getAuthToken();
-                  const uploaded: string[] = [];
-
-                  for (const file of files) {
-                    const fileName = file.filename || 'upload';
+                  let convId = selectedConversation?.id || conversationIdRef.current;
+                  if (!convId) {
                     try {
-                      // Convert file URL (blob: or data:) to actual File object
-                      let actualFile: File;
-                      if (file.url?.startsWith('blob:')) {
-                        const blob = await fetch(file.url).then(r => r.blob());
-                        actualFile = new File([blob], fileName, { type: file.mediaType || 'application/octet-stream' });
-                      } else if (file.url?.startsWith('data:')) {
-                        // PromptInput converts blob URLs to data URLs — handle data: URIs
-                        const resp = await fetch(file.url);
-                        const blob = await resp.blob();
-                        actualFile = new File([blob], fileName, { type: file.mediaType || blob.type || 'application/octet-stream' });
-                      } else if (file.url) {
-                        // Regular URL — try fetching it
-                        const resp = await fetch(file.url);
-                        const blob = await resp.blob();
-                        actualFile = new File([blob], fileName, { type: file.mediaType || blob.type || 'application/octet-stream' });
-                      } else {
-                        toast.error(`Cannot upload ${fileName}: No file data`);
-                        continue;
-                      }
-
-                      const toastId = toast.loading(`Uploading ${fileName}...`);
-                      const formData = new FormData();
-                      formData.append('file', actualFile);
-                      
-                      const resp = await fetch(`/api/upload?conversationId=${convId}`, { 
-                        method: 'POST', 
-                        headers: { 'Authorization': token ? `Bearer ${token}` : '' }, 
-                        body: formData 
-                      });
-                      
-                      if (resp.ok) {
-                        const respData = await resp.json();
-                        uploaded.push(fileName);
-                        // Show special toast if .pptx was auto-registered as template
-                        if (respData.is_template && respData.template_id) {
-                          toast.success(`🎨 ${fileName} registered as brand template (${respData.template_layouts} layouts)`, { id: toastId, duration: 6000 });
-                          // Append template info so the AI knows about it
-                          uploaded.push(`🎨 Template ID: ${respData.template_id} (use this when creating presentations from "${fileName}")`);
-                        } else {
-                          toast.success(`Uploaded ${fileName}`, { id: toastId });
-                        }
-                      } else {
-                        throw new Error(`Upload failed: ${resp.status}`);
-                      }
-                    } catch (err) {
-                      toast.error(`Failed to upload ${fileName}: ${err instanceof Error ? err.message : 'Unknown error'}`);
-                    }
+                      skipNextLoadRef.current = true;
+                      const conv = await apiClient.createConversation();
+                      setConversations(prev => [conv, ...prev]);
+                      setSelectedConversation(conv);
+                      conversationIdRef.current = conv.id;
+                      convId = conv.id;
+                    } catch { setPageError('Failed to create conversation'); return; }
                   }
 
-                  // Add file references to message text
-                  if (uploaded.length > 0) {
-                    const fileList = uploaded.map(f => f.startsWith('🎨') ? f : `📎 ${f}`).join('\n');
-                    messageText = text.trim() ? `${text}\n\n${fileList}` : fileList;
-                  }
-                }
+                  // Upload files first if any
+                  let messageText = text;
+                  if (files.length > 0) {
+                    const token = getAuthToken();
+                    const uploaded: string[] = [];
 
-                sendMessage({ text: messageText }, { body: { conversationId: convId } });
-              }}
-            >
-              {/* AI Elements: File attachment previews */}
-              <AttachmentsDisplay />
-              <PromptInputTextarea
-                value={input}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
-                placeholder={isStreaming ? "Yang is responding..." : "Type a message to start chatting..."}
-                disabled={status !== 'ready' && status !== 'error'}
-              />
-              <PromptInputFooter>
-                <PromptInputTools>
-                  {/* AI Elements: File attachment button */}
-                  <AttachmentButton disabled={isStreaming} />
-
-                  {/* Full Voice Mode (ChatGPT-style) */}
-                  <PromptInputButton
-                    tooltip="Voice conversation mode"
-                    onClick={() => setVoiceModeOpen(true)}
-                  >
-                    <Volume2 className="size-4" />
-                  </PromptInputButton>
-
-                  {/* AI Elements: Voice dictation via Web Speech API / MediaRecorder fallback */}
-                  <SpeechInput
-                    size="icon-sm"
-                    variant="ghost"
-                    onTranscriptionChange={(text: string) => {
-                      setInput(prev => {
-                        const base = prev.trim();
-                        return base ? `${base} ${text}` : text;
-                      });
-                    }}
-                    onAudioRecorded={async (audioBlob: Blob) => {
-                      // Fallback for Firefox/Safari: send audio to backend transcription
+                    for (const file of files) {
+                      const fileName = file.filename || 'upload';
                       try {
-                        const token = getAuthToken();
-                        const convId = selectedConversation?.id || conversationIdRef.current || 'default';
+                        // Convert file URL (blob: or data:) to actual File object
+                        let actualFile: File;
+                        if (file.url?.startsWith('blob:')) {
+                          const blob = await fetch(file.url).then(r => r.blob());
+                          actualFile = new File([blob], fileName, { type: file.mediaType || 'application/octet-stream' });
+                        } else if (file.url?.startsWith('data:')) {
+                          // PromptInput converts blob URLs to data URLs — handle data: URIs
+                          const resp = await fetch(file.url);
+                          const blob = await resp.blob();
+                          actualFile = new File([blob], fileName, { type: file.mediaType || blob.type || 'application/octet-stream' });
+                        } else if (file.url) {
+                          // Regular URL — try fetching it
+                          const resp = await fetch(file.url);
+                          const blob = await resp.blob();
+                          actualFile = new File([blob], fileName, { type: file.mediaType || blob.type || 'application/octet-stream' });
+                        } else {
+                          toast.error(`Cannot upload ${fileName}: No file data`);
+                          continue;
+                        }
+
+                        const toastId = toast.loading(`Uploading ${fileName}...`);
                         const formData = new FormData();
-                        formData.append('audio', audioBlob, 'recording.webm');
+                        formData.append('file', actualFile);
+
                         const resp = await fetch(`/api/upload?conversationId=${convId}`, {
                           method: 'POST',
                           headers: { 'Authorization': token ? `Bearer ${token}` : '' },
-                          body: formData,
+                          body: formData
                         });
+
                         if (resp.ok) {
-                          const data = await resp.json();
-                          return data.transcript || '';
+                          const respData = await resp.json();
+                          uploaded.push(fileName);
+                          // Show special toast if .pptx was auto-registered as template
+                          if (respData.is_template && respData.template_id) {
+                            toast.success(`🎨 ${fileName} registered as brand template (${respData.template_layouts} layouts)`, { id: toastId, duration: 6000 });
+                            // Append template info so the AI knows about it
+                            uploaded.push(`🎨 Template ID: ${respData.template_id} (use this when creating presentations from "${fileName}")`);
+                          } else {
+                            toast.success(`Uploaded ${fileName}`, { id: toastId });
+                          }
+                        } else {
+                          throw new Error(`Upload failed: ${resp.status}`);
                         }
-                      } catch {
-                        toast.error('Voice transcription failed');
+                      } catch (err) {
+                        toast.error(`Failed to upload ${fileName}: ${err instanceof Error ? err.message : 'Unknown error'}`);
                       }
-                      return '';
-                    }}
-                    lang="en-US"
-                    disabled={isStreaming}
-                  />
-                </PromptInputTools>
-                <PromptInputSubmit
-                  status={status}
-                  onStop={() => stop()}
-                  disabled={!input.trim() && !isStreaming}
+                    }
+
+                    // Add file references to message text
+                    if (uploaded.length > 0) {
+                      const fileList = uploaded.map(f => f.startsWith('🎨') ? f : `📎 ${f}`).join('\n');
+                      messageText = text.trim() ? `${text}\n\n${fileList}` : fileList;
+                    }
+                  }
+
+                  sendMessage({ text: messageText }, { body: { conversationId: convId } });
+                }}
+              >
+                {/* AI Elements: File attachment previews */}
+                <AttachmentsDisplay />
+                <PromptInputTextarea
+                  value={input}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
+                  placeholder={isStreaming ? "Yang is responding..." : "Type a message to start chatting..."}
+                  disabled={status !== 'ready' && status !== 'error'}
                 />
-              </PromptInputFooter>
-            </PromptInput>
+                <PromptInputFooter>
+                  <PromptInputTools>
+                    {/* AI Elements: File attachment button */}
+                    <AttachmentButton disabled={isStreaming} />
+
+                    {/* Full Voice Mode (ChatGPT-style) */}
+                    <PromptInputButton
+                      tooltip="Voice conversation mode"
+                      onClick={() => setVoiceModeOpen(true)}
+                    >
+                      <Volume2 className="size-4" />
+                    </PromptInputButton>
+
+                    {/* AI Elements: Voice dictation via Web Speech API / MediaRecorder fallback */}
+                    <SpeechInput
+                      size="icon-sm"
+                      variant="ghost"
+                      onTranscriptionChange={(text: string) => {
+                        setInput(prev => {
+                          const base = prev.trim();
+                          return base ? `${base} ${text}` : text;
+                        });
+                      }}
+                      onAudioRecorded={async (audioBlob: Blob) => {
+                        // Fallback for Firefox/Safari: send audio to backend transcription
+                        try {
+                          const token = getAuthToken();
+                          const convId = selectedConversation?.id || conversationIdRef.current || 'default';
+                          const formData = new FormData();
+                          formData.append('audio', audioBlob, 'recording.webm');
+                          const resp = await fetch(`/api/upload?conversationId=${convId}`, {
+                            method: 'POST',
+                            headers: { 'Authorization': token ? `Bearer ${token}` : '' },
+                            body: formData,
+                          });
+                          if (resp.ok) {
+                            const data = await resp.json();
+                            return data.transcript || '';
+                          }
+                        } catch {
+                          toast.error('Voice transcription failed');
+                        }
+                        return '';
+                      }}
+                      lang="en-US"
+                      disabled={isStreaming}
+                    />
+                  </PromptInputTools>
+                  <PromptInputSubmit
+                    status={status}
+                    onStop={() => stop()}
+                    disabled={!input.trim() && !isStreaming}
+                  />
+                </PromptInputFooter>
+              </PromptInput>
             </TooltipProvider>
           </div>
         </div>

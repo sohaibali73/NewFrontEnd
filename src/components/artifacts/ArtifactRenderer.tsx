@@ -4,13 +4,13 @@
  */
 
 import React, { useState } from 'react';
-import { 
-  Code, 
-  Eye, 
-  Maximize2, 
-  Minimize2, 
-  Copy, 
-  Check, 
+import {
+  Code,
+  Eye,
+  Maximize2,
+  Minimize2,
+  Copy,
+  Check,
   Download,
   ExternalLink,
   AlertTriangle
@@ -32,7 +32,7 @@ interface ArtifactRendererProps {
 export function ArtifactRenderer({ artifact, onClose }: ArtifactRendererProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
-  
+
   const [viewMode, setViewMode] = useState<'rendered' | 'code'>('rendered');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -58,13 +58,14 @@ export function ArtifactRenderer({ artifact, onClose }: ArtifactRendererProps) {
   };
 
   const handleDownload = () => {
-    const extensions: Record<ArtifactType, string> = {
+    const extensions: Record<string, string> = {
       react: '.jsx',
       html: '.html',
       svg: '.svg',
       mermaid: '.mmd',
       markdown: '.md',
       code: '.txt',
+      document: '.txt',
       jsx: '.jsx',
       tsx: '.tsx',
       javascript: '.js',
@@ -76,7 +77,7 @@ export function ArtifactRenderer({ artifact, onClose }: ArtifactRendererProps) {
       css: '.css',
       text: '.txt',
     };
-    
+
     const extension = extensions[artifact.type] || '.txt';
     const filename = artifact.title || `artifact-${artifact.id}`;
     const blob = new Blob([artifact.code], { type: 'text/plain' });
@@ -94,7 +95,7 @@ export function ArtifactRenderer({ artifact, onClose }: ArtifactRendererProps) {
     const newWindow = window.open('', '_blank');
     if (newWindow) {
       let content = artifact.code;
-      
+
       if (artifact.type === 'react') {
         content = wrapReactForPreview(artifact.code);
       } else if (artifact.type === 'html') {
@@ -102,7 +103,7 @@ export function ArtifactRenderer({ artifact, onClose }: ArtifactRendererProps) {
       } else if (artifact.type === 'svg') {
         content = wrapSVGForPreview(artifact.code);
       }
-      
+
       newWindow.document.write(content);
       newWindow.document.close();
     }
@@ -110,8 +111,8 @@ export function ArtifactRenderer({ artifact, onClose }: ArtifactRendererProps) {
 
   const getArtifactTitle = () => {
     if (artifact.title) return artifact.title;
-    
-    const typeLabels: Record<ArtifactType, string> = {
+
+    const typeLabels: Record<string, string> = {
       react: 'React Component',
       html: 'HTML Preview',
       svg: 'SVG Graphic',
@@ -130,7 +131,7 @@ export function ArtifactRenderer({ artifact, onClose }: ArtifactRendererProps) {
       css: 'CSS',
       text: 'Text',
     };
-    
+
     return typeLabels[artifact.type] || 'Artifact';
   };
 
@@ -149,36 +150,36 @@ export function ArtifactRenderer({ artifact, onClose }: ArtifactRendererProps) {
       typescript: 'TypeScript',
       python: 'Python',
     };
-    
+
     return labels[artifact.language.toLowerCase()] || artifact.language.toUpperCase();
   };
 
   // Support all common artifact types for visual rendering
   const canRenderVisually = ['react', 'html', 'svg', 'mermaid', 'jsx', 'tsx', 'javascript', 'js', 'document', 'markdown', 'md'].includes(artifact.type.toLowerCase());
-  
+
   // Normalize type for rendering - treat jsx/tsx/javascript as react
   const normalizedType = ['jsx', 'tsx', 'javascript', 'js'].includes(artifact.type.toLowerCase()) ? 'react' : artifact.type.toLowerCase();
 
-  const containerStyle: React.CSSProperties = isFullscreen 
+  const containerStyle: React.CSSProperties = isFullscreen
     ? {
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 9999,
-        backgroundColor: colors.background,
-        display: 'flex',
-        flexDirection: 'column',
-      }
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 9999,
+      backgroundColor: colors.background,
+      display: 'flex',
+      flexDirection: 'column',
+    }
     : {
-        backgroundColor: colors.background,
-        borderRadius: '16px',
-        border: `1px solid ${colors.border}`,
-        overflow: 'hidden',
-        marginTop: '16px',
-        marginBottom: '16px',
-      };
+      backgroundColor: colors.background,
+      borderRadius: '16px',
+      border: `1px solid ${colors.border}`,
+      overflow: 'hidden',
+      marginTop: '16px',
+      marginBottom: '16px',
+    };
 
   return (
     <div style={containerStyle}>
@@ -378,41 +379,41 @@ export function ArtifactRenderer({ artifact, onClose }: ArtifactRendererProps) {
         )}
 
         {viewMode === 'code' || !canRenderVisually ? (
-          <CodeArtifact 
-            code={artifact.code} 
+          <CodeArtifact
+            code={artifact.code}
             language={artifact.language}
             isDark={isDark}
           />
         ) : (
           <div style={{ height: '100%', width: '100%' }}>
             {normalizedType === 'mermaid' && (
-              <MermaidArtifact 
+              <MermaidArtifact
                 code={artifact.code}
                 isDark={isDark}
                 onError={setError}
               />
             )}
             {normalizedType === 'react' && (
-              <ReactArtifact 
+              <ReactArtifact
                 code={artifact.code}
                 isDark={isDark}
                 onError={setError}
               />
             )}
             {normalizedType === 'html' && (
-              <HTMLArtifact 
+              <HTMLArtifact
                 code={artifact.code}
                 isDark={isDark}
               />
             )}
             {normalizedType === 'svg' && (
-              <SVGArtifact 
+              <SVGArtifact
                 code={artifact.code}
                 isDark={isDark}
               />
             )}
             {['document', 'markdown', 'md'].includes(normalizedType) && (
-              <DocumentArtifact 
+              <DocumentArtifact
                 code={artifact.code}
                 isDark={isDark}
               />
@@ -427,7 +428,7 @@ export function ArtifactRenderer({ artifact, onClose }: ArtifactRendererProps) {
 // Helper functions for wrapping content
 function wrapReactForPreview(code: string): string {
   const cleanCode = code.trim();
-  
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -483,11 +484,11 @@ function wrapReactForPreview(code: string): string {
 
 function wrapHTMLForPreview(code: string): string {
   const cleanCode = code.trim();
-  
+
   if (cleanCode.startsWith('<!DOCTYPE html>') || cleanCode.startsWith('<html')) {
     return cleanCode;
   }
-  
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -509,7 +510,7 @@ function wrapHTMLForPreview(code: string): string {
 
 function wrapSVGForPreview(code: string): string {
   const cleanCode = code.trim();
-  
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>

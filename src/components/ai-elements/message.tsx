@@ -32,26 +32,31 @@ import {
 import { Streamdown } from "streamdown";
 
 // Wrap code plugin to gracefully handle unsupported languages like AFL
-const codeWithFallback = async (tokens: any, lang: string, raw: string) => {
-  // Fall back to no syntax highlighting for unsupported languages like AFL
-  if (lang === "afl" || lang === "pyx" || lang === "pine") {
-    return {
-      html: `<pre><code class="language-${lang}">${escapeHtml(raw)}</code></pre>`,
-    };
-  }
-  try {
-    return await code(tokens, lang, raw);
-  } catch (err: any) {
-    if (err.message?.includes("is not included in this bundle")) {
-      // Fallback for any unsupported language
-      console.warn(`[v0] Language '${lang}' not supported, using plain text`);
+const codeWithFallback = {
+  ...(code as any),
+  async process(tokens: any, lang: string, raw: string) {
+    // Fall back to no syntax highlighting for unsupported languages like AFL
+    if (lang === "afl" || lang === "pyx" || lang === "pine") {
       return {
         html: `<pre><code class="language-${lang}">${escapeHtml(raw)}</code></pre>`,
       };
     }
-    throw err;
-  }
-};
+    try {
+      // Call the original code plugin's process method
+      return await (code as any).process?.(tokens, lang, raw) ||
+        await (code as any)(tokens, lang, raw);
+    } catch (err: any) {
+      if (err.message?.includes("is not included in this bundle")) {
+        // Fallback for any unsupported language
+        console.warn(`[v0] Language '${lang}' not supported, using plain text`);
+        return {
+          html: `<pre><code class="language-${lang}">${escapeHtml(raw)}</code></pre>`,
+        };
+      }
+      throw err;
+    }
+  },
+} as any;
 
 function escapeHtml(text: string): string {
   const map: Record<string, string> = {

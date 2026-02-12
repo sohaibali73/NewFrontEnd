@@ -31,6 +31,42 @@ import {
 } from "react";
 import { Streamdown } from "streamdown";
 
+// Wrap code plugin to gracefully handle unsupported languages like AFL
+const codeWithFallback = {
+  ...code,
+  async process(tokens: any, lang: string, raw: string) {
+    // Fall back to no syntax highlighting for unsupported languages like AFL
+    if (lang === "afl" || lang === "pyx" || lang === "pine") {
+      return {
+        html: `<pre><code class="language-${lang}">${escapeHtml(raw)}</code></pre>`,
+      };
+    }
+    try {
+      return await code.process(tokens, lang, raw);
+    } catch (err: any) {
+      if (err.message?.includes("is not included in this bundle")) {
+        // Fallback for any unsupported language
+        console.warn(`[v0] Language '${lang}' not supported, using plain text`);
+        return {
+          html: `<pre><code class="language-${lang}">${escapeHtml(raw)}</code></pre>`,
+        };
+      }
+      throw err;
+    }
+  },
+};
+
+function escapeHtml(text: string): string {
+  const map: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  };
+  return text.replace(/[&<>"']/g, (char) => map[char] || char);
+}
+
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
 };
@@ -322,7 +358,7 @@ export const MessageBranchPage = ({
 
 export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 
-const streamdownPlugins = { cjk, code, math, mermaid };
+const streamdownPlugins = { cjk, code: codeWithFallback, math, mermaid };
 
 export const MessageResponse = memo(
   ({ className, ...props }: MessageResponseProps) => (

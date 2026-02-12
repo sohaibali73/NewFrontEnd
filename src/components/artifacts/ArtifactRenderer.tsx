@@ -22,6 +22,7 @@ import { ReactArtifact } from './ReactArtifact';
 import { HTMLArtifact } from './HTMLArtifact';
 import { SVGArtifact } from './SVGArtifact';
 import { CodeArtifact } from './CodeArtifact';
+import { DocumentArtifact } from './DocumentArtifact';
 
 interface ArtifactRendererProps {
   artifact: Artifact;
@@ -116,6 +117,7 @@ export function ArtifactRenderer({ artifact, onClose }: ArtifactRendererProps) {
       svg: 'SVG Graphic',
       mermaid: 'Diagram',
       markdown: 'Markdown',
+      document: 'Document',
       code: 'Code',
       jsx: 'React Component',
       tsx: 'React Component',
@@ -141,6 +143,7 @@ export function ArtifactRenderer({ artifact, onClose }: ArtifactRendererProps) {
       mermaid: 'Mermaid',
       markdown: 'Markdown',
       md: 'Markdown',
+      document: 'Document',
       afl: 'AFL',
       javascript: 'JavaScript',
       typescript: 'TypeScript',
@@ -151,7 +154,7 @@ export function ArtifactRenderer({ artifact, onClose }: ArtifactRendererProps) {
   };
 
   // Support all common artifact types for visual rendering
-  const canRenderVisually = ['react', 'html', 'svg', 'mermaid', 'jsx', 'tsx', 'javascript', 'js'].includes(artifact.type.toLowerCase());
+  const canRenderVisually = ['react', 'html', 'svg', 'mermaid', 'jsx', 'tsx', 'javascript', 'js', 'document', 'markdown', 'md'].includes(artifact.type.toLowerCase());
   
   // Normalize type for rendering - treat jsx/tsx/javascript as react
   const normalizedType = ['jsx', 'tsx', 'javascript', 'js'].includes(artifact.type.toLowerCase()) ? 'react' : artifact.type.toLowerCase();
@@ -404,6 +407,12 @@ export function ArtifactRenderer({ artifact, onClose }: ArtifactRendererProps) {
             )}
             {normalizedType === 'svg' && (
               <SVGArtifact 
+                code={artifact.code}
+                isDark={isDark}
+              />
+            )}
+            {['document', 'markdown', 'md'].includes(normalizedType) && (
+              <DocumentArtifact 
                 code={artifact.code}
                 isDark={isDark}
               />

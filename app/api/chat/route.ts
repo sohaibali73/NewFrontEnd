@@ -54,6 +54,10 @@ export async function POST(req: NextRequest) {
       messageText = lastUserMessage.content || lastUserMessage.text || '';
     }
     
+    // Check if this is a document generation request
+    const isDocumentRequest = /\b(write|create|generate|write|draft|compose)\s+\w+\s+(document|proposal|report|memo|letter|contract|policy|guide|manual|plan|summary|brief|outline|template|form|checklist)/i.test(messageText) ||
+                              /\b(document|proposal|report|memo|letter|contract|policy|guide|manual|plan|summary|brief|outline|template|form|checklist)\b/i.test(messageText);
+    
     if (!messageText.trim()) {
       return new Response(
         JSON.stringify({ error: 'Empty message content' }), 

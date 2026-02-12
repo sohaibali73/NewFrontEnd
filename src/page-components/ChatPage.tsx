@@ -26,6 +26,7 @@ import { PromptInput, PromptInputTextarea, PromptInputFooter, PromptInputHeader,
 import { Attachments, Attachment, AttachmentPreview, AttachmentInfo, AttachmentRemove } from '@/components/ai-elements/attachments';
 import { Sources, SourcesTrigger, SourcesContent, Source } from '@/components/ai-elements/sources';
 import { Artifact, ArtifactHeader, ArtifactTitle, ArtifactContent, ArtifactActions, ArtifactAction } from '@/components/ai-elements/artifact';
+import { DocumentGenerator } from '@/components/ai-elements/document-generator';
 import { ChainOfThought, ChainOfThoughtHeader, ChainOfThoughtContent, ChainOfThoughtStep } from '@/components/ai-elements/chain-of-thought';
 import { SpeechInput } from '@/components/ai-elements/speech-input';
 import { WebPreview, WebPreviewNavigation, WebPreviewNavigationButton, WebPreviewBody, WebPreviewConsole } from '@/components/ai-elements/web-preview';
@@ -126,6 +127,9 @@ export function ChatPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+
+  // Artifacts state
+  const [artifacts, setArtifacts] = useState<any[]>([]);
 
   // Connection status
   const { status: connStatus, check: recheckConnection } = useConnectionStatus({ interval: 60000 });
@@ -362,6 +366,12 @@ export function ChatPage() {
   // Helper: Copy message text to clipboard
   const handleCopyMessage = useCallback((text: string) => {
     navigator.clipboard.writeText(text).then(() => toast.success('Copied!')).catch(() => toast.error('Copy failed'));
+  }, []);
+
+  // Handle artifact generation
+  const handleDocumentGenerated = useCallback((artifact: any) => {
+    setArtifacts(prev => [...prev, artifact]);
+    toast.success('Document generated!');
   }, []);
 
   // Render a single message using AI Elements composable architecture
@@ -926,6 +936,17 @@ export function ChatPage() {
           )}
         </MessageContent>
 
+        {/* DocumentGenerator for creating documents from assistant responses */}
+        {message.role === 'assistant' && !msgIsStreaming && fullText && /\b(document|proposal|report|memo|letter|policy|guide|plan|summary|brief|outline|form|checklist)\b/i.test(fullText) && (
+          <div style={{ marginTop: '12px' }}>
+            <DocumentGenerator 
+              title="Generated Document"
+              content={fullText}
+              onDocumentGenerated={handleDocumentGenerated}
+            />
+          </div>
+        )}
+
         {/* Message actions toolbar for assistant messages (copy, thumbs up/down) */}
         {message.role === 'assistant' && !msgIsStreaming && fullText && (
           <MessageActions className="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1105,6 +1126,19 @@ export function ChatPage() {
             ) : (
               <>
                 {allMessages.map((msg, idx) => renderMessage(msg, idx))}
+
+                {/* Display generated artifacts */}
+                {artifacts.length > 0 && (
+                  <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: `1px solid ${colors.border}` }}>
+                    {artifacts.map((artifact) => (
+                      <ArtifactRenderer 
+                        key={artifact.id} 
+                        artifact={artifact}
+                        onClose={() => setArtifacts(prev => prev.filter(a => a.id !== artifact.id))}
+                      />
+                    ))}
+                  </div>
+                )}
 
                 {/* Submitted state — waiting for first token */}
                 {status === 'submitted' && allMessages.length > 0 && allMessages[allMessages.length - 1]?.role === 'user' && (

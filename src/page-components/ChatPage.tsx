@@ -224,15 +224,16 @@ export function ChatPage() {
   const isStreaming = status === 'streaming' || status === 'submitted';
 
   const colors = {
-    background: isDark ? '#121212' : '#ffffff',
-    sidebar: isDark ? '#1E1E1E' : '#ffffff',
-    cardBg: isDark ? '#1E1E1E' : '#ffffff',
-    inputBg: isDark ? '#2A2A2A' : '#f5f5f5',
-    border: isDark ? '#424242' : '#e0e0e0',
-    text: isDark ? '#FFFFFF' : '#212121',
-    textMuted: isDark ? '#9E9E9E' : '#757575',
+    background: isDark ? '#0F0F0F' : '#ffffff',
+    sidebar: isDark ? '#1A1A1A' : '#ffffff',
+    cardBg: isDark ? '#1A1A1A' : '#ffffff',
+    inputBg: isDark ? '#262626' : '#f8f8f8',
+    border: isDark ? '#333333' : '#e5e5e5',
+    text: isDark ? '#E8E8E8' : '#1A1A1A',
+    textMuted: isDark ? '#B0B0B0' : '#666666',
     primaryYellow: '#FEC00F',
     darkGray: '#212121',
+    accentYellow: '#FFD700',
   };
 
   // Keep conversationIdRef in sync with selectedConversation state
@@ -440,7 +441,7 @@ export function ChatPage() {
                   return <MessageResponse key={pIdx}>{part.text}</MessageResponse>;
                 }
                 return (
-                  <p key={pIdx} className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+                  <p key={pIdx} className="whitespace-pre-wrap break-words text-sm leading-relaxed" style={{ color: colors.text, fontWeight: 400 }}>
                     {part.text}
                   </p>
                 );
@@ -950,7 +951,7 @@ export function ChatPage() {
         <div style={{ padding: '24px 20px', borderBottom: `2px solid ${colors.primaryYellow}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(254, 192, 15, 0.05)' : 'rgba(254, 192, 15, 0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <img src={logo} alt="Logo" style={{ width: '32px', height: '32px' }} />
-            <h2 style={{ fontFamily: "var(--font-rajdhani), 'Rajdhani', sans-serif", fontSize: '14px', fontWeight: 700, color: colors.darkGray, margin: 0, letterSpacing: '0.5px', textTransform: 'uppercase' }}>CHATS</h2>
+            <h2 style={{ fontFamily: "var(--font-rajdhani), 'Rajdhani', sans-serif", fontSize: '14px', fontWeight: 700, color: colors.text, margin: 0, letterSpacing: '0.5px', textTransform: 'uppercase' }}>CHATS</h2>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {/* Connection status indicator */}
@@ -982,6 +983,12 @@ export function ChatPage() {
               placeholder="Search chats..."
               style={{ width: '100%', padding: '8px 10px 8px 32px', backgroundColor: colors.inputBg, border: `1px solid ${colors.border}`, borderRadius: '8px', color: colors.text, fontSize: '12px', outline: 'none', boxSizing: 'border-box', fontFamily: "var(--font-quicksand), 'Quicksand', sans-serif", transition: 'border-color 0.2s ease' }} onFocus={(e) => (e.currentTarget.style.borderColor = colors.primaryYellow)} onBlur={(e) => (e.currentTarget.style.borderColor = colors.border)}
             />
+            <style>{`
+              input::placeholder {
+                color: ${colors.textMuted};
+                opacity: 0.7;
+              }
+            `}</style>
             {searchQuery && (
               <button onClick={() => setSearchQuery('')} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}>
                 <X size={12} color={colors.textMuted} />
@@ -1071,8 +1078,8 @@ export function ChatPage() {
 
         {/* AI Elements: Conversation with auto-scroll */}
         <div className="flex-1" style={{ minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <div data-scroll-container style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' } as React.CSSProperties}>
-          <div className="max-w-[900px] mx-auto px-6 py-8">
+          <div data-scroll-container style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', backgroundColor: colors.background, color: colors.text } as React.CSSProperties}>
+          <div className="max-w-[900px] mx-auto px-6 py-8" style={{ color: colors.text }}>
             {allMessages.length === 0 ? (
               <ConversationEmptyState
                 icon={<img src={logo} alt="Logo" className="w-20 opacity-30" />}
@@ -1082,7 +1089,7 @@ export function ChatPage() {
                 <div className="flex flex-col items-center gap-4" style={{ padding: '20px' }}>
                   <img src={logo} alt="Logo" className="w-24" style={{ filter: 'drop-shadow(0 4px 8px rgba(254, 192, 15, 0.2))' }} />
                   <div className="space-y-1 text-center">
-                    <h3 style={{ fontFamily: "var(--font-rajdhani), 'Rajdhani', sans-serif", fontSize: '20px', fontWeight: 700, color: colors.darkGray, margin: '8px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>WELCOME TO POTOMAC ANALYST CHAT</h3>
+                    <h3 style={{ fontFamily: "var(--font-rajdhani), 'Rajdhani', sans-serif", fontSize: '20px', fontWeight: 700, color: colors.primaryYellow, margin: '8px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>WELCOME TO POTOMAC ANALYST CHAT</h3>
                     <p style={{ fontFamily: "var(--font-quicksand), 'Quicksand', sans-serif", fontSize: '14px', color: colors.textMuted, margin: '4px 0' }}>Advanced analysis and trading strategy guidance powered by Potomac</p>
                   </div>
                   {/* AI Elements: Quick Suggestions */}

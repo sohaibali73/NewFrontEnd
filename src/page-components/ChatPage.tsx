@@ -1294,13 +1294,13 @@ export function ChatPage() {
                           }
                           console.error(`[v0] File upload error for ${fileName}:`, err);
                         }
-                      }
+                      } catch { }
+                    }
 
                     // Add file references to message text
                     if (uploaded.length > 0) {
-                        const fileList = uploaded.map(f => f.startsWith('🎨') ? f : `📎 ${f}`).join('\n');
-                        messageText = text.trim() ? `${text}\n\n${fileList}` : fileList;
-                      }
+                      const fileList = uploaded.map(f => f.startsWith('🎨') ? f : `📎 ${f}`).join('\n');
+                      messageText = text.trim() ? `${text}\n\n${fileList}` : fileList;
                     }
 
                     sendMessage({ text: messageText }, { body: { conversationId: convId } });

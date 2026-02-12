@@ -1302,13 +1302,13 @@ export function ChatPage() {
                       const fileList = uploaded.map(f => f.startsWith('🎨') ? f : `📎 ${f}`).join('\n');
                       messageText = text.trim() ? `${text}\n\n${fileList}` : fileList;
                     }
-
-                    sendMessage({ text: messageText }, { body: { conversationId: convId } });
                   }
-              >
 
-                    {/* AI Elements: File attachment previews */ }
-                    < AttachmentsDisplay />
+                  sendMessage({ text: messageText }, { body: { conversationId: convId } });
+                }}
+              >
+                {/* AI Elements: File attachment previews */}
+                <AttachmentsDisplay />
                 <PromptInputTextarea
                   value={input}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)}
@@ -1370,15 +1370,12 @@ export function ChatPage() {
                   />
                 </PromptInputFooter>
               </PromptInput>
-          </TooltipProvider>
+            </TooltipProvider>
+          </div>
         </div>
       </div>
 
-      {/* Note: PromptInput handles file attachments internally — no manual file input needed */}
-      {/* The AI Elements PromptInput component automatically manages file attachments with proper preview */}
-    </div>
-
-      {/* ChatGPT-style Voice Mode Overlay */ }
+      {/* ChatGPT-style Voice Mode Overlay */}
       <VoiceMode
         isOpen={voiceModeOpen}
         onClose={() => setVoiceModeOpen(false)}
@@ -1411,7 +1408,7 @@ export function ChatPage() {
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
       `}</style>
-    </div >
+    </div>
   );
 }
 

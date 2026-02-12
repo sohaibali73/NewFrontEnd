@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Rajdhani, Quicksand } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { FontSizeProvider } from '@/contexts/FontSizeContext';
@@ -8,6 +8,16 @@ import { TabProvider } from '@/contexts/TabContext';
 import { Toaster } from 'sonner';
 
 const inter = Inter({ subsets: ['latin'] });
+const rajdhani = Rajdhani({ 
+  subsets: ['latin'],
+  weight: ['300', '500', '700'],
+  variable: '--font-rajdhani'
+});
+const quicksand = Quicksand({
+  subsets: ['latin'],
+  weight: ['300', '500', '700'],
+  variable: '--font-quicksand'
+});
 
 export const metadata: Metadata = {
   title: 'Potomac Analyst Workbench',
@@ -21,7 +31,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.className} ${rajdhani.variable} ${quicksand.variable}`}>
         <ThemeProvider>
           <FontSizeProvider>
             <AuthProvider>

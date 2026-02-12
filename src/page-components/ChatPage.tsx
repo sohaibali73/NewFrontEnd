@@ -1306,6 +1306,7 @@ export function ChatPage() {
                   sendMessage({ text: messageText }, { body: { conversationId: convId } });
                 }}
               >
+              
                 {/* AI Elements: File attachment previews */}
                 <AttachmentsDisplay />
                 <PromptInputTextarea

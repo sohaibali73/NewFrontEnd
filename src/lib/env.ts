@@ -54,24 +54,26 @@ export function getEnv<K extends keyof EnvironmentVariables>(
 }
 
 /**
- * Get API base URL with fallback for development
+ * Get API base URL from environment variable.
+ * Always reads from NEXT_PUBLIC_API_URL — falls back to localhost only in development.
  */
 export function getApiUrl(): string {
-  if (typeof window === 'undefined') {
-    // Server-side
-    return getEnv(
-      'NEXT_PUBLIC_API_URL',
-      process.env.NODE_ENV === 'development'
-        ? 'http://localhost:8000'
-        : 'https://potomac-analyst-workbench-production.up.railway.app'
-    );
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  if (envUrl) {
+    // Strip trailing slash for consistency
+    return envUrl.replace(/\/+$/, '');
   }
-  
-  // Client-side
-  return process.env.NEXT_PUBLIC_API_URL || 
-    (process.env.NODE_ENV === 'development' 
-      ? 'http://localhost:8000' 
-      : 'https://potomac-analyst-workbench-production.up.railway.app');
+
+  // Only fall back in development; in production the env var must be set.
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://localhost:8000';
+  }
+
+  // Hard-crash in production so mis-configuration is caught immediately
+  throw new EnvironmentError(
+    'NEXT_PUBLIC_API_URL is not set. Please configure it in your environment variables.'
+  );
 }
 
 /**

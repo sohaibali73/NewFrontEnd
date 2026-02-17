@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Configuration
-const BACKEND_URL = process.env.API_URL || 'https://potomac-analyst-workbench-production.up.railway.app';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:8000';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const TEST_EMAIL = process.env.TEST_EMAIL || 'sohaib.ali@potomac.com';
 const TEST_PASSWORD = process.env.TEST_PASSWORD || 'Potomac1234';

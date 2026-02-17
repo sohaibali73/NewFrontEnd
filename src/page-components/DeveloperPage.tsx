@@ -2426,7 +2426,7 @@ final class AuthViewModel {
     private let baseURL: URL
     private let session: URLSession
 
-    init(baseURL: URL = URL(string: "https://potomac-analyst-workbench-production.up.railway.app")!) {
+    init(baseURL: URL = URL(string: "YOUR_API_URL")!) {  // Set via NEXT_PUBLIC_API_URL env var
         self.baseURL = baseURL
         self.session = URLSession(configuration: .default)
     }
@@ -2627,7 +2627,7 @@ extension ButtonStyle where Self == PotomacPrimaryButtonStyle {
             <CodeSnippet title="APIClient.swift" language="swift" colors={colors} code={`actor APIClient {
     static let shared = APIClient()
 
-    private let baseURL = URL(string: "https://potomac-analyst-workbench-production.up.railway.app")!
+    private let baseURL = URL(string: "YOUR_API_URL")!  // Set via NEXT_PUBLIC_API_URL env var
     private let session: URLSession
     private let decoder: JSONDecoder
 

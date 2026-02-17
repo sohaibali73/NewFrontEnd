@@ -35,13 +35,11 @@ const nextConfig = {
   },
   
   async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
     return [
       {
         source: '/api/backend/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 
-          (process.env.NODE_ENV === 'development' 
-            ? 'http://localhost:8000' 
-            : 'https://potomac-analyst-workbench-production.up.railway.app')}/:path*`,
+        destination: `${apiUrl.replace(/\/+$/, '')}/:path*`,
       },
     ];
   },

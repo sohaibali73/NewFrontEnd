@@ -91,7 +91,7 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
     textareaRef.current?.focus();
   }, []);
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     if (!input.trim() || isLoading) return;
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
@@ -100,21 +100,106 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMsg]);
+    const currentInput = input.trim();
     setInput('');
     setIsLoading(true);
 
-    // Placeholder: Backend will be wired manually
-    setTimeout(() => {
-      const assistantMsg: ChatMessage = {
+    try {
+      // Get API base URL from environment
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      // Call content chat streaming endpoint with content type
+      const response = await fetch(`${apiUrl}/content/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          text: currentInput,
+          contentType: contentType
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      let assistantContent = '';
+      const assistantMsgId = `msg-${Date.now() + 1}`;
+
+      // Create initial assistant message
+      setMessages((prev) => [...prev, {
+        id: assistantMsgId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+      }]);
+
+      if (reader) {
+        const decoder = new TextDecoder();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  if (data.type === 'text') {
+                    assistantContent += data.text;
+                    // Update the assistant message
+                    setMessages((prev) => prev.map(msg => 
+                      msg.id === assistantMsgId 
+                        ? { ...msg, content: assistantContent }
+                        : msg
+                    ));
+                  } else if (data.type === 'complete') {
+                    // Notify parent if content was created
+                    if (onCreated && assistantContent) {
+                      onCreated({
+                        title: `${config.label} - ${new Date().toLocaleDateString()}`,
+                        messages: [...messages, userMsg, { id: assistantMsgId, role: 'assistant', content: assistantContent, timestamp: new Date() }]
+                      });
+                    }
+                    break;
+                  } else if (data.type === 'error') {
+                    throw new Error(data.error);
+                  }
+                } catch (parseError) {
+                  // Ignore invalid JSON chunks
+                }
+              }
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      }
+    } catch (error) {
+      console.error('Content creation error:', error);
+      const errorMsg: ChatMessage = {
         id: `msg-${Date.now() + 1}`,
         role: 'assistant',
-        content: `I'll create your ${config.label.toLowerCase()} based on that. Here's what I'm planning:\n\n- Analyzing your requirements\n- Structuring the ${config.label.toLowerCase()} layout\n- Generating content outline\n\nThis is a placeholder response. Wire up your backend to handle the actual ${config.label.toLowerCase()} creation.`,
+        content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, assistantMsg]);
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
-  }, [input, isLoading, config.label]);
+    }
+  }, [input, isLoading, config.label, contentType, onCreated, messages]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

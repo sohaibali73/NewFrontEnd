@@ -3300,6 +3300,219 @@ def run_backtest(symbols: str, strategy: str, start_date: str = None, end_date: 
 
 
 # ============================================================================
+# MISSING TOOL HANDLERS - Implementation 
+# ============================================================================
+
+def get_live_scores(sport: str = None, league: str = None, date: str = None) -> Dict[str, Any]:
+    """Get live sports scores (mock implementation for now)."""
+    try:
+        from datetime import datetime
+        start_time = time.time()
+        
+        # Mock sports data - in production this would connect to a sports API
+        mock_games = {
+            "nba": [
+                {"home_team": "Lakers", "away_team": "Warriors", "home_score": 108, "away_score": 112, "status": "Final", "quarter": "4th"},
+                {"home_team": "Celtics", "away_team": "Heat", "home_score": 95, "away_score": 88, "status": "3rd 6:42", "quarter": "3rd"},
+            ],
+            "nfl": [
+                {"home_team": "Chiefs", "away_team": "Bills", "home_score": 21, "away_score": 17, "status": "4th 2:15", "quarter": "4th"},
+            ],
+            "mlb": [
+                {"home_team": "Yankees", "away_team": "Red Sox", "home_score": 7, "away_score": 4, "status": "Bottom 8th", "inning": "8th"},
+            ]
+        }
+        
+        selected_sport = sport or "nba"
+        games = mock_games.get(selected_sport, [])
+        
+        return {
+            "success": True,
+            "tool": "get_live_scores",
+            "sport": selected_sport,
+            "league": league or selected_sport.upper(),
+            "date": date or datetime.now().strftime("%Y-%m-%d"),
+            "games": games,
+            "games_count": len(games),
+            "note": "Mock data - integrate with ESPN/The Score API for real data",
+            "fetch_time_ms": round((time.time() - start_time) * 1000, 2)
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def get_search_trends(region: str = "US", category: str = None, period: str = "today") -> Dict[str, Any]:
+    """Get search trends (mock implementation).""" 
+    try:
+        start_time = time.time()
+        
+        # Mock trending topics - in production this would connect to Google Trends API
+        mock_trends = [
+            {"query": "AI earnings report", "volume": "500K+", "change": "+1200%", "category": "technology"},
+            {"query": "Super Bowl highlights", "volume": "2M+", "change": "+800%", "category": "sports"},
+            {"query": "Stock market crash", "volume": "100K+", "change": "+400%", "category": "finance"},
+            {"query": "New iPhone release", "volume": "300K+", "change": "+200%", "category": "technology"},
+            {"query": "Crypto bull run", "volume": "150K+", "change": "+150%", "category": "finance"},
+        ]
+        
+        filtered_trends = mock_trends
+        if category:
+            filtered_trends = [t for t in mock_trends if t["category"] == category]
+        
+        return {
+            "success": True,
+            "tool": "get_search_trends", 
+            "region": region,
+            "category": category,
+            "period": period,
+            "trends": filtered_trends,
+            "trends_count": len(filtered_trends),
+            "note": "Mock data - integrate with Google Trends API for real data",
+            "fetch_time_ms": round((time.time() - start_time) * 1000, 2)
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def create_linkedin_post(topic: str, tone: str = "professional", author_name: str = None, include_hashtags: bool = True) -> Dict[str, Any]:
+    """Generate LinkedIn post preview."""
+    try:
+        start_time = time.time()
+        
+        # Generate post based on tone
+        if tone == "professional":
+            post_content = f"Excited to share insights on {topic}. Key takeaways from recent analysis show significant opportunities in this space. Looking forward to discussing with the community."
+        elif tone == "educational":
+            post_content = f"Let me break down {topic} for everyone. Here's what you need to know: 1) Market fundamentals are shifting 2) New opportunities are emerging 3) Time to act strategically."
+        else:
+            post_content = f"Thoughts on {topic}? The landscape is evolving rapidly and I'm seeing some interesting patterns emerge. What's your take?"
+        
+        hashtags = ["#trading", "#finance", "#investing", "#markets", "#analysis"] if include_hashtags else []
+        
+        return {
+            "success": True,
+            "tool": "create_linkedin_post",
+            "topic": topic,
+            "tone": tone,
+            "author_name": author_name or "Anonymous",
+            "post_content": post_content,
+            "hashtags": hashtags,
+            "engagement_preview": {"likes": "12", "comments": "3", "shares": "1"},
+            "estimated_reach": "500-1000 people",
+            "fetch_time_ms": round((time.time() - start_time) * 1000, 2)
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def preview_website(url: str) -> Dict[str, Any]:
+    """Preview website metadata (basic implementation)."""
+    try:
+        import urllib.request
+        start_time = time.time()
+        
+        # Basic URL validation
+        if not url.startswith(('http://', 'https://')):
+            return {"success": False, "error": "URL must start with http:// or https://"}
+        
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as response:
+                status_code = response.getcode()
+                content_type = response.headers.get('content-type', '')
+                
+                return {
+                    "success": True,
+                    "tool": "preview_website",
+                    "url": url,
+                    "status_code": status_code,
+                    "content_type": content_type,
+                    "ssl_enabled": url.startswith('https://'),
+                    "domain": url.split('/')[2] if '/' in url else url,
+                    "preview": f"Website accessible (HTTP {status_code})",
+                    "note": "Basic preview - integrate with web scraping for full metadata",
+                    "fetch_time_ms": round((time.time() - start_time) * 1000, 2)
+                }
+        except Exception as e:
+            return {"success": False, "error": f"Could not access website: {str(e)}"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def order_food(query: str, cuisine: str = None, location: str = None) -> Dict[str, Any]:
+    """Search for food delivery (mock implementation)."""
+    try:
+        start_time = time.time()
+        
+        # Mock restaurant data
+        mock_restaurants = [
+            {"name": "Tony's Pizza", "rating": 4.5, "cuisine": "italian", "delivery_time": "25-35 min", "price": "$$", "popular_items": ["Margherita Pizza", "Pepperoni Pizza"]},
+            {"name": "Sakura Sushi", "rating": 4.7, "cuisine": "japanese", "delivery_time": "30-40 min", "price": "$$$", "popular_items": ["California Roll", "Salmon Sashimi"]},
+            {"name": "Burger Joint", "rating": 4.2, "cuisine": "american", "delivery_time": "20-30 min", "price": "$", "popular_items": ["Classic Burger", "Fries"]},
+        ]
+        
+        filtered_restaurants = mock_restaurants
+        if cuisine:
+            filtered_restaurants = [r for r in mock_restaurants if r["cuisine"] == cuisine]
+        
+        return {
+            "success": True,
+            "tool": "order_food",
+            "query": query,
+            "cuisine": cuisine,
+            "location": location or "Your area",
+            "restaurants": filtered_restaurants,
+            "restaurant_count": len(filtered_restaurants),
+            "note": "Mock data - integrate with DoorDash/Uber Eats API for real restaurants",
+            "fetch_time_ms": round((time.time() - start_time) * 1000, 2)
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def track_flight(flight_number: str, date: str = None) -> Dict[str, Any]:
+    """Track flight status (mock implementation)."""
+    try:
+        from datetime import datetime
+        start_time = time.time()
+        
+        # Mock flight data
+        mock_flight = {
+            "flight_number": flight_number.upper(),
+            "airline": flight_number[:2].upper(),
+            "status": "On Time",
+            "departure": {
+                "airport": "JFK - New York",
+                "scheduled": "14:30",
+                "actual": "14:35",
+                "gate": "A12",
+                "terminal": "4"
+            },
+            "arrival": {
+                "airport": "LAX - Los Angeles", 
+                "scheduled": "17:45",
+                "estimated": "17:50",
+                "gate": "B8",
+                "terminal": "6"
+            },
+            "aircraft": "Boeing 737-800",
+            "progress": 65
+        }
+        
+        return {
+            "success": True,
+            "tool": "track_flight",
+            "flight_number": flight_number.upper(),
+            "date": date or datetime.now().strftime("%Y-%m-%d"),
+            "flight_info": mock_flight,
+            "note": "Mock data - integrate with FlightAware/FlightStats API for real tracking",
+            "fetch_time_ms": round((time.time() - start_time) * 1000, 2)
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# ============================================================================
 # TOOL DISPATCHER - OPTIMIZED
 # ============================================================================
 
@@ -3542,6 +3755,47 @@ def handle_tool_call(tool_name: str, tool_input: Dict[str, Any], supabase_client
                 strategy=tool_input.get("strategy", ""),
                 start_date=tool_input.get("start_date"),
                 end_date=tool_input.get("end_date")
+            )
+
+        # ===== ADDITIONAL MISSING TOOLS =====
+        elif tool_name == "get_live_scores":
+            result = get_live_scores(
+                sport=tool_input.get("sport"),
+                league=tool_input.get("league"),
+                date=tool_input.get("date")
+            )
+
+        elif tool_name == "get_search_trends":
+            result = get_search_trends(
+                region=tool_input.get("region", "US"),
+                category=tool_input.get("category"),
+                period=tool_input.get("period", "today")
+            )
+
+        elif tool_name == "create_linkedin_post":
+            result = create_linkedin_post(
+                topic=tool_input.get("topic", ""),
+                tone=tool_input.get("tone", "professional"),
+                author_name=tool_input.get("author_name"),
+                include_hashtags=tool_input.get("include_hashtags", True)
+            )
+
+        elif tool_name == "preview_website":
+            result = preview_website(
+                url=tool_input.get("url", "")
+            )
+
+        elif tool_name == "order_food":
+            result = order_food(
+                query=tool_input.get("query", ""),
+                cuisine=tool_input.get("cuisine"),
+                location=tool_input.get("location")
+            )
+
+        elif tool_name == "track_flight":
+            result = track_flight(
+                flight_number=tool_input.get("flight_number", ""),
+                date=tool_input.get("date")
             )
 
         else:

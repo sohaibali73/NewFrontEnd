@@ -168,6 +168,16 @@ except Exception as e:
     logger.error(f"✗ Failed to load health router: {e}")
     logger.debug(traceback.format_exc())
 
+try:
+    from api.routes import content
+    app.include_router(content.router)
+    routers_loaded.append("content")
+    logger.info("✓ Loaded content router (articles, documents, slides, dashboards)")
+except Exception as e:
+    routers_failed.append(("content", str(e)))
+    logger.error(f"✗ Failed to load content router: {e}")
+    logger.debug(traceback.format_exc())
+
 # Log summary
 logger.info(f"Router loading complete: {len(routers_loaded)} loaded, {len(routers_failed)} failed")
 if routers_failed:

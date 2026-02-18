@@ -75,6 +75,7 @@ import {
   WebsitePreview,
   FoodOrder,
   FlightTracker,
+  FlightSearchCard,
 } from '@/components/generative-ui';
 
 const logo = '/potomac-icon.png';

@@ -25,6 +25,7 @@ const toolMeta: Record<string, { icon: React.ReactNode; label: string; color: st
   preview_website: { icon: <Globe size={16} />, label: 'Generating website preview...', color: '#3b82f6' },
   order_food: { icon: <Zap size={16} />, label: 'Finding food options...', color: '#FEC00F' },
   track_flight: { icon: <Globe size={16} />, label: 'Tracking flight...', color: '#3b82f6' },
+  search_flights: { icon: <Globe size={16} />, label: 'Searching for flights...', color: '#FEC00F' },
 };
 
 interface ToolLoadingProps {

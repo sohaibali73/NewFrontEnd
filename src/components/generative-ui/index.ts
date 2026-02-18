@@ -101,5 +101,8 @@ export { FoodOrder } from './FoodOrder';
 // NEW: Flight Tracker (track_flight tool)
 export { FlightTracker } from './FlightTracker';
 
+// NEW: Flight Search (search_flights tool)
+export { FlightSearchCard } from './FlightSearchCard';
+
 // Legacy React component wrapper
 export { default as ReactComponent } from './ReactComponent';

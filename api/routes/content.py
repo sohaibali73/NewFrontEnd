@@ -3,12 +3,21 @@
 from typing import Optional, List
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+import json
 
-from api.dependencies import get_current_user_id
+from api.dependencies import get_current_user_id, get_user_api_keys
 from db.supabase_client import get_supabase
 
 router = APIRouter(prefix="/content", tags=["Content"])
+
+# ============================================================================
+# POTOMAC PPTX SKILL CONFIGURATION
+# ============================================================================
+
+POTOMAC_PPTX_SKILL_ID = "skill_01Aa2Us1EDWXRkrxg1PgqbaC"
+POTOMAC_PPTX_SKILL_NAME = "potomac-pptx"
 
 # ============================================================================
 # PYDANTIC MODELS
@@ -445,3 +454,121 @@ async def delete_writing_style(
     
     db.table("writing_styles").delete().eq("id", style_id).execute()
     return {"status": "deleted"}
+
+
+# ============================================================================
+# SLIDES GENERATION WITH POTOMAC-PPTX SKILL
+# ============================================================================
+
+class SlideGenerateRequest(BaseModel):
+    prompt: str
+    title: Optional[str] = None
+    slide_count: Optional[int] = 10
+
+
+@router.post("/slides/generate")
+async def generate_presentation(
+    data: SlideGenerateRequest,
+    user_id: str = Depends(get_current_user_id),
+    api_keys: dict = Depends(get_user_api_keys),
+):
+    """
+    Generate a Potomac-branded PPTX presentation using the potomac-pptx skill.
+    Streams progress events and returns a download URL when complete.
+    """
+    claude_key = api_keys.get("claude")
+    if not claude_key:
+        raise HTTPException(status_code=400, detail="Claude API key not configured")
+
+    async def generate_stream():
+        try:
+            import anthropic
+
+            client = anthropic.Anthropic(api_key=claude_key)
+
+            # Build the user prompt for the skill
+            slide_count = data.slide_count or 10
+            title = data.title or data.prompt[:60]
+            user_prompt = (
+                f"Create a professional Potomac-branded PowerPoint presentation titled '{title}'. "
+                f"The presentation should have approximately {slide_count} slides. "
+                f"Topic/content: {data.prompt}. "
+                f"Apply strict Potomac brand compliance with the yellow (#FEC00F) and dark color scheme. "
+                f"Include a title slide, agenda, content slides with data/charts where appropriate, and a closing slide."
+            )
+
+            yield f"data: {json.dumps({'type': 'status', 'message': 'Initializing Potomac PPTX skill...'})}\n\n"
+
+            # Call Claude with the potomac-pptx skill
+            response = client.beta.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=8096,
+                messages=[{"role": "user", "content": user_prompt}],
+                betas=["skills-2025-05-14"],
+                tools=[
+                    {
+                        "type": "skill",
+                        "id": POTOMAC_PPTX_SKILL_ID,
+                        "name": POTOMAC_PPTX_SKILL_NAME,
+                    }
+                ],
+            )
+
+            yield f"data: {json.dumps({'type': 'status', 'message': 'Skill executed, processing response...'})}\n\n"
+
+            # Extract text and any tool results from the response
+            presentation_id = None
+            assistant_text = ""
+
+            for block in response.content:
+                if hasattr(block, "text"):
+                    assistant_text += block.text
+                elif hasattr(block, "type") and block.type == "tool_use":
+                    # The skill may return a presentation_id or file reference
+                    tool_result = block.input if hasattr(block, "input") else {}
+                    if isinstance(tool_result, dict):
+                        presentation_id = tool_result.get("presentation_id") or tool_result.get("file_id")
+
+            # If the skill produced a presentation via the existing create_presentation tool path,
+            # check the chat tools store for the presentation bytes
+            if not presentation_id:
+                # Try to extract presentation_id from assistant text
+                import re
+                match = re.search(r'presentation[_\s]?id[:\s]+([a-zA-Z0-9_-]+)', assistant_text, re.IGNORECASE)
+                if match:
+                    presentation_id = match.group(1)
+
+            # Save the slide deck record to DB
+            db = get_supabase()
+            db.table("content_items").insert({
+                "user_id": user_id,
+                "title": title,
+                "content": assistant_text,
+                "content_type": "slide",
+                "status": "complete",
+                "tags": ["potomac-pptx", "ai-generated"],
+                "created_at": datetime.utcnow().isoformat(),
+            }).execute()
+
+            # Build the download URL if we have a presentation_id
+            download_url = None
+            if presentation_id:
+                download_url = f"/api/presentation/{presentation_id}"
+
+            yield f"data: {json.dumps({'type': 'complete', 'text': assistant_text, 'presentation_id': presentation_id, 'download_url': download_url, 'title': title})}\n\n"
+
+        except Exception as e:
+            import traceback
+            error_detail = f"{str(e)}\n{traceback.format_exc()[:300]}"
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e), 'detail': error_detail})}\n\n"
+
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )

@@ -192,7 +192,7 @@ export default function Component() {{
 
 def get_base_prompt() -> str:
     """Get the base system prompt for all AFL operations."""
-    return f'''You are an expert AmiBroker Formula Language (AFL) developer with 20+ years of experience.
+    return f'''You are an expert AmiBroker Formula Language (AFL) developer with 20+ years of experience. BUT YOU CAN DO MORE THAN AMIBROKER YOU MUST NEVER SAY YOU DO NOT HAVE THE ABILITY TO DO ANYTHING,
 
 {FUNCTION_REFERENCE}
 

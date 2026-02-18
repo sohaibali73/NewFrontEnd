@@ -226,7 +226,10 @@ export function ChatPage() {
       }),
     }),
     onFinish: ({ message }) => {
-      // Refresh conversation list when a message completes
+      // Mark stream as just finished — guards against loadPreviousMessages wiping tool UI parts
+      justFinishedStreamRef.current = true;
+      setTimeout(() => { justFinishedStreamRef.current = false; }, 8000);
+      // Refresh conversation list sidebar (titles etc.) — but NOT message state
       loadConversations();
       // Voice mode: auto-speak assistant responses
       if (voiceMode && message.role === 'assistant') {
@@ -305,20 +308,31 @@ export function ChatPage() {
       const allData = await apiClient.getConversations();
       const data = allData.filter((c: any) => !c.conversation_type || c.conversation_type === 'agent');
       setConversations(data);
-      if (data.length > 0 && !selectedConversation) setSelectedConversation(data[0]);
+      // FIX: use conversationIdRef.current (always fresh) instead of selectedConversation (stale closure)
+      // This prevents onFinish → loadConversations → setSelectedConversation → loadPreviousMessages
+      // from wiping out tool UI parts that were just streamed
+      if (data.length > 0 && !conversationIdRef.current) {
+        skipNextLoadRef.current = true; // also skip the triggered loadPreviousMessages
+        setSelectedConversation(data[0]);
+      }
     } catch { setPageError('Failed to load conversations'); }
     finally { setLoadingConversations(false); }
   };
 
   const loadPreviousMessages = async (conversationId: string) => {
+    // Guard: don't reload if streaming just finished — would overwrite rich tool UI parts
+    // with plain text from the backend (which doesn't store tool output parts in metadata)
+    if (justFinishedStreamRef.current) {
+      justFinishedStreamRef.current = false;
+      return;
+    }
     try {
       const data = await apiClient.getMessages(conversationId);
-      // Simplified: Use AI SDK messages directly
       setMessages(data.map((m: any) => ({
         id: m.id,
         role: m.role,
         content: m.content || '',
-        // Use stored parts from backend metadata, fallback to simple text
+        // Restore full parts from metadata if backend saved them; fallback to plain text
         parts: m.metadata?.parts || [{ type: 'text', text: m.content || '' }],
         createdAt: m.created_at ? new Date(m.created_at) : new Date(),
       })));
@@ -327,6 +341,8 @@ export function ChatPage() {
 
   // Track whether we just created a new conversation (to skip re-loading messages)
   const skipNextLoadRef = useRef(false);
+  // Track when streaming just completed — prevents loadPreviousMessages from wiping tool UI parts
+  const justFinishedStreamRef = useRef(false);
 
   const handleNewConversation = async () => {
     try {

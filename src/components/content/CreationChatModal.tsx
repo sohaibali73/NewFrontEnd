@@ -148,6 +148,7 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
             prompt: currentInput,
             title: currentInput.slice(0, 60),
             slide_count: 10,
+            skill_id: 'skill_01Aa2Us1EDWXRkrxg1PgqbaC',
           }),
         });
 

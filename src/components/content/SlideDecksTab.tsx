@@ -1,432 +1,108 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Presentation, Clock, Trash2, Download, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Presentation, Clock, Download, Pencil, Trash2, Copy, ChevronDown, ChevronUp } from 'lucide-react';
 import { CreationChatModal } from './CreationChatModal';
 
-interface SlideDecksTabProps {
-  colors: Record<string, string>;
-  isDark: boolean;
-}
+interface SlideDecksTabProps { colors: Record<string, string>; isDark: boolean; }
 
 interface SlideDeck {
   id: string;
   title: string;
   slideCount: number;
-  updatedAt: string;
-  status: 'draft' | 'complete';
-  topic: string;
+  content: string;
+  createdAt: string;
 }
 
 const STORAGE_KEY = 'content_slide_decks';
 
-const DEFAULT_DECKS: SlideDeck[] = [
-  {
-    id: 'deck-001',
-    title: 'Q1 2026 Market Outlook',
-    slideCount: 12,
-    updatedAt: '2026-02-10T10:00:00Z',
-    status: 'complete',
-    topic: 'Equity markets, macro conditions, sector rotation strategy for Q1 2026',
-  },
-  {
-    id: 'deck-002',
-    title: 'AI Infrastructure Investment Thesis',
-    slideCount: 15,
-    updatedAt: '2026-02-12T14:30:00Z',
-    status: 'complete',
-    topic: 'Semiconductor, data center, and power infrastructure investment opportunity',
-  },
-  {
-    id: 'deck-003',
-    title: 'Portfolio Performance Review – Q4 2025',
-    slideCount: 10,
-    updatedAt: '2026-01-28T09:15:00Z',
-    status: 'complete',
-    topic: 'Client-facing portfolio attribution, benchmark comparison, forward outlook',
-  },
-  {
-    id: 'deck-004',
-    title: 'Fixed Income Strategy Update',
-    slideCount: 8,
-    updatedAt: '2026-02-05T16:00:00Z',
-    status: 'draft',
-    topic: 'Duration positioning, credit quality, yield curve scenarios',
-  },
-  {
-    id: 'deck-005',
-    title: 'ESG Integration Framework',
-    slideCount: 11,
-    updatedAt: '2026-01-20T11:00:00Z',
-    status: 'complete',
-    topic: 'Environmental, social, governance criteria embedded in investment process',
-  },
-];
-
-function loadDecks(): SlideDeck[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_DECKS;
-    return JSON.parse(raw) as SlideDeck[];
-  } catch {
-    return DEFAULT_DECKS;
-  }
-}
-
-function saveDecks(decks: SlideDeck[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(decks));
-  } catch {}
-}
-
-function generateMockPptx(deck: SlideDeck): void {
-  // Create a simple text file representing the PPTX outline
-  const content = `POTOMAC ASSET MANAGEMENT — PRESENTATION OUTLINE
-================================================
-Title: ${deck.title}
-Slides: ${deck.slideCount}
-Generated: ${new Date().toLocaleString()}
-
-SLIDE 1: Title Slide
-- ${deck.title}
-- Potomac Asset Management | ${new Date().getFullYear()}
-
-SLIDE 2: Executive Summary
-- Key themes and takeaways
-- Investment implications
-
-SLIDE 3: Market Context
-- ${deck.topic}
-
-SLIDE 4–${deck.slideCount - 2}: Analysis & Deep Dive
-- Data-driven insights
-- Charts and visual exhibits
-
-SLIDE ${deck.slideCount - 1}: Risk Considerations
-- Key risks to thesis
-- Mitigating factors
-
-SLIDE ${deck.slideCount}: Conclusion & Next Steps
-- Summary of recommendations
-- Action items
-
-================================================
-Potomac Asset Management | Confidential
-`;
-  const blob = new Blob([content], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${deck.title.replace(/[^a-zA-Z0-9 ]/g, '')}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
+function load(): SlideDeck[] { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } }
+function save(items: SlideDeck[]) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {} }
 
 export function SlideDecksTab({ colors, isDark }: SlideDecksTabProps) {
   const [decks, setDecks] = useState<SlideDeck[]>([]);
-  const [showCreationChat, setShowCreationChat] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
 
-  useEffect(() => {
-    setDecks(loadDecks());
-  }, []);
+  useEffect(() => { setDecks(load()); }, []);
 
-  const handleDelete = (id: string) => {
-    const updated = decks.filter((d) => d.id !== id);
-    setDecks(updated);
-    saveDecks(updated);
+  const handleDelete = (id: string) => { const u = decks.filter(d => d.id !== id); setDecks(u); save(u); };
+  const handleDuplicate = (deck: SlideDeck) => {
+    const copy = { ...deck, id: `deck-${Date.now()}`, title: `${deck.title} (Copy)`, createdAt: new Date().toISOString() };
+    const u = [...decks, copy]; setDecks(u); save(u);
   };
-
+  const handleRename = (id: string) => {
+    const u = decks.map(d => d.id === id ? { ...d, title: editTitle } : d); setDecks(u); save(u); setEditingId(null);
+  };
+  const handleDownload = (deck: SlideDeck) => {
+    const blob = new Blob([`POTOMAC ASSET MANAGEMENT\n${'='.repeat(50)}\nTitle: ${deck.title}\nSlides: ${deck.slideCount}\nCreated: ${new Date(deck.createdAt).toLocaleString()}\n\n${deck.content}`], { type: 'text/plain' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${deck.title.replace(/[^a-zA-Z0-9 ]/g, '')}.txt`; a.click();
+  };
   const handleCreated = (item: any) => {
-    const newDeck: SlideDeck = {
-      id: `deck-${Date.now()}`,
-      title: item.title || 'New Presentation',
-      slideCount: item.slideCount || 10,
-      updatedAt: new Date().toISOString(),
-      status: 'complete',
-      topic: item.topic || item.title || '',
-    };
-    const updated = [newDeck, ...decks];
-    setDecks(updated);
-    saveDecks(updated);
-    setShowCreationChat(false);
+    const newDeck: SlideDeck = { id: `deck-${Date.now()}`, title: item.title || 'Untitled Deck', slideCount: item.slideCount || 10, content: item.content || '', createdAt: new Date().toISOString() };
+    const u = [...decks, newDeck]; setDecks(u); save(u); setShowCreate(false);
   };
 
-  const handleRefresh = useCallback(() => {
-    setDecks(loadDecks());
-  }, []);
-
-  const cardBorder = `1px solid ${colors.border}`;
+  const border = `1px solid ${colors.border}`;
 
   return (
-    <div style={{ padding: '24px', overflowY: 'auto', height: '100%', boxSizing: 'border-box' }}>
-      {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '20px',
-        }}
-      >
-        <div>
-          <h2
-            style={{
-              fontFamily: "'Rajdhani', sans-serif",
-              fontWeight: 700,
-              fontSize: '18px',
-              color: colors.text,
-              letterSpacing: '1px',
-              textTransform: 'uppercase',
-              margin: 0,
-            }}
-          >
-            Slide Decks
-          </h2>
-          <p style={{ fontSize: '12px', color: colors.textMuted, margin: '2px 0 0' }}>
-            {decks.length} deck{decks.length !== 1 ? 's' : ''} · Saved locally
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={handleRefresh}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 12px',
-              backgroundColor: 'transparent',
-              border: cardBorder,
-              borderRadius: '8px',
-              color: colors.textMuted,
-              cursor: 'pointer',
-              fontSize: '12px',
-            }}
-          >
-            <RefreshCw size={13} /> Refresh
-          </button>
-          <button
-            onClick={() => setShowCreationChat(true)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 16px',
-              backgroundColor: colors.primaryYellow,
-              border: 'none',
-              borderRadius: '8px',
-              color: colors.darkGray,
-              cursor: 'pointer',
-              fontFamily: "'Rajdhani', sans-serif",
-              fontWeight: 700,
-              fontSize: '13px',
-              letterSpacing: '0.5px',
-            }}
-          >
-            <Plus size={15} /> NEW DECK
-          </button>
-        </div>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: colors.background }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: border, flexShrink: 0 }}>
+        <h2 style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '16px', color: colors.text, letterSpacing: '0.5px', textTransform: 'uppercase', margin: 0 }}>Slide Decks ({decks.length})</h2>
+        <button onClick={() => setShowCreate(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', backgroundColor: colors.primaryYellow, color: colors.darkGray, border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '13px', letterSpacing: '0.5px' }}><Plus size={16} /> NEW DECK</button>
       </div>
-
-      {/* Deck Grid */}
-      {decks.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-          <Presentation
-            size={40}
-            color={colors.border}
-            style={{ margin: '0 auto 12px' }}
-          />
-          <p style={{ color: colors.textMuted, fontSize: '14px', margin: 0 }}>
-            No slide decks yet
-          </p>
-          <p
-            style={{ color: colors.textMuted, fontSize: '12px', margin: '4px 0 16px' }}
-          >
-            Create your first AI-generated presentation
-          </p>
-          <button
-            onClick={() => setShowCreationChat(true)}
-            style={{
-              padding: '8px 20px',
-              backgroundColor: colors.primaryYellow,
-              border: 'none',
-              borderRadius: '8px',
-              color: colors.darkGray,
-              cursor: 'pointer',
-              fontFamily: "'Rajdhani', sans-serif",
-              fontWeight: 700,
-              fontSize: '13px',
-            }}
-          >
-            CREATE FIRST DECK
-          </button>
-        </div>
-      ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-            gap: '16px',
-          }}
-        >
-          {decks.map((deck) => (
-            <div
-              key={deck.id}
-              style={{
-                backgroundColor: colors.cardBg,
-                border: cardBorder,
-                borderRadius: '12px',
-                padding: '16px',
-                position: 'relative',
-                transition: 'border-color 0.2s',
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.borderColor = colors.primaryYellow + '60')
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.borderColor = colors.border)
-              }
-            >
-              {/* Status badge */}
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '10px',
-                  right: '10px',
-                  fontSize: '10px',
-                  color: deck.status === 'complete' ? '#22c55e' : colors.primaryYellow,
-                  backgroundColor:
-                    deck.status === 'complete' ? '#22c55e15' : `${colors.primaryYellow}15`,
-                  padding: '3px 8px',
-                  borderRadius: '12px',
-                  fontFamily: "'Rajdhani', sans-serif",
-                  fontWeight: 600,
-                  letterSpacing: '0.5px',
-                }}
-              >
-                {deck.status === 'complete' ? '✓ Ready' : '✎ Draft'}
-              </div>
-
-              <Presentation
-                size={28}
-                color={colors.primaryYellow}
-                style={{ marginBottom: '10px' }}
-              />
-              <h3
-                style={{
-                  fontFamily: "'Rajdhani', sans-serif",
-                  fontWeight: 700,
-                  fontSize: '14px',
-                  color: colors.text,
-                  margin: '0 0 4px',
-                  letterSpacing: '0.5px',
-                  lineHeight: 1.3,
-                  paddingRight: '60px',
-                }}
-              >
-                {deck.title}
-              </h3>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  fontSize: '11px',
-                  color: colors.textMuted,
-                  marginBottom: '8px',
-                }}
-              >
-                <Clock size={11} />
-                {new Date(deck.updatedAt).toLocaleDateString()}
-                {` · ${deck.slideCount} slides`}
-              </div>
-              {deck.topic && (
-                <p
-                  style={{
-                    fontSize: '11px',
-                    color: colors.textSecondary,
-                    margin: '0 0 14px',
-                    lineHeight: 1.5,
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {deck.topic}
-                </p>
-              )}
-
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={() => generateMockPptx(deck)}
-                  style={{
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '5px',
-                    padding: '7px',
-                    backgroundColor: colors.primaryYellow,
-                    border: 'none',
-                    borderRadius: '7px',
-                    color: colors.darkGray,
-                    cursor: 'pointer',
-                    fontFamily: "'Rajdhani', sans-serif",
-                    fontWeight: 700,
-                    fontSize: '11px',
-                    letterSpacing: '0.3px',
-                  }}
-                >
-                  <Download size={12} /> DOWNLOAD
-                </button>
-                <button
-                  onClick={() => handleDelete(deck.id)}
-                  style={{
-                    padding: '7px',
-                    backgroundColor: 'transparent',
-                    border: cardBorder,
-                    borderRadius: '7px',
-                    color: colors.textMuted,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#ef4444';
-                    e.currentTarget.style.color = '#ef4444';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = colors.border;
-                    e.currentTarget.style.color = colors.textMuted;
-                  }}
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {showCreationChat && (
-        <CreationChatModal
-          colors={colors}
-          isDark={isDark}
-          contentType="slides"
-          onClose={() => setShowCreationChat(false)}
-          onCreated={handleCreated}
-        />
-      )}
-
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+        {decks.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px' }}>
+            <Presentation size={48} color={colors.textSecondary} style={{ opacity: 0.3 }} />
+            <p style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, fontSize: '16px', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>No slide decks yet</p>
+            <p style={{ fontSize: '13px', color: colors.textSecondary }}>Click "New Deck" to create one using AI</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {decks.map(deck => {
+              const isExpanded = expandedId === deck.id;
+              return (
+                <div key={deck.id} style={{ border, borderRadius: '12px', backgroundColor: colors.cardBg, overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', gap: '12px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: isDark ? '#333' : '#e5e5e5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Presentation size={18} color={colors.primaryYellow} /></div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {editingId === deck.id ? (
+                        <input value={editTitle} onChange={e => setEditTitle(e.target.value)} onBlur={() => handleRename(deck.id)} onKeyDown={e => e.key === 'Enter' && handleRename(deck.id)} autoFocus style={{ background: 'transparent', border: `1px solid ${colors.primaryYellow}`, borderRadius: '6px', padding: '4px 8px', color: colors.text, fontSize: '14px', fontWeight: 600, width: '100%', outline: 'none' }} />
+                      ) : (
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deck.title}</div>
+                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px', fontSize: '11px', color: colors.textMuted }}>
+                        <span>{deck.slideCount} slides</span><span style={{ opacity: 0.4 }}>·</span>
+                        <Clock size={10} /><span>{new Date(deck.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {[
+                        { icon: isExpanded ? ChevronUp : ChevronDown, action: () => setExpandedId(isExpanded ? null : deck.id) },
+                        { icon: Download, action: () => handleDownload(deck) },
+                        { icon: Pencil, action: () => { setEditingId(deck.id); setEditTitle(deck.title); } },
+                        { icon: Copy, action: () => handleDuplicate(deck) },
+                        { icon: Trash2, action: () => handleDelete(deck.id) },
+                      ].map(({ icon: Icon, action }, i) => (
+                        <button key={i} onClick={action} style={{ padding: '6px', backgroundColor: 'transparent', border: 'none', borderRadius: '6px', color: colors.textMuted, cursor: 'pointer' }}><Icon size={14} /></button>
+                      ))}
+                    </div>
+                  </div>
+                  {isExpanded && deck.content && (
+                    <div style={{ padding: '0 16px 14px', borderTop: border }}>
+                      <pre style={{ fontSize: '12px', color: colors.textMuted, lineHeight: 1.6, whiteSpace: 'pre-wrap', margin: '12px 0 0', fontFamily: "'Quicksand', sans-serif" }}>{deck.content}</pre>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      {showCreate && <CreationChatModal colors={colors} isDark={isDark} contentType="slides" onClose={() => setShowCreate(false)} onCreated={handleCreated} />}
     </div>
   );
 }

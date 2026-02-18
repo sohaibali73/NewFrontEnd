@@ -20,106 +20,15 @@ interface ChatMessage {
 const CONV_ID_KEY = 'content_chat_conversation_id';
 const HISTORY_KEY = 'content_chat_history';
 
-// ── Fallback responses when backend is unreachable ────────────────────────
-const FALLBACK_RESPONSES: Record<string, string> = {
-  default: `I can help you create professional financial content. Here are some things I can assist with:
+// ── Fallback response when backend is unreachable ─────────────────────────
+const OFFLINE_RESPONSE = `I'm currently unable to connect to the Potomac backend. Please check your connection and try again.
 
-• **Slide Decks** — Brand-compliant presentations with market analysis, earnings reviews, and investment theses
-• **Articles** — Deep-dive research pieces, macro commentary, sector outlooks
-• **Documents** — Quarterly reports, due diligence briefs, client memos
-• **Dashboards** — Portfolio trackers, market monitors, risk panels
+In the meantime, you can use the content tabs (Slide Decks, Articles, Documents, Dashboards) to create content — those work offline as well.
 
-What would you like to create today?`,
+Once the backend is available, this chat will automatically reconnect and provide full AI-powered responses.`;
 
-  market: `## Market Analysis Overview — Q1 2026
-
-The equity markets have shown resilience despite elevated interest rate expectations. Key themes:
-
-1. **Large-Cap Tech** continues to outperform, driven by AI infrastructure spend
-2. **Energy Sector** faces headwinds from supply normalization
-3. **Financials** benefit from sustained higher-for-longer rate environment
-4. **Fixed Income** — Duration risk remains elevated; short-end preferred
-
-**Key Macro Indicators:**
-- Fed Funds Rate: 4.50–4.75% (stable)
-- 10Y Treasury: 4.62%
-- S&P 500 YTD: +8.3%
-- USD Index (DXY): 104.2
-
-Would you like me to create a full slide deck or detailed report on any of these themes?`,
-
-  thesis: `## Investment Thesis: AI Infrastructure
-
-The secular shift toward AI-driven computing represents a multi-decade infrastructure buildout. We identify three primary beneficiaries:
-
-### Tier 1 — Direct Beneficiaries
-- **Semiconductor Design** (NVDA, AMD) — GPU demand remains supply-constrained
-- **Data Center REITs** (EQIX, DLR) — Hyperscaler lease demand at record levels
-- **Power Infrastructure** (NEE, VST) — AI data centers consume 10–100x more power
-
-### Tier 2 — Enabling Layer
-- **Networking** (ANET) — 400G/800G ethernet upgrades required
-- **Memory** (MU) — HBM demand structurally elevated
-
-### Risk Factors
-- Valuation compression if AI capex disappoints
-- Regulatory overhang on chip exports
-- Power grid constraints delaying deployment
-
-**Recommendation:** Overweight with 18–24 month horizon.`,
-
-  portfolio: `## Portfolio Performance Summary — Q4 2025
-
-| Metric | Portfolio | Benchmark |
-|--------|-----------|-----------|
-| Total Return | +12.4% | +9.1% |
-| Sharpe Ratio | 1.42 | 1.18 |
-| Max Drawdown | -4.2% | -6.8% |
-| Beta | 0.87 | 1.00 |
-
-**Top Contributors:**
-1. Technology allocation (+340 bps)
-2. Underweight Utilities (+80 bps)
-3. Long USD positioning (+120 bps)
-
-**Top Detractors:**
-1. Healthcare underweight (-60 bps)
-2. International exposure (-40 bps)
-
-**Outlook:** Maintaining defensive tilt with selective rotation into quality cyclicals as rate cycle stabilizes.`,
-
-  report: `## Quarterly Client Report — Template
-
-**Q1 2026 Portfolio Review**
-
----
-
-### Executive Summary
-Your portfolio returned **+X.X%** during Q1 2026, outperforming the benchmark by **+X.X%**.
-
-### Portfolio Allocation
-- Equities: 65% (target: 60–70%)
-- Fixed Income: 25% (target: 20–30%)
-- Alternatives: 7%
-- Cash: 3%
-
-### Market Commentary
-Global equity markets navigated a complex macro backdrop characterized by persistent inflation, central bank divergence, and geopolitical uncertainty.
-
-### Forward Outlook
-We remain constructive on risk assets with a quality bias, expecting continued volatility to provide tactical entry points.
-
----
-*Potomac Asset Management. Past performance is not indicative of future results.*`,
-};
-
-function getFallbackResponse(input: string): string {
-  const lower = input.toLowerCase();
-  if (lower.includes('market') || lower.includes('analysis') || lower.includes('macro')) return FALLBACK_RESPONSES.market;
-  if (lower.includes('thesis') || lower.includes('ai') || lower.includes('tech') || lower.includes('infrastructure')) return FALLBACK_RESPONSES.thesis;
-  if (lower.includes('portfolio') || lower.includes('performance') || lower.includes('return')) return FALLBACK_RESPONSES.portfolio;
-  if (lower.includes('report') || lower.includes('quarterly') || lower.includes('client')) return FALLBACK_RESPONSES.report;
-  return FALLBACK_RESPONSES.default;
+function getFallbackResponse(_input: string): string {
+  return OFFLINE_RESPONSE;
 }
 
 // ── Streaming text helper ─────────────────────────────────────────────────

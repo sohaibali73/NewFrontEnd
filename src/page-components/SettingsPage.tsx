@@ -24,6 +24,7 @@ import { useRouter } from 'next/navigation';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useFontSize } from '@/contexts/FontSizeContext';
 import { useResponsive } from '@/hooks/useResponsive';
+import { apiClient } from '@/lib/api';
 
 interface SettingsData {
   profile: {
@@ -92,6 +93,7 @@ export function SettingsPage() {
   });
 
   useEffect(() => {
+    // Load from localStorage first (instant)
     const savedSettings = localStorage.getItem('user_settings');
     if (savedSettings) {
       try {
@@ -113,6 +115,30 @@ export function SettingsPage() {
         console.error('Failed to parse user info:', e);
       }
     }
+    // Then sync from backend (authoritative)
+    (async () => {
+      try {
+        const user = await apiClient.getCurrentUser();
+        if (user) {
+          const u = user as any;
+          setSettings(prev => ({
+            ...prev,
+            profile: {
+              ...prev.profile,
+              name: u.name || prev.profile.name,
+              email: u.email || prev.profile.email,
+              nickname: u.nickname || prev.profile.nickname,
+            },
+            apiKeys: {
+              claudeApiKey: u.claude_api_key || u.claudeApiKey || prev.apiKeys.claudeApiKey,
+              tavilyApiKey: u.tavily_api_key || u.tavilyApiKey || prev.apiKeys.tavilyApiKey,
+            },
+          }));
+        }
+      } catch {
+        // Backend unreachable — use localStorage values
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -133,9 +159,37 @@ export function SettingsPage() {
     accent: '#FEC00F',
   };
 
-  const handleSave = () => {
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    // 1. Always save to localStorage (instant)
     localStorage.setItem('user_settings', JSON.stringify(settings));
     setTheme(settings.appearance.theme as 'light' | 'dark' | 'system');
+
+    // 2. Push profile + API keys to backend via PUT /auth/me
+    try {
+      await apiClient.updateProfile({
+        name: settings.profile.name,
+        nickname: settings.profile.nickname,
+        claude_api_key: settings.apiKeys.claudeApiKey,
+        tavily_api_key: settings.apiKeys.tavilyApiKey,
+      });
+      // Update local user_info cache
+      try {
+        const existing = JSON.parse(localStorage.getItem('user_info') || '{}');
+        localStorage.setItem('user_info', JSON.stringify({
+          ...existing,
+          name: settings.profile.name,
+          nickname: settings.profile.nickname,
+        }));
+      } catch {}
+    } catch (err) {
+      console.error('Failed to save settings to backend:', err);
+      // Still show saved — localStorage was updated
+    }
+
+    setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };

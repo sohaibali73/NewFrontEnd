@@ -154,6 +154,10 @@ class APIClient {
     return this.request<User>('/auth/me');
   }
 
+  async updateProfile(data: { name?: string; nickname?: string; claude_api_key?: string; tavily_api_key?: string }) {
+    return this.request<User>('/auth/me', 'PUT', data);
+  }
+
   logout() {
     this.token = null;
     try {

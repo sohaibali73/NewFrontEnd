@@ -178,6 +178,16 @@ except Exception as e:
     logger.error(f"✗ Failed to load content router: {e}")
     logger.debug(traceback.format_exc())
 
+try:
+    from api.routes import presentations
+    app.include_router(presentations.router)
+    routers_loaded.append("presentations")
+    logger.info("✓ Loaded presentations router (Potomac PPTX generation)")
+except Exception as e:
+    routers_failed.append(("presentations", str(e)))
+    logger.error(f"✗ Failed to load presentations router: {e}")
+    logger.debug(traceback.format_exc())
+
 # Log summary
 logger.info(f"Router loading complete: {len(routers_loaded)} loaded, {len(routers_failed)} failed")
 if routers_failed:

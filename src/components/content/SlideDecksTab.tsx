@@ -27,7 +27,7 @@ interface SlideDeck {
 }
 
 const API = () => (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
-const authHeader = () => {
+const authHeader = (): Record<string, string> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
   return token ? { Authorization: `Bearer ${token}` } : {};
 };

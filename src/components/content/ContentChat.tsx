@@ -82,61 +82,17 @@ export function ContentChat({ colors, isDark }: ContentChatProps) {
     setMessages(history);
   }, []);
 
-  // ── Probe backend & restore conversation ─────────────────────────────
+  // ── Probe backend ────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
-
-    async function init() {
+    (async () => {
       try {
-        // 1. Check connectivity
         await apiClient.checkHealth();
-        if (cancelled) return;
-        setBackendOk(true);
-
-        // 2. Restore or create a dedicated "content" conversation
-        const savedConvId = localStorage.getItem(CONV_ID_KEY);
-        if (savedConvId) {
-          try {
-            // Verify it still exists & load messages
-            const backendMsgs = await apiClient.getMessages(savedConvId);
-            if (cancelled) return;
-            setConversationId(savedConvId);
-            if (backendMsgs && backendMsgs.length > 0) {
-              const mapped: ChatMessage[] = backendMsgs.map((m: any) => ({
-                id: m.id || `msg-${Date.now()}-${Math.random()}`,
-                role: m.role as 'user' | 'assistant',
-                content: m.content,
-                timestamp: m.timestamp || m.created_at || new Date().toISOString(),
-              }));
-              setMessages(mapped);
-              saveLocalHistory(mapped);
-            }
-            return;
-          } catch {
-            // Conversation gone — create a new one
-            localStorage.removeItem(CONV_ID_KEY);
-          }
-        }
-
-        // 3. Create a new conversation for the Content Studio
-        const conv = await apiClient.createConversation('Content Studio', 'agent');
-        if (cancelled) return;
-        const newId = (conv as any).id || (conv as any).conversation_id;
-        if (newId) {
-          setConversationId(newId);
-          localStorage.setItem(CONV_ID_KEY, newId);
-        }
+        if (!cancelled) setBackendOk(true);
       } catch {
-        if (!cancelled) {
-          setBackendOk(false);
-          // Fall back to localStorage history
-          const history = loadLocalHistory();
-          setMessages(history);
-        }
+        if (!cancelled) setBackendOk(false);
       }
-    }
-
-    init();
+    })();
     return () => { cancelled = true; };
   }, []);
 
@@ -183,52 +139,49 @@ export function ContentChat({ colors, isDark }: ContentChatProps) {
     };
     setMessages((prev) => [...prev, placeholderMsg]);
 
-    if (backendOk && conversationId) {
-      // ── Real backend streaming ──────────────────────────────────────
-      const abort = new AbortController();
-      abortRef.current = abort;
-
-      let fullText = '';
+    if (backendOk) {
+      // ── Real backend /content/chat endpoint ─────────────────────────
       try {
-        await apiClient.sendMessageStream(prompt, conversationId, {
-          signal: abort.signal,
-          onText: (chunk) => {
-            fullText += chunk;
-            const snap = fullText;
-            setMessages((prev) =>
-              prev.map((m) => (m.id === assistantMsgId ? { ...m, content: snap } : m))
-            );
-          },
-          onError: (err) => {
-            console.error('Stream error:', err);
-            // Fall through to fallback below
-          },
-          onFinish: () => {
-            setIsLoading(false);
-            setMessages((prev) => {
-              saveLocalHistory(prev);
-              return prev;
-            });
-          },
-        });
-
-        // If backend returned empty text, use fallback
-        if (!fullText.trim()) {
+        const result = await apiClient.sendContentChat(prompt, 'content-studio');
+        const responseText = result.response || '';
+        if (responseText) {
+          await streamIntoMessage(responseText, assistantMsgId, setMessages);
+        } else {
           const fallback = getFallbackResponse(prompt);
           await streamIntoMessage(fallback, assistantMsgId, setMessages);
+        }
+        setIsLoading(false);
+        setMessages((prev) => { saveLocalHistory(prev); return prev; });
+      } catch (err: any) {
+        // If /content/chat fails, try /chat/stream as fallback
+        try {
+          if (!conversationId) {
+            const conv = await apiClient.createConversation('Content Studio', 'agent');
+            const newId = (conv as any).id || (conv as any).conversation_id;
+            if (newId) { setConversationId(newId); localStorage.setItem(CONV_ID_KEY, newId); }
+          }
+          let fullText = '';
+          const cid = conversationId || localStorage.getItem(CONV_ID_KEY) || undefined;
+          await apiClient.sendMessageStream(prompt, cid, {
+            onText: (chunk) => {
+              fullText += chunk;
+              setMessages((prev) => prev.map((m) => (m.id === assistantMsgId ? { ...m, content: fullText } : m)));
+            },
+            onFinish: () => {
+              setIsLoading(false);
+              setMessages((prev) => { saveLocalHistory(prev); return prev; });
+            },
+          });
+          if (!fullText.trim()) {
+            await streamIntoMessage(getFallbackResponse(prompt), assistantMsgId, setMessages);
+            setIsLoading(false);
+            setMessages((prev) => { saveLocalHistory(prev); return prev; });
+          }
+        } catch {
+          await streamIntoMessage(getFallbackResponse(prompt), assistantMsgId, setMessages);
           setIsLoading(false);
           setMessages((prev) => { saveLocalHistory(prev); return prev; });
         }
-      } catch (err: any) {
-        if (err?.name === 'AbortError') {
-          setIsLoading(false);
-          return;
-        }
-        // Network error → fall back to mock
-        const fallback = getFallbackResponse(prompt);
-        await streamIntoMessage(fallback, assistantMsgId, setMessages);
-        setIsLoading(false);
-        setMessages((prev) => { saveLocalHistory(prev); return prev; });
       }
     } else {
       // ── Offline / no backend — use fallback responses ───────────────

@@ -1,63 +1,84 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Plus, Presentation, Clock, Download, Pencil, Trash2, Copy, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Presentation, Clock, Download, Pencil, Trash2, Copy, ChevronDown, ChevronUp, Loader2, RefreshCw } from 'lucide-react';
+import { apiClient } from '@/lib/api';
 import { CreationChatModal } from './CreationChatModal';
 
 interface SlideDecksTabProps { colors: Record<string, string>; isDark: boolean; }
 
-interface SlideDeck {
-  id: string;
-  title: string;
-  slideCount: number;
-  content: string;
-  createdAt: string;
-}
-
-const STORAGE_KEY = 'content_slide_decks';
-
-function load(): SlideDeck[] { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } }
-function save(items: SlideDeck[]) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {} }
+interface SlideDeck { id: string; title: string; content: string; status?: string; tags?: string[]; metadata?: any; created_at?: string; updated_at?: string; }
 
 export function SlideDecksTab({ colors, isDark }: SlideDecksTabProps) {
   const [decks, setDecks] = useState<SlideDeck[]>([]);
+  const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [showCreate, setShowCreate] = useState(false);
 
-  useEffect(() => { setDecks(load()); }, []);
+  const fetchDecks = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await apiClient.getSlides();
+      setDecks(data || []);
+    } catch (err) {
+      console.error('Failed to load slides:', err);
+      setDecks([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const handleDelete = (id: string) => { const u = decks.filter(d => d.id !== id); setDecks(u); save(u); };
-  const handleDuplicate = (deck: SlideDeck) => {
-    const copy = { ...deck, id: `deck-${Date.now()}`, title: `${deck.title} (Copy)`, createdAt: new Date().toISOString() };
-    const u = [...decks, copy]; setDecks(u); save(u);
+  useEffect(() => { fetchDecks(); }, [fetchDecks]);
+
+  const handleDelete = async (id: string) => {
+    try { await apiClient.deleteSlide(id); setDecks(prev => prev.filter(d => d.id !== id)); } catch (e) { console.error(e); }
   };
-  const handleRename = (id: string) => {
-    const u = decks.map(d => d.id === id ? { ...d, title: editTitle } : d); setDecks(u); save(u); setEditingId(null);
+  const handleDuplicate = async (deck: SlideDeck) => {
+    try {
+      const copy = await apiClient.createSlide({ title: `${deck.title} (Copy)`, content: deck.content, tags: deck.tags, metadata: deck.metadata });
+      setDecks(prev => [...prev, copy]);
+    } catch (e) { console.error(e); }
+  };
+  const handleRename = async (id: string) => {
+    try {
+      await apiClient.updateSlide(id, { title: editTitle });
+      setDecks(prev => prev.map(d => d.id === id ? { ...d, title: editTitle } : d));
+      setEditingId(null);
+    } catch (e) { console.error(e); }
   };
   const handleDownload = (deck: SlideDeck) => {
-    const blob = new Blob([`POTOMAC ASSET MANAGEMENT\n${'='.repeat(50)}\nTitle: ${deck.title}\nSlides: ${deck.slideCount}\nCreated: ${new Date(deck.createdAt).toLocaleString()}\n\n${deck.content}`], { type: 'text/plain' });
+    const blob = new Blob([`POTOMAC ASSET MANAGEMENT\n${'='.repeat(50)}\n${deck.title}\n\n${deck.content}`], { type: 'text/plain' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${deck.title.replace(/[^a-zA-Z0-9 ]/g, '')}.txt`; a.click();
   };
-  const handleCreated = (item: any) => {
-    const newDeck: SlideDeck = { id: `deck-${Date.now()}`, title: item.title || 'Untitled Deck', slideCount: item.slideCount || 10, content: item.content || '', createdAt: new Date().toISOString() };
-    const u = [...decks, newDeck]; setDecks(u); save(u); setShowCreate(false);
+  const handleCreated = async (item: any) => {
+    try {
+      const created = await apiClient.createSlide({ title: item.title || 'Untitled Deck', content: item.content || '', tags: ['ai-generated'], metadata: { slideCount: item.slideCount } });
+      setDecks(prev => [...prev, created]);
+    } catch (e) { console.error(e); }
+    setShowCreate(false);
   };
 
   const border = `1px solid ${colors.border}`;
+  const slideCount = (d: SlideDeck) => d.metadata?.slideCount || (d.content?.match(/^##/gm) || []).length || 0;
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: colors.background }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: border, flexShrink: 0 }}>
-        <h2 style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '16px', color: colors.text, letterSpacing: '0.5px', textTransform: 'uppercase', margin: 0 }}>Slide Decks ({decks.length})</h2>
-        <button onClick={() => setShowCreate(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', backgroundColor: colors.primaryYellow, color: colors.darkGray, border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '13px', letterSpacing: '0.5px' }}><Plus size={16} /> NEW DECK</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h2 style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '16px', color: colors.text, letterSpacing: '0.5px', textTransform: 'uppercase', margin: 0 }}>Slide Decks ({decks.length})</h2>
+          <button onClick={fetchDecks} style={{ background: 'none', border: 'none', color: colors.textMuted, cursor: 'pointer', padding: '4px' }}><RefreshCw size={14} /></button>
+        </div>
+        <button onClick={() => setShowCreate(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', backgroundColor: colors.primaryYellow, color: colors.darkGray, border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '13px' }}><Plus size={16} /> NEW DECK</button>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
-        {decks.length === 0 ? (
+        {loading ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Loader2 size={24} color={colors.primaryYellow} style={{ animation: 'spin 1s linear infinite' }} /></div>
+        ) : decks.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px' }}>
             <Presentation size={48} color={colors.textSecondary} style={{ opacity: 0.3 }} />
-            <p style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, fontSize: '16px', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>No slide decks yet</p>
+            <p style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, fontSize: '16px', color: colors.textMuted, textTransform: 'uppercase' }}>No slide decks yet</p>
             <p style={{ fontSize: '13px', color: colors.textSecondary }}>Click "New Deck" to create one using AI</p>
           </div>
         ) : (
@@ -75,8 +96,8 @@ export function SlideDecksTab({ colors, isDark }: SlideDecksTabProps) {
                         <div style={{ fontSize: '14px', fontWeight: 600, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deck.title}</div>
                       )}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px', fontSize: '11px', color: colors.textMuted }}>
-                        <span>{deck.slideCount} slides</span><span style={{ opacity: 0.4 }}>·</span>
-                        <Clock size={10} /><span>{new Date(deck.createdAt).toLocaleDateString()}</span>
+                        <span>{slideCount(deck)} slides</span><span style={{ opacity: 0.4 }}>·</span>
+                        <Clock size={10} /><span>{deck.created_at ? new Date(deck.created_at).toLocaleDateString() : 'N/A'}</span>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '4px' }}>
@@ -103,6 +124,7 @@ export function SlideDecksTab({ colors, isDark }: SlideDecksTabProps) {
         )}
       </div>
       {showCreate && <CreationChatModal colors={colors} isDark={isDark} contentType="slides" onClose={() => setShowCreate(false)} onCreated={handleCreated} />}
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

@@ -1,56 +1,50 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Plus, BookOpen, Clock, Download, Pencil, Trash2, Copy, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, BookOpen, Clock, Download, Pencil, Trash2, Copy, ChevronDown, ChevronUp, Loader2, RefreshCw } from 'lucide-react';
+import { apiClient } from '@/lib/api';
 import { CreationChatModal } from './CreationChatModal';
 
 interface ArticlesTabProps { colors: Record<string, string>; isDark: boolean; }
-
-interface Article { id: string; title: string; content: string; tags: string[]; createdAt: string; }
-
-const STORAGE_KEY = 'content_articles';
-function load(): Article[] { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } }
-function save(items: Article[]) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {} }
+interface Article { id: string; title: string; content: string; tags?: string[]; status?: string; created_at?: string; }
 
 export function ArticlesTab({ colors, isDark }: ArticlesTabProps) {
   const [articles, setArticles] = useState<Article[]>([]);
+  const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [showCreate, setShowCreate] = useState(false);
 
-  useEffect(() => { setArticles(load()); }, []);
+  const fetchArticles = useCallback(async () => {
+    setLoading(true);
+    try { const data = await apiClient.getArticles(); setArticles(data || []); } catch { setArticles([]); } finally { setLoading(false); }
+  }, []);
+  useEffect(() => { fetchArticles(); }, [fetchArticles]);
 
-  const handleDelete = (id: string) => { const u = articles.filter(a => a.id !== id); setArticles(u); save(u); };
-  const handleDuplicate = (a: Article) => {
-    const copy = { ...a, id: `art-${Date.now()}`, title: `${a.title} (Copy)`, createdAt: new Date().toISOString() };
-    const u = [...articles, copy]; setArticles(u); save(u);
-  };
-  const handleRename = (id: string) => {
-    const u = articles.map(a => a.id === id ? { ...a, title: editTitle } : a); setArticles(u); save(u); setEditingId(null);
-  };
-  const handleDownload = (a: Article) => {
-    const blob = new Blob([`${a.title}\n${'='.repeat(50)}\nTags: ${a.tags.join(', ')}\nCreated: ${new Date(a.createdAt).toLocaleString()}\n\n${a.content}`], { type: 'text/plain' });
-    const el = document.createElement('a'); el.href = URL.createObjectURL(blob); el.download = `${a.title.replace(/[^a-zA-Z0-9 ]/g, '')}.txt`; el.click();
-  };
-  const handleCreated = (item: any) => {
-    const newArt: Article = { id: `art-${Date.now()}`, title: item.title || 'Untitled Article', content: item.content || '', tags: item.tags || [], createdAt: new Date().toISOString() };
-    const u = [...articles, newArt]; setArticles(u); save(u); setShowCreate(false);
-  };
+  const handleDelete = async (id: string) => { try { await apiClient.deleteArticle(id); setArticles(p => p.filter(a => a.id !== id)); } catch (e) { console.error(e); } };
+  const handleDuplicate = async (a: Article) => { try { const c = await apiClient.createArticle({ title: `${a.title} (Copy)`, content: a.content, tags: a.tags }); setArticles(p => [...p, c]); } catch (e) { console.error(e); } };
+  const handleRename = async (id: string) => { try { await apiClient.updateArticle(id, { title: editTitle }); setArticles(p => p.map(a => a.id === id ? { ...a, title: editTitle } : a)); setEditingId(null); } catch (e) { console.error(e); } };
+  const handleDownload = (a: Article) => { const blob = new Blob([`${a.title}\n${'='.repeat(50)}\nTags: ${(a.tags || []).join(', ')}\n\n${a.content}`], { type: 'text/plain' }); const el = document.createElement('a'); el.href = URL.createObjectURL(blob); el.download = `${a.title.replace(/[^a-zA-Z0-9 ]/g, '')}.txt`; el.click(); };
+  const handleCreated = async (item: any) => { try { const c = await apiClient.createArticle({ title: item.title || 'Untitled Article', content: item.content || '', tags: item.tags || ['ai-generated'] }); setArticles(p => [...p, c]); } catch (e) { console.error(e); } setShowCreate(false); };
 
   const border = `1px solid ${colors.border}`;
-
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: colors.background }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: border, flexShrink: 0 }}>
-        <h2 style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '16px', color: colors.text, letterSpacing: '0.5px', textTransform: 'uppercase', margin: 0 }}>Articles ({articles.length})</h2>
-        <button onClick={() => setShowCreate(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', backgroundColor: colors.primaryYellow, color: colors.darkGray, border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '13px', letterSpacing: '0.5px' }}><Plus size={16} /> NEW ARTICLE</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h2 style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '16px', color: colors.text, letterSpacing: '0.5px', textTransform: 'uppercase', margin: 0 }}>Articles ({articles.length})</h2>
+          <button onClick={fetchArticles} style={{ background: 'none', border: 'none', color: colors.textMuted, cursor: 'pointer', padding: '4px' }}><RefreshCw size={14} /></button>
+        </div>
+        <button onClick={() => setShowCreate(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', backgroundColor: colors.primaryYellow, color: colors.darkGray, border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '13px' }}><Plus size={16} /> NEW ARTICLE</button>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
-        {articles.length === 0 ? (
+        {loading ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Loader2 size={24} color={colors.primaryYellow} style={{ animation: 'spin 1s linear infinite' }} /></div>
+        ) : articles.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px' }}>
             <BookOpen size={48} color={colors.textSecondary} style={{ opacity: 0.3 }} />
-            <p style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, fontSize: '16px', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>No articles yet</p>
+            <p style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, fontSize: '16px', color: colors.textMuted, textTransform: 'uppercase' }}>No articles yet</p>
             <p style={{ fontSize: '13px', color: colors.textSecondary }}>Click "New Article" to create one using AI</p>
           </div>
         ) : (
@@ -67,9 +61,9 @@ export function ArticlesTab({ colors, isDark }: ArticlesTabProps) {
                       ) : (
                         <div style={{ fontSize: '14px', fontWeight: 600, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{article.title}</div>
                       )}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px', fontSize: '11px', color: colors.textMuted }}>
-                        {article.tags.map(t => <span key={t} style={{ padding: '1px 6px', backgroundColor: isDark ? '#333' : '#e5e5e5', borderRadius: '4px', fontSize: '10px' }}>{t}</span>)}
-                        <span style={{ opacity: 0.4 }}>·</span><Clock size={10} /><span>{new Date(article.createdAt).toLocaleDateString()}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px', fontSize: '11px', color: colors.textMuted, flexWrap: 'wrap' }}>
+                        {(article.tags || []).map(t => <span key={t} style={{ padding: '1px 6px', backgroundColor: isDark ? '#333' : '#e5e5e5', borderRadius: '4px', fontSize: '10px' }}>{t}</span>)}
+                        <span style={{ opacity: 0.4 }}>·</span><Clock size={10} /><span>{article.created_at ? new Date(article.created_at).toLocaleDateString() : 'N/A'}</span>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '4px' }}>
@@ -96,6 +90,7 @@ export function ArticlesTab({ colors, isDark }: ArticlesTabProps) {
         )}
       </div>
       {showCreate && <CreationChatModal colors={colors} isDark={isDark} contentType="articles" onClose={() => setShowCreate(false)} onCreated={handleCreated} />}
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

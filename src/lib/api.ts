@@ -1068,6 +1068,140 @@ class APIClient {
     return this.request<TrainingStats>('/train/stats');
   }
 
+  // ==================== CONTENT ENDPOINTS ====================
+
+  // Articles
+  async getArticles(status?: string, limit?: number) {
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+    if (limit) params.append('limit', limit.toString());
+    const qs = params.toString();
+    return this.request<any[]>(`/content/articles${qs ? '?' + qs : ''}`);
+  }
+  async createArticle(data: { title: string; content: string; status?: string; tags?: string[]; metadata?: any }) {
+    return this.request<any>('/content/articles', 'POST', data);
+  }
+  async updateArticle(id: string, data: { title?: string; content?: string; status?: string; tags?: string[]; metadata?: any }) {
+    return this.request<any>(`/content/articles/${id}`, 'PUT', data);
+  }
+  async deleteArticle(id: string) {
+    return this.request<{ success: boolean }>(`/content/articles/${id}`, 'DELETE');
+  }
+
+  // Documents
+  async getDocumentsContent(limit?: number) {
+    const qs = limit ? `?limit=${limit}` : '';
+    return this.request<any[]>(`/content/documents${qs}`);
+  }
+  async createDocument(data: { title: string; content: string; status?: string; tags?: string[]; metadata?: any }) {
+    return this.request<any>('/content/documents', 'POST', data);
+  }
+  async updateDocument(id: string, data: { title?: string; content?: string; status?: string; tags?: string[]; metadata?: any }) {
+    return this.request<any>(`/content/documents/${id}`, 'PUT', data);
+  }
+  async deleteContentDocument(id: string) {
+    return this.request<{ success: boolean }>(`/content/documents/${id}`, 'DELETE');
+  }
+
+  // Slides
+  async getSlides(limit?: number) {
+    const qs = limit ? `?limit=${limit}` : '';
+    return this.request<any[]>(`/content/slides${qs}`);
+  }
+  async createSlide(data: { title: string; content: string; status?: string; tags?: string[]; metadata?: any }) {
+    return this.request<any>('/content/slides', 'POST', data);
+  }
+  async updateSlide(id: string, data: { title?: string; content?: string; status?: string; tags?: string[]; metadata?: any }) {
+    return this.request<any>(`/content/slides/${id}`, 'PUT', data);
+  }
+  async deleteSlide(id: string) {
+    return this.request<{ success: boolean }>(`/content/slides/${id}`, 'DELETE');
+  }
+  async generateSlides(prompt: string, slideCount?: number, style?: string) {
+    return this.request<any>('/content/slides/generate', 'POST', { prompt, slide_count: slideCount, style });
+  }
+
+  // Dashboards
+  async getDashboards(limit?: number) {
+    const qs = limit ? `?limit=${limit}` : '';
+    return this.request<any[]>(`/content/dashboards${qs}`);
+  }
+  async createDashboard(data: { title: string; content: string; status?: string; tags?: string[]; metadata?: any }) {
+    return this.request<any>('/content/dashboards', 'POST', data);
+  }
+  async updateDashboard(id: string, data: { title?: string; content?: string; status?: string; tags?: string[]; metadata?: any }) {
+    return this.request<any>(`/content/dashboards/${id}`, 'PUT', data);
+  }
+  async deleteDashboard(id: string) {
+    return this.request<{ success: boolean }>(`/content/dashboards/${id}`, 'DELETE');
+  }
+
+  // Content Chat
+  async sendContentChat(message: string, context?: string) {
+    return this.request<{ response: string; suggestions?: string[] }>('/content/chat', 'POST', { message, context });
+  }
+
+  // Writing Styles
+  async getWritingStyles() {
+    return this.request<any>('/content/styles');
+  }
+  async updateWritingStyles(styles: any) {
+    return this.request<any>('/content/styles', 'PUT', styles);
+  }
+
+  // Content Jobs
+  async getContentJob(jobId: string) {
+    return this.request<any>(`/content/jobs/${jobId}`);
+  }
+
+  // All Content
+  async getAllContent() {
+    return this.request<any>('/content/all');
+  }
+
+  // ==================== PRESENTATIONS ENDPOINTS ====================
+
+  async generatePresentation(prompt: string, options?: { slideCount?: number; style?: string; includeCharts?: boolean }) {
+    const token = this.getToken();
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE_URL}/presentations/generate`, {
+      method: 'POST',
+      headers,
+      mode: 'cors',
+      credentials: 'omit',
+      body: JSON.stringify({ prompt, ...options }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+      throw new Error(err.detail || `HTTP ${response.status}`);
+    }
+    return response;
+  }
+
+  async generateMarketOutlook() {
+    return this.request<any>('/presentations/generate-market-outlook', 'POST');
+  }
+
+  async listPresentations() {
+    return this.request<any[]>('/presentations');
+  }
+
+  async downloadPresentation(id: string): Promise<Blob> {
+    const token = this.getToken();
+    const headers: HeadersInit = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE_URL}/presentations/${id}/download`, { headers, mode: 'cors', credentials: 'omit' });
+    if (!response.ok) throw new Error(`Download failed: ${response.status}`);
+    return response.blob();
+  }
+
+  async deletePresentation(id: string) {
+    return this.request<{ success: boolean }>(`/presentations/${id}`, 'DELETE');
+  }
+
   // ==================== UTILITY ENDPOINTS ====================
 
   async checkHealth() {
@@ -1182,5 +1316,36 @@ export const api = {
     getTypes: () => apiClient.getTrainingTypes(),
     quickLearn: (code: string, explanation: string) => apiClient.quickLearn(code, explanation),
     getStats: () => apiClient.getTrainStats(),
+  },
+  content: {
+    getArticles: (status?: string, limit?: number) => apiClient.getArticles(status, limit),
+    createArticle: (data: any) => apiClient.createArticle(data),
+    updateArticle: (id: string, data: any) => apiClient.updateArticle(id, data),
+    deleteArticle: (id: string) => apiClient.deleteArticle(id),
+    getDocuments: (limit?: number) => apiClient.getDocumentsContent(limit),
+    createDocument: (data: any) => apiClient.createDocument(data),
+    updateDocument: (id: string, data: any) => apiClient.updateDocument(id, data),
+    deleteDocument: (id: string) => apiClient.deleteContentDocument(id),
+    getSlides: (limit?: number) => apiClient.getSlides(limit),
+    createSlide: (data: any) => apiClient.createSlide(data),
+    updateSlide: (id: string, data: any) => apiClient.updateSlide(id, data),
+    deleteSlide: (id: string) => apiClient.deleteSlide(id),
+    generateSlides: (prompt: string, slideCount?: number, style?: string) => apiClient.generateSlides(prompt, slideCount, style),
+    getDashboards: (limit?: number) => apiClient.getDashboards(limit),
+    createDashboard: (data: any) => apiClient.createDashboard(data),
+    updateDashboard: (id: string, data: any) => apiClient.updateDashboard(id, data),
+    deleteDashboard: (id: string) => apiClient.deleteDashboard(id),
+    chat: (message: string, context?: string) => apiClient.sendContentChat(message, context),
+    getStyles: () => apiClient.getWritingStyles(),
+    updateStyles: (styles: any) => apiClient.updateWritingStyles(styles),
+    getJob: (jobId: string) => apiClient.getContentJob(jobId),
+    getAll: () => apiClient.getAllContent(),
+  },
+  presentations: {
+    generate: (prompt: string, options?: any) => apiClient.generatePresentation(prompt, options),
+    generateMarketOutlook: () => apiClient.generateMarketOutlook(),
+    list: () => apiClient.listPresentations(),
+    download: (id: string) => apiClient.downloadPresentation(id),
+    delete: (id: string) => apiClient.deletePresentation(id),
   },
 };

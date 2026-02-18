@@ -1,50 +1,52 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Plus, File, Clock, Download, Pencil, Trash2, Copy, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, File, Clock, Download, Pencil, Trash2, Copy, ChevronDown, ChevronUp, Loader2, RefreshCw } from 'lucide-react';
+import { apiClient } from '@/lib/api';
 import { CreationChatModal } from './CreationChatModal';
 
 interface DocumentsTabProps { colors: Record<string, string>; isDark: boolean; }
-interface Doc { id: string; title: string; type: string; content: string; createdAt: string; }
-
-const STORAGE_KEY = 'content_documents';
-function load(): Doc[] { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } }
-function save(items: Doc[]) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {} }
+interface Doc { id: string; title: string; content: string; status?: string; tags?: string[]; metadata?: any; created_at?: string; }
 
 export function DocumentsTab({ colors, isDark }: DocumentsTabProps) {
   const [docs, setDocs] = useState<Doc[]>([]);
+  const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [showCreate, setShowCreate] = useState(false);
 
-  useEffect(() => { setDocs(load()); }, []);
+  const fetchDocs = useCallback(async () => {
+    setLoading(true);
+    try { const data = await apiClient.getDocumentsContent(); setDocs(data || []); } catch { setDocs([]); } finally { setLoading(false); }
+  }, []);
+  useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
-  const handleDelete = (id: string) => { const u = docs.filter(d => d.id !== id); setDocs(u); save(u); };
-  const handleDuplicate = (d: Doc) => { const c = { ...d, id: `doc-${Date.now()}`, title: `${d.title} (Copy)`, createdAt: new Date().toISOString() }; const u = [...docs, c]; setDocs(u); save(u); };
-  const handleRename = (id: string) => { const u = docs.map(d => d.id === id ? { ...d, title: editTitle } : d); setDocs(u); save(u); setEditingId(null); };
-  const handleDownload = (d: Doc) => {
-    const blob = new Blob([`${d.title}\nType: ${d.type}\nCreated: ${new Date(d.createdAt).toLocaleString()}\n${'='.repeat(50)}\n\n${d.content}`], { type: 'text/plain' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${d.title.replace(/[^a-zA-Z0-9 ]/g, '')}.txt`; a.click();
-  };
-  const handleCreated = (item: any) => {
-    const nd: Doc = { id: `doc-${Date.now()}`, title: item.title || 'Untitled Document', type: item.type || 'Document', content: item.content || '', createdAt: new Date().toISOString() };
-    const u = [...docs, nd]; setDocs(u); save(u); setShowCreate(false);
-  };
+  const handleDelete = async (id: string) => { try { await apiClient.deleteContentDocument(id); setDocs(p => p.filter(d => d.id !== id)); } catch (e) { console.error(e); } };
+  const handleDuplicate = async (d: Doc) => { try { const c = await apiClient.createDocument({ title: `${d.title} (Copy)`, content: d.content, tags: d.tags, metadata: d.metadata }); setDocs(p => [...p, c]); } catch (e) { console.error(e); } };
+  const handleRename = async (id: string) => { try { await apiClient.updateDocument(id, { title: editTitle }); setDocs(p => p.map(d => d.id === id ? { ...d, title: editTitle } : d)); setEditingId(null); } catch (e) { console.error(e); } };
+  const handleDownload = (d: Doc) => { const blob = new Blob([`${d.title}\n${'='.repeat(50)}\n\n${d.content}`], { type: 'text/plain' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${d.title.replace(/[^a-zA-Z0-9 ]/g, '')}.txt`; a.click(); };
+  const handleCreated = async (item: any) => { try { const c = await apiClient.createDocument({ title: item.title || 'Untitled Document', content: item.content || '', tags: ['ai-generated'], metadata: { type: item.type || 'AI Generated' } }); setDocs(p => [...p, c]); } catch (e) { console.error(e); } setShowCreate(false); };
 
+  const docType = (d: Doc) => d.metadata?.type || d.tags?.[0] || 'Document';
   const border = `1px solid ${colors.border}`;
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: colors.background }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: border, flexShrink: 0 }}>
-        <h2 style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '16px', color: colors.text, letterSpacing: '0.5px', textTransform: 'uppercase', margin: 0 }}>Documents ({docs.length})</h2>
-        <button onClick={() => setShowCreate(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', backgroundColor: colors.primaryYellow, color: colors.darkGray, border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '13px', letterSpacing: '0.5px' }}><Plus size={16} /> NEW DOCUMENT</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h2 style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '16px', color: colors.text, letterSpacing: '0.5px', textTransform: 'uppercase', margin: 0 }}>Documents ({docs.length})</h2>
+          <button onClick={fetchDocs} style={{ background: 'none', border: 'none', color: colors.textMuted, cursor: 'pointer', padding: '4px' }}><RefreshCw size={14} /></button>
+        </div>
+        <button onClick={() => setShowCreate(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', backgroundColor: colors.primaryYellow, color: colors.darkGray, border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '13px' }}><Plus size={16} /> NEW DOCUMENT</button>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
-        {docs.length === 0 ? (
+        {loading ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}><Loader2 size={24} color={colors.primaryYellow} style={{ animation: 'spin 1s linear infinite' }} /></div>
+        ) : docs.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '12px' }}>
             <File size={48} color={colors.textSecondary} style={{ opacity: 0.3 }} />
-            <p style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, fontSize: '16px', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>No documents yet</p>
+            <p style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, fontSize: '16px', color: colors.textMuted, textTransform: 'uppercase' }}>No documents yet</p>
             <p style={{ fontSize: '13px', color: colors.textSecondary }}>Click "New Document" to create one using AI</p>
           </div>
         ) : (
@@ -62,8 +64,8 @@ export function DocumentsTab({ colors, isDark }: DocumentsTabProps) {
                         <div style={{ fontSize: '14px', fontWeight: 600, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.title}</div>
                       )}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px', fontSize: '11px', color: colors.textMuted }}>
-                        <span style={{ padding: '1px 6px', backgroundColor: colors.primaryYellow + '20', color: colors.primaryYellow, borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>{doc.type}</span>
-                        <span style={{ opacity: 0.4 }}>·</span><Clock size={10} /><span>{new Date(doc.createdAt).toLocaleDateString()}</span>
+                        <span style={{ padding: '1px 6px', backgroundColor: colors.primaryYellow + '20', color: colors.primaryYellow, borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>{docType(doc)}</span>
+                        <span style={{ opacity: 0.4 }}>·</span><Clock size={10} /><span>{doc.created_at ? new Date(doc.created_at).toLocaleDateString() : 'N/A'}</span>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '4px' }}>
@@ -90,6 +92,7 @@ export function DocumentsTab({ colors, isDark }: DocumentsTabProps) {
         )}
       </div>
       {showCreate && <CreationChatModal colors={colors} isDark={isDark} contentType="documents" onClose={() => setShowCreate(false)} onCreated={handleCreated} />}
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

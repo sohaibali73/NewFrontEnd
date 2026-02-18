@@ -229,6 +229,38 @@ export function ChatPage() {
       // Mark stream as just finished — guards against loadPreviousMessages wiping tool UI parts
       justFinishedStreamRef.current = true;
       setTimeout(() => { justFinishedStreamRef.current = false; }, 8000);
+
+      // Cache ALL message parts to localStorage so artifacts survive navigation
+      const convId = conversationIdRef.current;
+      if (convId) {
+        try {
+          const partsCache: Record<string, any[]> = {};
+          // streamMessages is the latest messages array from useChat
+          streamMessages.forEach((m: any) => {
+            if (m.parts && m.parts.length > 0) {
+              // Only cache messages with rich parts (tool outputs, artifacts, etc.)
+              const hasRichParts = m.parts.some((p: any) => p.type !== 'text');
+              if (hasRichParts) {
+                partsCache[m.id] = m.parts;
+              }
+            }
+          });
+          // Also cache the just-finished message
+          if (message.parts && message.parts.length > 0) {
+            partsCache[message.id] = message.parts;
+          }
+          if (Object.keys(partsCache).length > 0) {
+            // Merge with existing cache (don't overwrite old messages)
+            try {
+              const existing = JSON.parse(localStorage.getItem(`chat_parts_${convId}`) || '{}');
+              localStorage.setItem(`chat_parts_${convId}`, JSON.stringify({ ...existing, ...partsCache }));
+            } catch {
+              localStorage.setItem(`chat_parts_${convId}`, JSON.stringify(partsCache));
+            }
+          }
+        } catch {}
+      }
+
       // Refresh conversation list sidebar (titles etc.) — but NOT message state
       loadConversations();
       // Voice mode: auto-speak assistant responses
@@ -328,12 +360,20 @@ export function ChatPage() {
     }
     try {
       const data = await apiClient.getMessages(conversationId);
+
+      // Load cached parts from localStorage (preserves artifacts/tool outputs across navigation)
+      let cachedParts: Record<string, any[]> = {};
+      try {
+        const raw = localStorage.getItem(`chat_parts_${conversationId}`);
+        if (raw) cachedParts = JSON.parse(raw);
+      } catch {}
+
       setMessages(data.map((m: any) => ({
         id: m.id,
         role: m.role,
         content: m.content || '',
-        // Restore full parts from metadata if backend saved them; fallback to plain text
-        parts: m.metadata?.parts || [{ type: 'text', text: m.content || '' }],
+        // Priority: 1) cached parts from localStorage, 2) backend metadata.parts, 3) plain text fallback
+        parts: cachedParts[m.id] || m.metadata?.parts || [{ type: 'text', text: m.content || '' }],
         createdAt: m.created_at ? new Date(m.created_at) : new Date(),
       })));
     } catch { setMessages([]); }

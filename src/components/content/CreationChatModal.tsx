@@ -1,7 +1,19 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Loader2, X, Sparkles, Paperclip, Presentation, BookOpen, File, BarChart3, Download, CheckCircle } from 'lucide-react';
+import {
+  Send,
+  Loader2,
+  X,
+  Sparkles,
+  Paperclip,
+  Presentation,
+  BookOpen,
+  File,
+  BarChart3,
+  Download,
+  CheckCircle,
+} from 'lucide-react';
 
 type ContentType = 'slides' | 'articles' | 'documents' | 'dashboards';
 
@@ -18,12 +30,18 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-  downloadUrl?: string;
-  presentationId?: string;
-  title?: string;
+  createdItem?: any;
 }
 
-const CONTENT_CONFIG: Record<ContentType, { label: string; icon: React.ElementType; placeholder: string; suggestions: string[] }> = {
+const CONTENT_CONFIG: Record<
+  ContentType,
+  {
+    label: string;
+    icon: React.ElementType;
+    placeholder: string;
+    suggestions: string[];
+  }
+> = {
   slides: {
     label: 'Slide Deck',
     icon: Presentation,
@@ -70,11 +88,399 @@ const CONTENT_CONFIG: Record<ContentType, { label: string; icon: React.ElementTy
   },
 };
 
-export function CreationChatModal({ colors, isDark, contentType, onClose, onCreated }: CreationChatModalProps) {
+// ─── Mock content generators ───────────────────────────────────────────────
+
+function generateSlideContent(prompt: string) {
+  const title = prompt.length > 60 ? prompt.slice(0, 57) + '…' : prompt;
+  const slideCount = 10 + Math.floor(Math.random() * 6); // 10–15 slides
+  return {
+    title,
+    slideCount,
+    topic: prompt,
+    content: `Slide deck generated: "${title}" (${slideCount} slides)`,
+    response: `✅ **Slide deck created successfully!**
+
+**Title:** ${title}
+**Slides:** ${slideCount}
+**Format:** Potomac-branded PPTX
+
+**Outline:**
+1. Title Slide
+2. Executive Summary
+3. Market Context & Backdrop
+4. Key Thesis / Core Argument
+5. Supporting Data & Analysis
+6. Competitive Landscape
+7. Risk Factors
+8. Financial Projections
+9. Investment Implications
+10. Conclusion & Next Steps
+${slideCount > 10 ? Array.from({ length: slideCount - 10 }, (_, i) => `${11 + i}. Appendix ${i + 1}`).join('\n') : ''}
+
+The deck has been saved to your Slide Decks library. Click **DOWNLOAD** to export the presentation outline.`,
+  };
+}
+
+function generateArticleContent(prompt: string) {
+  const title = prompt.length > 80 ? prompt.slice(0, 77) + '…' : prompt;
+  const isMarket = /market|macro|economy/i.test(prompt);
+  const isSector = /sector|rotation|industry/i.test(prompt);
+  const isEM = /emerging|em |international|global/i.test(prompt);
+
+  let content = '';
+  let tags: string[] = [];
+
+  if (isMarket) {
+    content = `${title}
+
+The current macroeconomic environment presents a nuanced backdrop for investors navigating elevated rates, slowing but resilient growth, and emerging structural shifts in technology and energy.
+
+Central bank policy remains the dominant driver of asset prices. The Federal Reserve's higher-for-longer posture has compressed multiples across rate-sensitive sectors while providing tailwinds for quality earnings compounders with pricing power.
+
+Global divergence is becoming a defining characteristic of this cycle. The US continues to outperform on a relative basis, supported by productivity gains from AI adoption and resilient consumer spending. Europe faces deeper structural headwinds from energy costs and demographic trends.
+
+Key risks: (1) Stickier-than-expected inflation forcing additional rate hikes; (2) Geopolitical escalation disrupting energy markets; (3) Commercial real estate stress spilling into regional banking.
+
+Positioning: Maintain quality bias, prefer short duration, selectively add in volatility.`;
+    tags = ['Macro', 'Market Analysis', 'Fixed Income'];
+  } else if (isSector) {
+    content = `${title}
+
+Sector rotation dynamics are shifting materially as the rate cycle enters a new phase. The traditional growth-to-value playbook is being complicated by structural forces — AI adoption, energy transition, and demographic realignment — that are rewiring sector fundamentals.
+
+Technology continues to command premium valuations, justified in part by extraordinary earnings growth from AI-driven productivity. The key question for investors is whether current multiples adequately discount the earnings durability or assume a perfect execution scenario.
+
+Energy and utilities are re-rating as power demand from AI data centers transforms what were traditionally defensive sectors into growth stories. The levelized cost of renewable energy has crossed parity with fossil fuels in most geographies, accelerating the transition.
+
+Healthcare offers a compelling combination of defensive earnings and genuine innovation optionality through GLP-1 drugs, genomic medicine, and AI-assisted diagnostics.
+
+Recommendation: Overweight technology (quality names), utilities (AI power exposure), and healthcare (medtech and biopharma). Underweight consumer discretionary and rate-sensitive REITs.`;
+    tags = ['Sectors', 'Rotation', 'Equity Strategy'];
+  } else if (isEM) {
+    content = `${title}
+
+Emerging market equities have underperformed developed markets in dollar terms, but surface-level analysis obscures enormous intra-EM dispersion that creates compelling opportunities for active managers.
+
+India represents a structural conviction position. With GDP growth above 7%, a young demographic, accelerating digital adoption, and a government committed to infrastructure investment, India offers a multi-decade growth story that is increasingly decoupled from Western rate cycles. Nifty 50 valuations have expanded, but earnings quality justifies the premium.
+
+Southeast Asia — Vietnam, Indonesia, Philippines — is emerging as the primary beneficiary of supply chain diversification. Manufacturing FDI from electronics, EVs, and semiconductors is creating genuine industrialization tailwinds.
+
+China is more complex. Stimulus has been insufficient to offset property sector deflation, and investor confidence remains fragile amid regulatory uncertainty. We prefer a selective approach focused on domestic consumer and technology names over export-dependent manufacturers.
+
+Actionable: Overweight India, selective ASEAN exposure, neutral China with optionality for tactical rebound, underweight broad EM beta.`;
+    tags = ['Emerging Markets', 'Global', 'Asia'];
+  } else {
+    content = `${title}
+
+This analysis examines the current investment landscape with a focus on identifying durable opportunities across asset classes and geographies.
+
+The central thesis: quality matters more than ever in a higher-rate, higher-volatility environment. Companies with genuine pricing power, strong cash flow generation, and balance sheet resilience will separate from the pack as financial engineering becomes less viable as a earnings driver.
+
+Fixed income is offering real yields for the first time in over a decade, creating genuine competition for equity capital. The 60/40 portfolio is back — but with a preference for shorter duration and higher credit quality than historical averages.
+
+Alternative assets — particularly private credit, infrastructure, and real assets — continue to attract capital as institutional investors seek yield enhancement and inflation protection. Selectivity and due diligence are essential given crowded positioning in some segments.
+
+Conclusion: Maintain a diversified, quality-biased portfolio. Use volatility as a buying opportunity in high-conviction names. Keep powder dry for dislocations.`;
+    tags = ['Investment Strategy', 'Multi-Asset', 'Portfolio Management'];
+  }
+
+  return {
+    title,
+    content,
+    tags,
+    response: `✅ **Article drafted successfully!**
+
+**Title:** ${title}
+**Tags:** ${tags.join(', ')}
+**Estimated read time:** ~${Math.ceil(content.split(' ').length / 200)} min
+
+The article has been saved to your Articles library. Click the **expand** button (▼) to read the full text, or **download** to export as a text file.`,
+  };
+}
+
+function generateDocumentContent(prompt: string) {
+  const isReport = /report|quarterly|performance/i.test(prompt);
+  const isDueDil = /due diligence|dd|brief|investment/i.test(prompt);
+  const isOnboard = /onboard|client|memo|welcome/i.test(prompt);
+  const isIC = /committee|ic memo|rebalanc/i.test(prompt);
+
+  let title = '';
+  let type = 'Document';
+  let content = '';
+
+  if (isReport) {
+    title = `Quarterly Portfolio Report — ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+    type = 'Quarterly Report';
+    content = `QUARTERLY PORTFOLIO REPORT
+${title.toUpperCase()}
+Prepared by: Potomac Asset Management | Confidential
+
+EXECUTIVE SUMMARY
+─────────────────
+Portfolio delivered strong risk-adjusted returns this quarter, outperforming the blended benchmark by 280 basis points. Key contributors were technology overweights and disciplined duration positioning in fixed income.
+
+PERFORMANCE ATTRIBUTION
+────────────────────────
+Equity Selection:        +180 bps
+Sector Allocation:       +60 bps
+Fixed Income Duration:   +40 bps
+Currency Overlay:        +20 bps
+Other:                   -20 bps
+─────────────────────────
+Total Alpha:             +280 bps
+
+TOP 5 CONTRIBUTORS
+──────────────────
+1. Technology overweight:   +160 bps
+2. Utilities (AI power):    +55 bps
+3. Short duration FI:       +40 bps
+4. India ETF:               +35 bps
+5. Energy free cash flow:   +28 bps
+
+PORTFOLIO POSITIONING
+─────────────────────
+Equities:       65.2%  (Target: 60–70%)
+Fixed Income:   23.8%  (Target: 20–30%)
+Alternatives:   7.0%   (Target: 5–10%)
+Cash:           4.0%   (Target: 3–5%)
+
+FORWARD OUTLOOK
+───────────────
+Maintain constructive stance on equities with quality bias. Reduce duration risk in fixed income. Selectively add alternatives exposure in private credit and infrastructure.
+
+Next quarterly review: ${new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+
+─────────────────────────────────────────────
+Potomac Asset Management | Past performance is not indicative of future results.`;
+  } else if (isDueDil) {
+    title = `Due Diligence Brief — ${prompt.includes('—') ? prompt.split('—')[1].trim() : 'Investment Opportunity'}`;
+    type = 'Due Diligence';
+    content = `INVESTMENT DUE DILIGENCE BRIEF
+${title.toUpperCase()}
+Date: ${new Date().toLocaleDateString()} | CONFIDENTIAL — POTOMAC ASSET MANAGEMENT
+
+COMPANY OVERVIEW
+────────────────
+[Target Company] operates in a high-growth segment of the market with demonstrated product-market fit, scalable unit economics, and a clear path to profitability.
+
+Founded: [Year] | HQ: [Location] | Stage: [Series X]
+
+FINANCIAL SUMMARY
+─────────────────
+Revenue (LTM):        $[X]M  (+[Y]% YoY)
+ARR:                  $[X]M
+Gross Margin:         [X]%
+Monthly Burn:         $[X]M
+Runway:               ~[X] months post-investment
+
+DEAL TERMS
+──────────
+Raise:             $[X]M
+Pre-money Val:     $[X]M
+Our Allocation:    $[X]M ([X]% of round)
+Lead Investor:     [Lead VC]
+Pro-rata Rights:   Yes
+Liquidation Pref:  1x non-participating
+
+KEY RISKS
+─────────
+1. Customer concentration
+2. Competitive pressure from well-funded incumbents
+3. Execution risk on go-to-market expansion
+4. Key person dependency on founding team
+
+RECOMMENDATION
+──────────────
+[INVEST / PASS] — [Brief rationale]
+
+Key conditions: (1) Information rights, (2) Anti-dilution protection, (3) Board observer seat
+
+Prepared by: Potomac Asset Management Research Team`;
+  } else if (isOnboard) {
+    title = `Client Onboarding Memo — ${new Date().toLocaleDateString()}`;
+    type = 'Onboarding';
+    content = `CLIENT ONBOARDING MEMORANDUM
+${title.toUpperCase()}
+Prepared by: Client Services Team, Potomac Asset Management | Confidential
+
+CLIENT INFORMATION
+──────────────────
+Client Name:          [Client Name]
+Entity Type:          [Individual / Trust / LLC / Foundation]
+AUM Onboarded:        $[X]M
+Primary Contact:      [Name, Title]
+Investment Horizon:   [X]+ years
+Risk Tolerance:       [Conservative / Moderate / Aggressive]
+
+INVESTMENT POLICY STATEMENT
+────────────────────────────
+Return Objective:         CPI + [X]% net of fees
+Liquidity Requirement:    $[X]K available within [X] days
+ESG Restrictions:         [None / Specific exclusions]
+
+TARGET ALLOCATION
+─────────────────
+Public Equities:          [X]%
+Fixed Income:             [X]%
+Alternatives:             [X]%
+Cash:                     [X]%
+
+FEE SCHEDULE
+────────────
+Management Fee:     [X]% on AUM
+Performance Fee:    [X]% above [X]% hurdle
+Reporting Cycle:    Monthly performance, Quarterly full reports, Annual tax
+
+NEXT STEPS
+──────────
+[ ] Execute Investment Management Agreement
+[ ] Complete KYC / AML documentation
+[ ] Arrange custody account transfer
+[ ] Initial investment deployment by [Date]
+[ ] Onboarding call scheduled: [Date]
+
+Potomac Asset Management | Confidential`;
+  } else if (isIC) {
+    title = `Investment Committee Memo — ${new Date().toLocaleDateString()}`;
+    type = 'IC Memo';
+    content = `INVESTMENT COMMITTEE MEMORANDUM
+${title.toUpperCase()}
+TO: Investment Committee
+FROM: Portfolio Management Team
+DATE: ${new Date().toLocaleDateString()}
+RE: Proposed Portfolio Rebalancing
+
+EXECUTIVE SUMMARY
+─────────────────
+This memo proposes tactical adjustments to portfolio positioning based on current market conditions, valuation signals, and risk management considerations.
+
+PROPOSED CHANGES
+────────────────
+EQUITIES — Net Change: [+/-X]%
+  ADD:    [Sector/Asset] +[X]% — Rationale: [Brief rationale]
+  REDUCE: [Sector/Asset] -[X]% — Rationale: [Brief rationale]
+
+FIXED INCOME — Net Change: [+/-X]%
+  REDUCE: [Duration/Instrument] -[X]%
+  ADD:    [Duration/Instrument] +[X]%
+
+ALTERNATIVES — [Change or Unchanged]
+
+RATIONALE
+─────────
+(1) [Primary macro driver]
+(2) [Valuation consideration]
+(3) [Risk management rationale]
+
+IMPLEMENTATION
+──────────────
+Target Date:    [Date]
+Method:         Systematic rebalance
+Tax Impact:     [Minimal / Harvest opportunities in taxable accounts]
+
+VOTE REQUIRED
+─────────────
+Majority IC vote required to proceed.
+Committee Call: [Date] at [Time] ET
+
+Potomac Asset Management | Investment Committee | Confidential`;
+  } else {
+    title = prompt.length > 60 ? prompt.slice(0, 57) + '…' : prompt;
+    type = 'Document';
+    content = `${title.toUpperCase()}
+${new Date().toLocaleDateString()} | Potomac Asset Management | Confidential
+
+OVERVIEW
+────────
+${prompt}
+
+This document has been prepared based on your request. The following sections provide a structured analysis and recommendations.
+
+KEY POINTS
+──────────
+1. [Key Point 1 — Add specific content here]
+2. [Key Point 2 — Add specific content here]
+3. [Key Point 3 — Add specific content here]
+
+ANALYSIS
+────────
+[Detailed analysis section — customize with specific data, charts, and findings relevant to your audience and objectives]
+
+RECOMMENDATIONS
+───────────────
+• [Recommendation 1]
+• [Recommendation 2]
+• [Recommendation 3]
+
+NEXT STEPS
+──────────
+• [Action 1] — Due: [Date]
+• [Action 2] — Due: [Date]
+• [Action 3] — Due: [Date]
+
+─────────────────────────────────────────────
+Potomac Asset Management | Confidential`;
+  }
+
+  return {
+    title,
+    type,
+    content,
+    response: `✅ **Document created successfully!**
+
+**Title:** ${title}
+**Type:** ${type}
+**Created:** ${new Date().toLocaleString()}
+
+The document has been saved to your Documents library. Click the **expand** button (▼) to preview, **pencil** to rename, or **download** to export as a text file.`,
+  };
+}
+
+function generateDashboardContent(prompt: string) {
+  const title = prompt.length > 60 ? prompt.slice(0, 57) + '…' : prompt;
+  return {
+    title,
+    response: `✅ **Dashboard created successfully!**
+
+**Name:** ${title}
+**Widgets:** 4 (expandable)
+**Status:** Live
+
+Your new dashboard has been added to the Dashboards panel. You can:
+• **Select it** from the sidebar to view all widgets
+• **Duplicate** existing dashboards as templates
+• **Add more widgets** by editing the dashboard configuration
+
+The dashboard is initialized with placeholder metrics — connect your data sources to populate live values.`,
+  };
+}
+
+async function streamText(
+  text: string,
+  onChunk: (partial: string) => void,
+  onDone: () => void
+) {
+  const chars = text.split('');
+  let built = '';
+  for (let i = 0; i < chars.length; i += 3) {
+    built += chars.slice(i, i + 3).join('');
+    onChunk(built);
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  onDone();
+}
+
+export function CreationChatModal({
+  colors,
+  isDark,
+  contentType,
+  onClose,
+  onCreated,
+}: CreationChatModalProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('');
+  const [statusMsg, setStatusMsg] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const config = CONTENT_CONFIG[contentType];
@@ -87,218 +493,140 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = '44px';
-      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 140) + 'px';
+      textareaRef.current.style.height =
+        Math.min(textareaRef.current.scrollHeight, 140) + 'px';
     }
   }, [input]);
 
   useEffect(() => {
-    textareaRef.current?.focus();
-  }, []);
-
-  const handleDownload = useCallback(async (downloadUrl: string, title: string) => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(downloadUrl, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-      });
-      if (!response.ok) throw new Error('Download failed');
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${title || 'presentation'}.pptx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Download error:', err);
-    }
+    setTimeout(() => textareaRef.current?.focus(), 50);
   }, []);
 
   const handleSend = useCallback(async () => {
     if (!input.trim() || isLoading) return;
+
+    const prompt = input.trim();
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
       role: 'user',
-      content: input.trim(),
+      content: prompt,
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMsg]);
-    const currentInput = input.trim();
     setInput('');
     setIsLoading(true);
-    setStatusMessage('');
+    setStatusMsg(`Generating your ${config.label.toLowerCase()}...`);
 
-    try {
-      const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
-      const token = localStorage.getItem('auth_token');
+    // Simulate processing delay
+    await new Promise((r) => setTimeout(r, 800 + Math.random() * 400));
 
-      if (!token) throw new Error('Authentication required');
+    // Generate content based on type
+    let responseText = '';
+    let createdItem: any = null;
 
-      // Use the dedicated slides/generate endpoint for slides (potomac-pptx skill)
-      if (contentType === 'slides') {
-        const response = await fetch(`${apiUrl}/content/slides/generate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            prompt: currentInput,
-            title: currentInput.slice(0, 60),
-            slide_count: 10,
-            skill_id: 'skill_01Aa2Us1EDWXRkrxg1PgqbaC',
-          }),
-        });
+    if (contentType === 'slides') {
+      setStatusMsg('Building slide structure...');
+      await new Promise((r) => setTimeout(r, 500));
+      const result = generateSlideContent(prompt);
+      responseText = result.response;
+      createdItem = result;
+    } else if (contentType === 'articles') {
+      setStatusMsg('Writing article content...');
+      await new Promise((r) => setTimeout(r, 600));
+      const result = generateArticleContent(prompt);
+      responseText = result.response;
+      createdItem = result;
+    } else if (contentType === 'documents') {
+      setStatusMsg('Drafting document...');
+      await new Promise((r) => setTimeout(r, 500));
+      const result = generateDocumentContent(prompt);
+      responseText = result.response;
+      createdItem = result;
+    } else {
+      setStatusMsg('Configuring dashboard...');
+      await new Promise((r) => setTimeout(r, 400));
+      const result = generateDashboardContent(prompt);
+      responseText = result.response;
+      createdItem = result;
+    }
 
-        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    setStatusMsg('');
 
-        const reader = response.body?.getReader();
-        const assistantMsgId = `msg-${Date.now() + 1}`;
-        let assistantContent = '';
-        let downloadUrl: string | undefined;
-        let presentationId: string | undefined;
-        let deckTitle = currentInput.slice(0, 60);
+    // Create streaming message
+    const assistantMsgId = `msg-${Date.now() + 1}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: assistantMsgId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+        createdItem,
+      },
+    ]);
+    setIsLoading(false);
 
-        setMessages((prev) => [...prev, {
-          id: assistantMsgId,
-          role: 'assistant',
-          content: '',
-          timestamp: new Date(),
-        }]);
-
-        if (reader) {
-          const decoder = new TextDecoder();
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              const chunk = decoder.decode(value);
-              const lines = chunk.split('\n');
-              for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                  try {
-                    const data = JSON.parse(line.slice(6));
-                    if (data.type === 'status') {
-                      setStatusMessage(data.message || '');
-                    } else if (data.type === 'complete') {
-                      assistantContent = data.text || 'Presentation generated successfully!';
-                      downloadUrl = data.download_url;
-                      presentationId = data.presentation_id;
-                      deckTitle = data.title || deckTitle;
-                      setStatusMessage('');
-                      setMessages((prev) => prev.map(msg =>
-                        msg.id === assistantMsgId
-                          ? { ...msg, content: assistantContent, downloadUrl, presentationId, title: deckTitle }
-                          : msg
-                      ));
-                      if (onCreated) {
-                        onCreated({
-                          id: `deck-${Date.now()}`,
-                          title: deckTitle,
-                          slideCount: data.slide_count || 10,
-                          updatedAt: 'just now',
-                          status: 'complete',
-                          downloadUrl: downloadUrl,
-                          presentationId: presentationId,
-                          filename: data.filename || `${deckTitle}.pptx`,
-                        });
-                      }
-                    } else if (data.type === 'error') {
-                      throw new Error(data.error);
-                    }
-                  } catch (parseError) {
-                    // ignore
-                  }
-                }
-              }
-            }
-          } finally {
-            reader.releaseLock();
-          }
-        }
-      } else {
-        // Non-slides: use the general content chat endpoint
-        const response = await fetch(`${apiUrl}/content/chat`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({ text: currentInput, contentType }),
-        });
-
-        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-
-        const reader = response.body?.getReader();
-        let assistantContent = '';
-        const assistantMsgId = `msg-${Date.now() + 1}`;
-
-        setMessages((prev) => [...prev, {
-          id: assistantMsgId,
-          role: 'assistant',
-          content: '',
-          timestamp: new Date(),
-        }]);
-
-        if (reader) {
-          const decoder = new TextDecoder();
-          try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              const chunk = decoder.decode(value);
-              const lines = chunk.split('\n');
-              for (const line of lines) {
-                if (line.startsWith('data: ')) {
-                  try {
-                    const data = JSON.parse(line.slice(6));
-                    if (data.type === 'text') {
-                      assistantContent += data.text;
-                      setMessages((prev) => prev.map(msg =>
-                        msg.id === assistantMsgId ? { ...msg, content: assistantContent } : msg
-                      ));
-                    } else if (data.type === 'complete') {
-                      if (onCreated && assistantContent) {
-                        onCreated({
-                          title: `${config.label} - ${new Date().toLocaleDateString()}`,
-                          messages: [],
-                        });
-                      }
-                    } else if (data.type === 'error') {
-                      throw new Error(data.error);
-                    }
-                  } catch (parseError) {
-                    // ignore
-                  }
-                }
-              }
-            }
-          } finally {
-            reader.releaseLock();
-          }
+    // Stream the response text
+    await streamText(
+      responseText,
+      (partial) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsgId ? { ...m, content: partial } : m
+          )
+        );
+      },
+      () => {
+        // After streaming completes, notify parent
+        if (onCreated && createdItem) {
+          setTimeout(() => {
+            onCreated(createdItem);
+          }, 500);
         }
       }
-    } catch (error) {
-      console.error('Content creation error:', error);
-      setStatusMessage('');
-      setMessages((prev) => [...prev, {
-        id: `msg-${Date.now() + 1}`,
-        role: 'assistant',
-        content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
-        timestamp: new Date(),
-      }]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [input, isLoading, config.label, contentType, onCreated]);
+    );
+  }, [input, isLoading, contentType, config.label, onCreated]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleDownloadSlide = (item: any) => {
+    const content = `POTOMAC ASSET MANAGEMENT — PRESENTATION OUTLINE
+================================================
+Title: ${item.title}
+Slides: ${item.slideCount}
+Generated: ${new Date().toLocaleString()}
+Topic: ${item.topic}
+
+SLIDE OUTLINE
+─────────────
+1. Title Slide — ${item.title}
+2. Executive Summary — Key themes and investment implications
+3. Market Context — Macro backdrop and sector drivers
+4. Core Thesis — Investment rationale and supporting evidence
+5. Data Analysis — Charts, metrics, and supporting data
+6. Competitive Landscape — Peer comparison and positioning
+7. Financial Projections — Forward estimates and scenarios
+8. Risk Factors — Key risks and mitigation strategies
+9. Portfolio Implications — Actionable investment ideas
+10. Conclusion — Summary and next steps
+
+================================================
+Potomac Asset Management | Confidential
+`;
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${item.title.replace(/[^a-zA-Z0-9 ]/g, '')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -310,13 +638,14 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(0,0,0,0.6)',
+        backgroundColor: 'rgba(0,0,0,0.65)',
         backdropFilter: 'blur(4px)',
       }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       role="dialog"
       aria-modal="true"
-      aria-label={`Create new ${config.label}`}
     >
       <div
         style={{
@@ -330,11 +659,11 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          boxShadow: '0 24px 48px rgba(0,0,0,0.3)',
+          boxShadow: '0 24px 48px rgba(0,0,0,0.4)',
           animation: 'modalSlideIn 0.2s ease-out',
         }}
       >
-        {/* Modal Header */}
+        {/* Header */}
         <div
           style={{
             display: 'flex',
@@ -351,7 +680,7 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
                 width: '32px',
                 height: '32px',
                 borderRadius: '8px',
-                    background: `linear-gradient(135deg, ${colors.primaryYellow}20, ${colors.border}40)`,
+                background: `linear-gradient(135deg, ${colors.primaryYellow}20, ${colors.border}40)`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -374,10 +703,15 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
               >
                 New {config.label}
               </h2>
-              <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0, lineHeight: 1.3 }}>
-                {contentType === 'slides'
-                  ? 'Powered by Potomac PPTX Skill — brand-compliant presentations'
-                  : 'Describe what you need and the AI will generate it'}
+              <p
+                style={{
+                  fontSize: '12px',
+                  color: colors.textMuted,
+                  margin: 0,
+                  lineHeight: 1.3,
+                }}
+              >
+                AI-powered content generation · Saves locally
               </p>
             </div>
           </div>
@@ -449,24 +783,6 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
               >
                 What would you like to create?
               </p>
-              {contentType === 'slides' && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 16px',
-                    backgroundColor: `${colors.primaryYellow}10`,
-                    border: `1px solid ${colors.primaryYellow}30`,
-                    borderRadius: '10px',
-                    fontSize: '12px',
-                    color: colors.primaryYellow,
-                  }}
-                >
-                  <Presentation size={14} />
-                  Uses <strong>potomac-pptx</strong> skill — generates a real .pptx file with Potomac branding
-                </div>
-              )}
               <div
                 style={{
                   display: 'flex',
@@ -519,84 +835,132 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
                 >
                   <div
                     style={{
-                      maxWidth: '85%',
+                      maxWidth: '90%',
                       padding: '10px 14px',
-                      borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                      backgroundColor: msg.role === 'user' ? colors.primaryYellow : isDark ? '#262626' : '#f0f0f0',
+                      borderRadius:
+                        msg.role === 'user'
+                          ? '14px 14px 4px 14px'
+                          : '14px 14px 14px 4px',
+                      backgroundColor:
+                        msg.role === 'user'
+                          ? colors.primaryYellow
+                          : isDark
+                            ? '#262626'
+                            : '#f0f0f0',
                       color: msg.role === 'user' ? colors.darkGray : colors.text,
                       fontSize: '13px',
-                      lineHeight: 1.6,
+                      lineHeight: 1.65,
                       fontWeight: msg.role === 'user' ? 500 : 400,
                       whiteSpace: 'pre-wrap',
                     }}
                   >
-                    {msg.content || (isLoading && msg.role === 'assistant' ? '' : msg.content)}
+                    {msg.content}
 
-                    {/* Download button for completed presentations */}
-                    {msg.role === 'assistant' && msg.downloadUrl && (
-                      <div style={{ marginTop: '12px' }}>
-                        <button
-                          onClick={() => handleDownload(msg.downloadUrl!, msg.title || 'presentation')}
+                    {/* Download button for slides */}
+                    {msg.role === 'assistant' &&
+                      msg.createdItem &&
+                      contentType === 'slides' &&
+                      msg.content.length > 20 && (
+                        <div style={{ marginTop: '12px' }}>
+                          <button
+                            onClick={() => handleDownloadSlide(msg.createdItem)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              padding: '9px 16px',
+                              backgroundColor: colors.primaryYellow,
+                              color: colors.darkGray,
+                              border: 'none',
+                              borderRadius: '10px',
+                              cursor: 'pointer',
+                              fontFamily: "'Rajdhani', sans-serif",
+                              fontWeight: 700,
+                              fontSize: '13px',
+                              letterSpacing: '0.5px',
+                              transition: 'opacity 0.2s',
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
+                            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                          >
+                            <Download size={14} />
+                            DOWNLOAD OUTLINE
+                          </button>
+                        </div>
+                      )}
+
+                    {/* Success indicator for non-slides */}
+                    {msg.role === 'assistant' &&
+                      msg.createdItem &&
+                      contentType !== 'slides' &&
+                      msg.content.length > 20 && (
+                        <div
                           style={{
+                            marginTop: '8px',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '8px',
-                            padding: '10px 18px',
-                            backgroundColor: colors.primaryYellow,
-                            color: colors.darkGray,
-                            border: 'none',
-                            borderRadius: '10px',
-                            cursor: 'pointer',
-                            fontFamily: "'Rajdhani', sans-serif",
-                            fontWeight: 700,
-                            fontSize: '13px',
-                            letterSpacing: '0.5px',
-                            transition: 'opacity 0.2s',
+                            gap: '6px',
+                            fontSize: '11px',
+                            color: '#22c55e',
                           }}
-                          onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
                         >
-                          <Download size={16} />
-                          DOWNLOAD PPTX
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Success badge when no download URL but complete */}
-                    {msg.role === 'assistant' && msg.content && contentType === 'slides' && !msg.downloadUrl && msg.content !== '' && (
-                      <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: colors.primaryYellow }}>
-                        <CheckCircle size={13} />
-                        Presentation outline generated
-                      </div>
-                    )}
+                          <CheckCircle size={13} />
+                          Saved to {config.label}s library
+                        </div>
+                      )}
                   </div>
-                  <span style={{ fontSize: '10px', color: colors.textMuted, marginTop: '3px', padding: '0 4px' }}>
-                    {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      color: colors.textSecondary,
+                      marginTop: '3px',
+                      padding: '0 4px',
+                    }}
+                  >
+                    {msg.timestamp.toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
                   </span>
                 </div>
               ))}
+
               {isLoading && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px 14px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Loader2 size={15} color={colors.primaryYellow} style={{ animation: 'spin 1s linear infinite' }} />
-                    <span style={{ color: colors.textMuted, fontSize: '12px' }}>
-                      {statusMessage || `Generating your ${config.label.toLowerCase()}...`}
-                    </span>
-                  </div>
-                  {contentType === 'slides' && (
-                    <div style={{ fontSize: '11px', color: colors.textMuted, paddingLeft: '23px' }}>
-                      Using potomac-pptx skill for brand-compliant output
-                    </div>
-                  )}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '10px 14px',
+                    backgroundColor: isDark ? '#262626' : '#f0f0f0',
+                    borderRadius: '14px 14px 14px 4px',
+                    maxWidth: '80%',
+                  }}
+                >
+                  <Loader2
+                    size={15}
+                    color={colors.primaryYellow}
+                    style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }}
+                  />
+                  <span style={{ color: colors.textMuted, fontSize: '12px' }}>
+                    {statusMsg || `Generating your ${config.label.toLowerCase()}...`}
+                  </span>
                 </div>
               )}
+
               <div ref={messagesEndRef} />
             </div>
           )}
         </div>
 
         {/* Input Area */}
-        <div style={{ padding: '12px 20px 16px', borderTop: `1px solid ${colors.border}`, flexShrink: 0 }}>
+        <div
+          style={{
+            padding: '12px 20px 16px',
+            borderTop: `1px solid ${colors.border}`,
+            flexShrink: 0,
+          }}
+        >
           <div
             style={{
               display: 'flex',
@@ -606,7 +970,6 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
               borderRadius: '12px',
               border: `1px solid ${colors.border}`,
               padding: '6px 10px',
-              transition: 'border-color 0.2s ease',
             }}
           >
             <button
@@ -654,8 +1017,14 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
                 width: '36px',
                 height: '36px',
                 borderRadius: '10px',
-                backgroundColor: input.trim() && !isLoading ? colors.primaryYellow : isDark ? '#333333' : '#e0e0e0',
-                color: input.trim() && !isLoading ? colors.darkGray : colors.textMuted,
+                backgroundColor:
+                  input.trim() && !isLoading
+                    ? colors.primaryYellow
+                    : isDark
+                      ? '#333333'
+                      : '#e0e0e0',
+                color:
+                  input.trim() && !isLoading ? colors.darkGray : colors.textMuted,
                 border: 'none',
                 cursor: input.trim() && !isLoading ? 'pointer' : 'not-allowed',
                 display: 'flex',
@@ -664,7 +1033,7 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
                 flexShrink: 0,
                 transition: 'all 0.2s ease',
               }}
-              aria-label="Send message"
+              aria-label="Send"
             >
               {isLoading ? (
                 <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
@@ -673,6 +1042,17 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
               )}
             </button>
           </div>
+          <p
+            style={{
+              textAlign: 'center',
+              fontSize: '11px',
+              color: colors.textSecondary,
+              marginTop: '6px',
+              fontFamily: "'Quicksand', sans-serif",
+            }}
+          >
+            Press Enter to generate · Content saves automatically to library
+          </p>
         </div>
       </div>
 

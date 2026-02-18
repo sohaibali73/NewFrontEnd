@@ -148,8 +148,9 @@ export function ChatPage() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
-  // Artifacts state
-  const [artifacts, setArtifacts] = useState<any[]>([]);
+  // Artifacts state — keyed by conversationId for persistence across switches
+  const [artifactsByConv, setArtifactsByConv] = useState<Record<string, any[]>>({});
+  const artifacts = selectedConversation ? (artifactsByConv[selectedConversation.id] || []) : [];
 
   // Connection status
   const { status: connStatus, check: recheckConnection } = useConnectionStatus({ interval: 60000 });
@@ -388,9 +389,15 @@ export function ChatPage() {
     navigator.clipboard.writeText(text).then(() => toast.success('Copied!')).catch(() => toast.error('Copy failed'));
   }, []);
 
-  // Handle artifact generation
+  // Handle artifact generation — store per conversation
   const handleDocumentGenerated = useCallback((artifact: any) => {
-    setArtifacts(prev => [...prev, artifact]);
+    const convId = conversationIdRef.current;
+    if (convId) {
+      setArtifactsByConv(prev => ({
+        ...prev,
+        [convId]: [...(prev[convId] || []), artifact],
+      }));
+    }
     toast.success('Document generated!');
   }, []);
 
@@ -1225,7 +1232,15 @@ export function ChatPage() {
                         <ArtifactRenderer
                           key={artifact.id}
                           artifact={artifact}
-                          onClose={() => setArtifacts(prev => prev.filter(a => a.id !== artifact.id))}
+                          onClose={() => {
+                            const convId = selectedConversation?.id;
+                            if (convId) {
+                              setArtifactsByConv(prev => ({
+                                ...prev,
+                                [convId]: (prev[convId] || []).filter(a => a.id !== artifact.id),
+                              }));
+                            }
+                          }}
                         />
                       ))}
                     </div>

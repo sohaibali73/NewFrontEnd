@@ -10,7 +10,7 @@ interface CreationChatModalProps {
   isDark: boolean;
   contentType: ContentType;
   onClose: () => void;
-  onCreated?: (item: { title: string; messages: ChatMessage[] }) => void;
+  onCreated?: (item: any) => void;
 }
 
 interface ChatMessage {
@@ -193,7 +193,16 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
                           : msg
                       ));
                       if (onCreated) {
-                        onCreated({ title: deckTitle, messages: [] });
+                        onCreated({
+                          id: `deck-${Date.now()}`,
+                          title: deckTitle,
+                          slideCount: data.slide_count || 10,
+                          updatedAt: 'just now',
+                          status: 'complete',
+                          downloadUrl: downloadUrl,
+                          presentationId: presentationId,
+                          filename: data.filename || `${deckTitle}.pptx`,
+                        });
                       }
                     } else if (data.type === 'error') {
                       throw new Error(data.error);

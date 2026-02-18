@@ -79,8 +79,6 @@ class APIClient {
     const config: RequestInit = {
       method,
       headers,
-      mode: 'cors',
-      credentials: 'omit',
     };
 
     if (body) {
@@ -92,7 +90,21 @@ class APIClient {
     }
 
     try {
-      const url = `${API_BASE_URL}${endpoint}`;
+      // Auth endpoints are proxied through Next.js API routes to avoid CORS issues
+      const AUTH_PROXY_ENDPOINTS: Record<string, string> = {
+        '/auth/login': '/api/auth/login',
+        '/auth/register': '/api/auth/register',
+        '/auth/me': '/api/auth/me',
+      };
+
+      let url: string;
+      if (AUTH_PROXY_ENDPOINTS[endpoint]) {
+        // Use relative URL so it goes through Next.js (same origin, no CORS)
+        url = AUTH_PROXY_ENDPOINTS[endpoint];
+      } else {
+        url = `${API_BASE_URL}${endpoint}`;
+      }
+
       logger.debug(`API Request: ${method} ${url}`);
       
       const response = await fetch(url, config);

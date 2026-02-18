@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Plus, File, FileText, Clock, Download, Trash2, Copy } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, File, Clock, Trash2, Pencil, RefreshCw, Loader2, X, Save, Download } from 'lucide-react';
 import { CreationChatModal } from './CreationChatModal';
 
 interface DocumentsTabProps {
@@ -12,273 +12,245 @@ interface DocumentsTabProps {
 interface Document {
   id: string;
   title: string;
-  content: string;
-  type: 'report' | 'memo' | 'brief' | 'template';
-  pageCount: number;
-  updatedAt: string;
-  status: 'draft' | 'final';
+  content?: string;
+  status: 'draft' | 'complete' | 'published';
+  tags?: string[];
+  created_at?: string;
+  updated_at?: string;
 }
 
-const DOC_TYPE_LABELS: Record<string, string> = {
-  report: 'Report',
-  memo: 'Memo',
-  brief: 'Brief',
-  template: 'Template',
+const API = () => (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+const authHeader = () => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+  return token ? { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
 };
 
-const STORAGE_KEY = 'potomac_documents';
-
-function loadDocuments(): Document[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return JSON.parse(stored);
-  } catch {}
-  return [];
-}
-
-function saveDocuments(docs: Document[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
-  } catch {}
+function downloadAsText(content: string, filename: string) {
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 export function DocumentsTab({ colors, isDark }: DocumentsTabProps) {
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
   const [showCreationChat, setShowCreationChat] = useState(false);
-  const [editContent, setEditContent] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    setDocuments(loadDocuments());
+  const fetchDocuments = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch(`${API()}/content/documents`, { headers: { ...authHeader() } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setDocuments(data || []);
+    } catch (err) {
+      console.error('Failed to load documents:', err);
+      setError('Could not load documents from server.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => {
-    saveDocuments(documents);
-  }, [documents]);
+  useEffect(() => { fetchDocuments(); }, [fetchDocuments]);
 
-  useEffect(() => {
-    if (selectedDoc) {
-      const doc = documents.find(d => d.id === selectedDoc);
-      setEditContent(doc?.content || '');
-    }
-  }, [selectedDoc]);
-
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    try {
+      await fetch(`${API()}/content/documents/${id}`, { method: 'DELETE', headers: { ...authHeader() } });
+    } catch {}
     setDocuments(prev => prev.filter(d => d.id !== id));
-    if (selectedDoc === id) setSelectedDoc(null);
   };
 
-  const handleDuplicate = (doc: Document) => {
-    const copy: Document = {
-      ...doc,
-      id: `doc-${Date.now()}`,
-      title: `${doc.title} (Copy)`,
-      updatedAt: 'just now',
-      status: 'draft',
+  const handleRename = async (id: string) => {
+    if (!editTitle.trim()) return;
+    try {
+      const res = await fetch(`${API()}/content/documents/${id}`, {
+        method: 'PUT',
+        headers: { ...authHeader() },
+        body: JSON.stringify({ title: editTitle.trim() }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setDocuments(prev => prev.map(d => d.id === id ? { ...d, title: updated.title || editTitle.trim() } : d));
+      }
+    } catch {}
+    setDocuments(prev => prev.map(d => d.id === id ? { ...d, title: editTitle.trim() } : d));
+    setEditingId(null);
+  };
+
+  const handleCreated = (item: any) => {
+    const newDoc: Document = {
+      id: item.id || `doc-${Date.now()}`,
+      title: item.title || 'New Document',
+      content: item.content || '',
+      status: 'complete',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
-    setDocuments(prev => [copy, ...prev]);
-  };
-
-  const handleContentChange = (value: string) => {
-    setEditContent(value);
-    if (selectedDoc) {
-      setDocuments(prev => prev.map(d =>
-        d.id === selectedDoc
-          ? { ...d, content: value, updatedAt: 'just now' }
-          : d
-      ));
-    }
-  };
-
-  const handleCreated = (newDoc: Document) => {
     setDocuments(prev => [newDoc, ...prev]);
-    setSelectedDoc(newDoc.id);
     setShowCreationChat(false);
   };
 
-  const handleExport = (doc: Document) => {
-    const blob = new Blob([doc.content || doc.title], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${doc.title.replace(/[^a-z0-9]/gi, '_')}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const cardBorder = `1px solid ${colors.border}`;
+  const statusColor: Record<string, string> = {
+    draft: colors.textMuted,
+    complete: '#22c55e',
+    published: colors.primaryYellow,
   };
 
   return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-      {/* Document List */}
-      <div style={{
-        width: '340px',
-        borderRight: `1px solid ${colors.border}`,
-        display: 'flex',
-        flexDirection: 'column',
-        backgroundColor: colors.surface,
-        flexShrink: 0,
-      }}>
-        <div style={{ padding: '16px', borderBottom: `1px solid ${colors.border}` }}>
+    <div style={{ padding: '24px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <div>
+          <h2 style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '18px', color: colors.text, letterSpacing: '1px', textTransform: 'uppercase', margin: 0 }}>
+            Documents
+          </h2>
+          <p style={{ fontSize: '12px', color: colors.textMuted, margin: '2px 0 0' }}>
+            {documents.length} document{documents.length !== 1 ? 's' : ''} · AI-drafted &amp; persisted
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={fetchDocuments}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', backgroundColor: 'transparent', border: cardBorder, borderRadius: '8px', color: colors.textMuted, cursor: 'pointer', fontSize: '12px' }}
+          >
+            <RefreshCw size={13} /> Refresh
+          </button>
           <button
             onClick={() => setShowCreationChat(true)}
-            style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              padding: '10px',
-              backgroundColor: colors.primaryYellow,
-              color: colors.darkGray,
-              border: 'none',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              fontFamily: "'Rajdhani', sans-serif",
-              fontWeight: 600,
-              fontSize: '14px',
-              letterSpacing: '0.5px',
-              transition: 'opacity 0.2s ease',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', backgroundColor: colors.primaryYellow, border: 'none', borderRadius: '8px', color: colors.darkGray, cursor: 'pointer', fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '13px', letterSpacing: '0.5px' }}
           >
-            <Plus size={18} />
-            NEW DOCUMENT
+            <Plus size={15} /> NEW DOCUMENT
           </button>
         </div>
+      </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
-          {documents.length === 0 ? (
-            <div style={{ padding: '32px 16px', textAlign: 'center', color: colors.textMuted, fontSize: '13px' }}>
-              <File size={32} style={{ opacity: 0.3, marginBottom: '8px' }} color={colors.textMuted} />
-              <p style={{ margin: 0 }}>No documents yet.<br />Click "New Document" to create one.</p>
-            </div>
-          ) : (
-            documents.map((doc) => (
-              <button
-                key={doc.id}
-                onClick={() => setSelectedDoc(doc.id)}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '12px',
-                  padding: '12px',
-                  backgroundColor: selectedDoc === doc.id ? (isDark ? '#2A2A2A' : '#eeeeee') : 'transparent',
-                  border: 'none',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'background-color 0.15s ease',
-                  marginBottom: '4px',
-                }}
-              >
-                <div style={{
-                  width: '40px', height: '48px', borderRadius: '6px',
-                  backgroundColor: isDark ? '#333333' : '#e0e0e0',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}>
-                  <FileText size={20} color={colors.primaryYellow} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ color: colors.text, fontSize: '14px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {doc.title}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', fontSize: '12px', color: colors.textMuted }}>
-                    <span style={{
-                      padding: '1px 6px', borderRadius: '3px', fontSize: '10px', fontWeight: 600,
-                      fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.3px', textTransform: 'uppercase',
-                      backgroundColor: isDark ? '#333333' : '#e8e8e8', color: colors.textMuted,
-                    }}>
-                      {DOC_TYPE_LABELS[doc.type] || doc.type}
-                    </span>
-                    <span>{doc.pageCount} pages</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', fontSize: '11px', color: colors.textSecondary }}>
-                    <Clock size={11} />
-                    {doc.updatedAt}
-                    <span style={{
-                      marginLeft: '8px',
-                      color: doc.status === 'final' ? colors.turquoise : colors.primaryYellow,
-                      fontWeight: 600, textTransform: 'uppercase',
-                      fontFamily: "'Rajdhani', sans-serif", fontSize: '10px', letterSpacing: '0.3px',
-                    }}>
-                      {doc.status}
-                    </span>
-                  </div>
-                </div>
-              </button>
-            ))
-          )}
+      {/* Content */}
+      {loading ? (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', gap: '10px', color: colors.textMuted }}>
+          <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+          <span style={{ fontSize: '13px' }}>Loading documents…</span>
         </div>
-      </div>
+      ) : error ? (
+        <div style={{ textAlign: 'center', padding: '40px', color: colors.textMuted, fontSize: '13px' }}>
+          {error} <button onClick={fetchDocuments} style={{ color: colors.primaryYellow, background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px' }}>Retry</button>
+        </div>
+      ) : documents.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+          <File size={40} color={colors.border} style={{ margin: '0 auto 12px' }} />
+          <p style={{ color: colors.textMuted, fontSize: '14px', margin: 0 }}>No documents yet</p>
+          <p style={{ color: colors.textMuted, fontSize: '12px', margin: '4px 0 16px' }}>Draft your first document with AI</p>
+          <button onClick={() => setShowCreationChat(true)} style={{ padding: '8px 20px', backgroundColor: colors.primaryYellow, border: 'none', borderRadius: '8px', color: colors.darkGray, cursor: 'pointer', fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '13px' }}>
+            CREATE FIRST DOCUMENT
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {documents.map(doc => (
+            <div key={doc.id} style={{ backgroundColor: colors.cardBg, border: cardBorder, borderRadius: '10px', overflow: 'hidden', transition: 'border-color 0.2s' }}
+              onMouseEnter={e => (e.currentTarget.style.borderColor = colors.primaryYellow + '50')}
+              onMouseLeave={e => (e.currentTarget.style.borderColor = colors.border)}
+            >
+              {/* Row */}
+              <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <button
+                  onClick={() => setExpandedId(expandedId === doc.id ? null : doc.id)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, padding: 0 }}
+                >
+                  <File size={20} color={colors.primaryYellow} />
+                </button>
 
-      {/* Document Editor */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: colors.background, overflow: 'hidden' }}>
-        {selectedDoc ? (() => {
-          const doc = documents.find(d => d.id === selectedDoc);
-          if (!doc) return null;
-          return (
-            <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '24px', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexShrink: 0 }}>
-                <h2 style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 700, fontSize: '18px', color: colors.text, letterSpacing: '0.5px', textTransform: 'uppercase', margin: 0 }}>
-                  {doc.title}
-                </h2>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {[
-                    { icon: Download, label: 'Export', onClick: () => handleExport(doc) },
-                    { icon: Copy, label: 'Duplicate', onClick: () => handleDuplicate(doc) },
-                    { icon: Trash2, label: 'Delete', onClick: () => handleDelete(doc.id) },
-                  ].map(({ icon: Icon, label, onClick }) => (
-                    <button
-                      key={label}
-                      onClick={onClick}
-                      style={{
-                        padding: '8px', backgroundColor: 'transparent',
-                        border: `1px solid ${colors.border}`, borderRadius: '8px',
-                        color: colors.textMuted, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'all 0.2s ease',
-                      }}
-                      title={label}
-                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.primaryYellow; e.currentTarget.style.color = colors.primaryYellow; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = colors.border; e.currentTarget.style.color = colors.textMuted; }}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {editingId === doc.id ? (
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <input
+                        value={editTitle}
+                        onChange={e => setEditTitle(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleRename(doc.id); if (e.key === 'Escape') setEditingId(null); }}
+                        autoFocus
+                        style={{ flex: 1, background: 'transparent', border: `1px solid ${colors.primaryYellow}`, borderRadius: '6px', padding: '4px 8px', color: colors.text, fontSize: '13px', outline: 'none' }}
+                      />
+                      <button onClick={() => handleRename(doc.id)} style={{ background: 'none', border: 'none', color: colors.primaryYellow, cursor: 'pointer', padding: '4px' }}><Save size={14} /></button>
+                      <button onClick={() => setEditingId(null)} style={{ background: 'none', border: 'none', color: colors.textMuted, cursor: 'pointer', padding: '4px' }}><X size={14} /></button>
+                    </div>
+                  ) : (
+                    <p
+                      style={{ fontFamily: "'Quicksand', sans-serif", fontWeight: 600, fontSize: '13px', color: colors.text, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}
+                      onClick={() => setExpandedId(expandedId === doc.id ? null : doc.id)}
                     >
-                      <Icon size={16} />
+                      {doc.title}
+                    </p>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
+                    <Clock size={10} color={colors.textMuted} />
+                    <span style={{ fontSize: '11px', color: colors.textMuted }}>
+                      {doc.updated_at ? new Date(doc.updated_at).toLocaleDateString() : 'recently'}
+                    </span>
+                    <span style={{ fontSize: '10px', color: statusColor[doc.status] || colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      · {doc.status}
+                    </span>
+                    {doc.content && (
+                      <span style={{ fontSize: '10px', color: colors.textMuted }}>
+                        · {Math.ceil(doc.content.split(' ').length / 200)} min read
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                  {doc.content && (
+                    <button
+                      onClick={() => downloadAsText(doc.content!, `${doc.title}.txt`)}
+                      style={{ padding: '6px', backgroundColor: 'transparent', border: cardBorder, borderRadius: '6px', color: colors.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = colors.primaryYellow; e.currentTarget.style.color = colors.primaryYellow; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = colors.border; e.currentTarget.style.color = colors.textMuted; }}
+                      title="Download as text"
+                    >
+                      <Download size={12} />
                     </button>
-                  ))}
+                  )}
+                  <button
+                    onClick={() => { setEditingId(doc.id); setEditTitle(doc.title); }}
+                    style={{ padding: '6px', backgroundColor: 'transparent', border: cardBorder, borderRadius: '6px', color: colors.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = colors.primaryYellow; e.currentTarget.style.color = colors.primaryYellow; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = colors.border; e.currentTarget.style.color = colors.textMuted; }}
+                  >
+                    <Pencil size={12} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(doc.id)}
+                    style={{ padding: '6px', backgroundColor: 'transparent', border: cardBorder, borderRadius: '6px', color: colors.textMuted, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#ef4444'; e.currentTarget.style.color = '#ef4444'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = colors.border; e.currentTarget.style.color = colors.textMuted; }}
+                  >
+                    <Trash2 size={12} />
+                  </button>
                 </div>
               </div>
-              <div style={{ flex: 1, borderRadius: '12px', border: `1px solid ${colors.border}`, backgroundColor: isDark ? '#1E1E1E' : '#ffffff', overflow: 'auto', display: 'flex', justifyContent: 'center' }}>
-                <div style={{ maxWidth: '700px', width: '100%' }}>
-                  <textarea
-                    value={editContent}
-                    onChange={(e) => handleContentChange(e.target.value)}
-                    placeholder="Start writing your document..."
-                    style={{
-                      width: '100%', height: '100%', padding: '32px 40px',
-                      background: 'none', border: 'none', outline: 'none',
-                      color: colors.text, fontSize: '15px', lineHeight: 1.8,
-                      fontFamily: "'Quicksand', sans-serif", resize: 'none',
-                      boxSizing: 'border-box', minHeight: '400px',
-                    }}
-                  />
+
+              {/* Expanded content preview */}
+              {expandedId === doc.id && doc.content && (
+                <div style={{ borderTop: cardBorder, padding: '14px 16px', backgroundColor: isDark ? '#161616' : '#f5f5f5' }}>
+                  <pre style={{ margin: 0, fontSize: '12px', color: colors.textMuted, fontFamily: "'Quicksand', sans-serif", whiteSpace: 'pre-wrap', lineHeight: 1.6, maxHeight: '300px', overflowY: 'auto' }}>
+                    {doc.content.slice(0, 2000)}{doc.content.length > 2000 ? '\n\n…[truncated]' : ''}
+                  </pre>
                 </div>
-              </div>
+              )}
             </div>
-          );
-        })() : (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ textAlign: 'center' }}>
-              <File size={48} color={colors.textSecondary} style={{ marginBottom: '16px', opacity: 0.5 }} />
-              <p style={{ fontFamily: "'Rajdhani', sans-serif", fontWeight: 600, fontSize: '16px', color: colors.textMuted, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                Select a document or create a new one
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {showCreationChat && (
         <CreationChatModal
@@ -289,6 +261,10 @@ export function DocumentsTab({ colors, isDark }: DocumentsTabProps) {
           onCreated={handleCreated}
         />
       )}
+
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }

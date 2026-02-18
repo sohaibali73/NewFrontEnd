@@ -350,7 +350,7 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
                 width: '32px',
                 height: '32px',
                 borderRadius: '8px',
-                background: `linear-gradient(135deg, ${colors.primaryYellow}20, ${colors.turquoise}20)`,
+                    background: `linear-gradient(135deg, ${colors.primaryYellow}20, ${colors.border}40)`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -427,7 +427,7 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
                   width: '52px',
                   height: '52px',
                   borderRadius: '14px',
-                  background: `linear-gradient(135deg, ${colors.primaryYellow}15, ${colors.turquoise}15)`,
+                  background: `linear-gradient(135deg, ${colors.primaryYellow}15, ${colors.border}40)`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -563,13 +563,13 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
 
                     {/* Success badge when no download URL but complete */}
                     {msg.role === 'assistant' && msg.content && contentType === 'slides' && !msg.downloadUrl && msg.content !== '' && (
-                      <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: colors.turquoise }}>
+                      <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: colors.primaryYellow }}>
                         <CheckCircle size={13} />
                         Presentation outline generated
                       </div>
                     )}
                   </div>
-                  <span style={{ fontSize: '10px', color: colors.textSecondary, marginTop: '3px', padding: '0 4px' }}>
+                  <span style={{ fontSize: '10px', color: colors.textMuted, marginTop: '3px', padding: '0 4px' }}>
                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -583,7 +583,7 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
                     </span>
                   </div>
                   {contentType === 'slides' && (
-                    <div style={{ fontSize: '11px', color: colors.textSecondary, paddingLeft: '23px' }}>
+                    <div style={{ fontSize: '11px', color: colors.textMuted, paddingLeft: '23px' }}>
                       Using potomac-pptx skill for brand-compliant output
                     </div>
                   )}

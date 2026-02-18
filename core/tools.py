@@ -783,6 +783,55 @@ TOOL_DEFINITIONS = [
             "required": ["flight_number"]
         }
     },
+    # Custom: Search Flights
+    {
+        "name": "search_flights",
+        "description": "Search for available flights between two cities/airports and find the cheapest options. Returns real flight offers with prices, airlines, departure/arrival times, stops, and duration. Use this ALWAYS when the user asks to find flights, search for flights, book flights, or asks about flight prices between any two locations. Supports one-way and round-trip searches.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "origin": {
+                    "type": "string",
+                    "description": "Origin city name or IATA airport code (e.g., 'Washington DC', 'DCA', 'IAD', 'BWI', 'New York', 'JFK'). If a city is given, the tool will find the best airport code."
+                },
+                "destination": {
+                    "type": "string",
+                    "description": "Destination city name or IATA airport code (e.g., 'Las Vegas', 'LAS', 'Los Angeles', 'LAX')"
+                },
+                "departure_date": {
+                    "type": "string",
+                    "description": "Departure date in YYYY-MM-DD format (e.g., '2026-03-21')"
+                },
+                "return_date": {
+                    "type": "string",
+                    "description": "Return date for round-trip in YYYY-MM-DD format. Omit for one-way."
+                },
+                "adults": {
+                    "type": "integer",
+                    "description": "Number of adult passengers",
+                    "default": 1
+                },
+                "cabin_class": {
+                    "type": "string",
+                    "description": "Cabin class preference",
+                    "enum": ["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"],
+                    "default": "ECONOMY"
+                },
+                "max_results": {
+                    "type": "integer",
+                    "description": "Maximum number of flight offers to return",
+                    "default": 5
+                },
+                "sort_by": {
+                    "type": "string",
+                    "description": "Sort results by price or duration",
+                    "enum": ["price", "duration"],
+                    "default": "price"
+                }
+            },
+            "required": ["origin", "destination", "departure_date"]
+        }
+    },
     # Custom: Create Presentation (PowerPoint) — supports brand template cloning
     {
         "name": "create_presentation",
@@ -3513,6 +3562,349 @@ def track_flight(flight_number: str, date: str = None) -> Dict[str, Any]:
 
 
 # ============================================================================
+# CITY → IATA AIRPORT CODE LOOKUP
+# ============================================================================
+
+_CITY_TO_IATA = {
+    # Washington DC area
+    "washington": "DCA", "washington dc": "DCA", "dc": "DCA",
+    "reagan": "DCA", "national": "DCA", "dca": "DCA",
+    "dulles": "IAD", "iad": "IAD",
+    "bwi": "BWI", "baltimore": "BWI", "baltimore washington": "BWI",
+    # Major US cities
+    "new york": "JFK", "nyc": "JFK", "jfk": "JFK",
+    "laguardia": "LGA", "lga": "LGA",
+    "newark": "EWR", "ewr": "EWR",
+    "los angeles": "LAX", "la": "LAX", "lax": "LAX",
+    "las vegas": "LAS", "vegas": "LAS", "las": "LAS",
+    "chicago": "ORD", "ord": "ORD", "ohare": "ORD",
+    "midway": "MDW", "mdw": "MDW",
+    "miami": "MIA", "mia": "MIA",
+    "orlando": "MCO", "mco": "MCO",
+    "dallas": "DFW", "dfw": "DFW", "fort worth": "DFW",
+    "houston": "IAH", "iah": "IAH",
+    "atlanta": "ATL", "atl": "ATL",
+    "seattle": "SEA", "sea": "SEA",
+    "san francisco": "SFO", "sf": "SFO", "sfo": "SFO",
+    "denver": "DEN", "den": "DEN",
+    "boston": "BOS", "bos": "BOS",
+    "phoenix": "PHX", "phx": "PHX",
+    "minneapolis": "MSP", "msp": "MSP",
+    "detroit": "DTW", "dtw": "DTW",
+    "philadelphia": "PHL", "phl": "PHL",
+    "charlotte": "CLT", "clt": "CLT",
+    "salt lake city": "SLC", "slc": "SLC",
+    "portland": "PDX", "pdx": "PDX",
+    "san diego": "SAN", "san": "SAN",
+    "nashville": "BNA", "bna": "BNA",
+    "austin": "AUS", "aus": "AUS",
+    "new orleans": "MSY", "msy": "MSY",
+    "kansas city": "MCI", "mci": "MCI",
+    "raleigh": "RDU", "rdu": "RDU",
+    "tampa": "TPA", "tpa": "TPA",
+    "san jose": "SJC", "sjc": "SJC",
+    "oakland": "OAK", "oak": "OAK",
+    "honolulu": "HNL", "hawaii": "HNL", "hnl": "HNL",
+    "anchorage": "ANC", "anc": "ANC",
+    # International
+    "london": "LHR", "lhr": "LHR", "heathrow": "LHR",
+    "gatwick": "LGW", "lgw": "LGW",
+    "paris": "CDG", "cdg": "CDG",
+    "tokyo": "NRT", "nrt": "NRT",
+    "dubai": "DXB", "dxb": "DXB",
+    "toronto": "YYZ", "yyz": "YYZ",
+    "vancouver": "YVR", "yvr": "YVR",
+    "mexico city": "MEX", "mex": "MEX",
+    "cancun": "CUN", "cun": "CUN",
+    "frankfurt": "FRA", "fra": "FRA",
+    "amsterdam": "AMS", "ams": "AMS",
+    "sydney": "SYD", "syd": "SYD",
+    "singapore": "SIN", "sin": "SIN",
+}
+
+
+def _resolve_iata(location: str) -> str:
+    """Resolve a city name or IATA code to a 3-letter IATA code."""
+    if not location:
+        return ""
+    clean = location.strip().lower()
+    # If already a 3-letter code, return uppercase
+    if len(clean) == 3 and clean.isalpha():
+        return clean.upper()
+    # Try direct lookup
+    if clean in _CITY_TO_IATA:
+        return _CITY_TO_IATA[clean]
+    # Try partial match
+    for key, code in _CITY_TO_IATA.items():
+        if key in clean or clean in key:
+            return code
+    # Return as-is uppercase (let Amadeus handle it)
+    return location.strip().upper()[:3]
+
+
+def search_flights(
+    origin: str,
+    destination: str,
+    departure_date: str,
+    return_date: str = None,
+    adults: int = 1,
+    cabin_class: str = "ECONOMY",
+    max_results: int = 5,
+    sort_by: str = "price",
+) -> Dict[str, Any]:
+    """
+    Search for flights using the Amadeus API (free test tier).
+    Falls back to Tavily web search if Amadeus credentials are not set.
+    """
+    import urllib.request
+    import urllib.parse
+
+    start_time = time.time()
+
+    # Resolve city names to IATA codes
+    origin_code = _resolve_iata(origin)
+    dest_code = _resolve_iata(destination)
+
+    amadeus_key = os.getenv("AMADEUS_API_KEY")
+    amadeus_secret = os.getenv("AMADEUS_API_SECRET")
+
+    # ── Amadeus path ──────────────────────────────────────────────────────────
+    if amadeus_key and amadeus_secret:
+        try:
+            # 1. Get OAuth token
+            token_data = urllib.parse.urlencode({
+                "grant_type": "client_credentials",
+                "client_id": amadeus_key,
+                "client_secret": amadeus_secret,
+            }).encode()
+            token_req = urllib.request.Request(
+                "https://test.api.amadeus.com/v1/security/oauth2/token",
+                data=token_data,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                method="POST",
+            )
+            with urllib.request.urlopen(token_req, timeout=15) as resp:
+                token_json = json.loads(resp.read().decode())
+            access_token = token_json.get("access_token")
+            if not access_token:
+                raise ValueError("No access token returned")
+
+            # 2. Search flights
+            params = {
+                "originLocationCode": origin_code,
+                "destinationLocationCode": dest_code,
+                "departureDate": departure_date,
+                "adults": str(adults),
+                "travelClass": cabin_class,
+                "max": str(min(max_results, 10)),
+                "currencyCode": "USD",
+            }
+            if return_date:
+                params["returnDate"] = return_date
+
+            search_url = "https://test.api.amadeus.com/v2/shopping/flight-offers?" + urllib.parse.urlencode(params)
+            search_req = urllib.request.Request(
+                search_url,
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            with urllib.request.urlopen(search_req, timeout=20) as resp:
+                flight_data = json.loads(resp.read().decode())
+
+            offers = flight_data.get("data", [])
+            if not offers:
+                return {
+                    "success": True,
+                    "tool": "search_flights",
+                    "origin": origin_code,
+                    "destination": dest_code,
+                    "departure_date": departure_date,
+                    "return_date": return_date,
+                    "flights": [],
+                    "message": f"No flights found from {origin_code} to {dest_code} on {departure_date}.",
+                    "fetch_time_ms": round((time.time() - start_time) * 1000, 2),
+                }
+
+            # 3. Parse offers
+            airline_names = {
+                d["iataCode"]: d.get("commonName", d["iataCode"])
+                for d in flight_data.get("dictionaries", {}).get("carriers", {}).items()
+            } if "dictionaries" in flight_data else {}
+
+            # Rebuild airline_names properly
+            carriers = flight_data.get("dictionaries", {}).get("carriers", {})
+            airline_names = {k: v for k, v in carriers.items()}
+
+            flights = []
+            for offer in offers[:max_results]:
+                price = float(offer.get("price", {}).get("grandTotal", 0))
+                currency = offer.get("price", {}).get("currency", "USD")
+                itineraries = offer.get("itineraries", [])
+
+                parsed_itineraries = []
+                for itin in itineraries:
+                    segments = itin.get("segments", [])
+                    duration = itin.get("duration", "").replace("PT", "").replace("H", "h ").replace("M", "m").strip()
+                    stops = len(segments) - 1
+
+                    seg_list = []
+                    for seg in segments:
+                        dep = seg.get("departure", {})
+                        arr = seg.get("arrival", {})
+                        carrier = seg.get("carrierCode", "")
+                        flight_num = seg.get("number", "")
+                        seg_list.append({
+                            "flight": f"{carrier}{flight_num}",
+                            "airline": airline_names.get(carrier, carrier),
+                            "from": dep.get("iataCode", ""),
+                            "to": arr.get("iataCode", ""),
+                            "departs": dep.get("at", ""),
+                            "arrives": arr.get("at", ""),
+                            "aircraft": seg.get("aircraft", {}).get("code", ""),
+                        })
+
+                    parsed_itineraries.append({
+                        "duration": duration,
+                        "stops": stops,
+                        "stop_label": "Nonstop" if stops == 0 else f"{stops} stop{'s' if stops > 1 else ''}",
+                        "segments": seg_list,
+                    })
+
+                # Primary airline from first segment
+                first_seg = itineraries[0]["segments"][0] if itineraries and itineraries[0].get("segments") else {}
+                primary_carrier = first_seg.get("carrierCode", "")
+                primary_airline = airline_names.get(primary_carrier, primary_carrier)
+
+                flights.append({
+                    "id": offer.get("id", ""),
+                    "price": price,
+                    "price_formatted": f"${price:,.0f}",
+                    "currency": currency,
+                    "airline": primary_airline,
+                    "airline_code": primary_carrier,
+                    "cabin": cabin_class,
+                    "seats_available": offer.get("numberOfBookableSeats", None),
+                    "itineraries": parsed_itineraries,
+                    "outbound": parsed_itineraries[0] if parsed_itineraries else {},
+                    "return": parsed_itineraries[1] if len(parsed_itineraries) > 1 else None,
+                    "is_round_trip": len(parsed_itineraries) > 1,
+                })
+
+            # Sort
+            if sort_by == "duration" and flights:
+                flights.sort(key=lambda f: f.get("outbound", {}).get("duration", "99h"))
+            else:
+                flights.sort(key=lambda f: f.get("price", 9999))
+
+            cheapest = flights[0] if flights else None
+
+            return {
+                "success": True,
+                "tool": "search_flights",
+                "origin": origin_code,
+                "origin_city": origin,
+                "destination": dest_code,
+                "destination_city": destination,
+                "departure_date": departure_date,
+                "return_date": return_date,
+                "adults": adults,
+                "cabin_class": cabin_class,
+                "trip_type": "round_trip" if return_date else "one_way",
+                "flights_found": len(flights),
+                "cheapest_price": cheapest["price_formatted"] if cheapest else None,
+                "cheapest_airline": cheapest["airline"] if cheapest else None,
+                "flights": flights,
+                "source": "amadeus",
+                "fetch_time_ms": round((time.time() - start_time) * 1000, 2),
+            }
+
+        except Exception as e:
+            logger.warning(f"Amadeus flight search failed: {e}, falling back to web search")
+            # Fall through to Tavily fallback
+
+    # ── Tavily / web-search fallback ──────────────────────────────────────────
+    tavily_key = os.getenv("TAVILY_API_KEY")
+    if tavily_key:
+        try:
+            trip_type = "round trip" if return_date else "one way"
+            query = (
+                f"cheapest flights from {origin} to {destination} "
+                f"departing {departure_date}"
+                + (f" returning {return_date}" if return_date else "")
+                + f" {cabin_class.lower()} {adults} adult"
+            )
+            payload = json.dumps({
+                "api_key": tavily_key,
+                "query": query,
+                "search_depth": "basic",
+                "include_answer": True,
+                "max_results": 5,
+            })
+            req = urllib.request.Request(
+                "https://api.tavily.com/search",
+                data=payload.encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                search_data = json.loads(resp.read().decode())
+
+            results = search_data.get("results", [])
+            answer = search_data.get("answer", "")
+
+            # Build pseudo-flight cards from search results
+            flights = []
+            for i, item in enumerate(results[:max_results]):
+                flights.append({
+                    "id": f"web_{i}",
+                    "title": item.get("title", ""),
+                    "summary": item.get("content", "")[:300],
+                    "url": item.get("url", ""),
+                    "source": _extract_domain(item.get("url", "")),
+                })
+
+            return {
+                "success": True,
+                "tool": "search_flights",
+                "origin": origin_code,
+                "origin_city": origin,
+                "destination": dest_code,
+                "destination_city": destination,
+                "departure_date": departure_date,
+                "return_date": return_date,
+                "adults": adults,
+                "cabin_class": cabin_class,
+                "trip_type": "round_trip" if return_date else "one_way",
+                "answer": answer,
+                "web_results": flights,
+                "source": "web_search",
+                "note": "Set AMADEUS_API_KEY and AMADEUS_API_SECRET for real-time flight offers. Showing web search results.",
+                "fetch_time_ms": round((time.time() - start_time) * 1000, 2),
+            }
+        except Exception as e:
+            return {"success": False, "error": f"Flight search failed: {str(e)}", "tool": "search_flights"}
+
+    # No API keys at all — return helpful guidance
+    return {
+        "success": False,
+        "tool": "search_flights",
+        "error": (
+            "Flight search requires either:\n"
+            "1. AMADEUS_API_KEY + AMADEUS_API_SECRET (free at developers.amadeus.com) for real-time offers, OR\n"
+            "2. TAVILY_API_KEY for web-based flight search results.\n"
+            "Please add one of these to your .env file."
+        ),
+        "origin": origin_code,
+        "destination": dest_code,
+        "departure_date": departure_date,
+        "booking_links": [
+            f"https://www.google.com/flights?q=flights+from+{origin_code}+to+{dest_code}+on+{departure_date}",
+            f"https://www.kayak.com/flights/{origin_code}-{dest_code}/{departure_date}",
+            f"https://www.expedia.com/Flights-Search?trip=oneway&leg1=from:{origin_code},to:{dest_code},departure:{departure_date}",
+        ],
+    }
+
+
+# ============================================================================
 # TOOL DISPATCHER - OPTIMIZED
 # ============================================================================
 
@@ -3796,6 +4188,18 @@ def handle_tool_call(tool_name: str, tool_input: Dict[str, Any], supabase_client
             result = track_flight(
                 flight_number=tool_input.get("flight_number", ""),
                 date=tool_input.get("date")
+            )
+
+        elif tool_name == "search_flights":
+            result = search_flights(
+                origin=tool_input.get("origin", ""),
+                destination=tool_input.get("destination", ""),
+                departure_date=tool_input.get("departure_date", ""),
+                return_date=tool_input.get("return_date"),
+                adults=tool_input.get("adults", 1),
+                cabin_class=tool_input.get("cabin_class", "ECONOMY"),
+                max_results=tool_input.get("max_results", 5),
+                sort_by=tool_input.get("sort_by", "price"),
             )
 
         else:

@@ -905,12 +905,27 @@ export function ChatPage() {
                   default: return null;
                 }
 
-              // Flight Tracker
+              // Flight Tracker (track existing flight by number)
               case 'tool-track_flight':
                 switch (part.state) {
                   case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="track_flight" input={part.input} />;
                   case 'output-available': return <FlightTracker key={pIdx} {...(typeof part.output === 'object' ? part.output : {})} />;
-                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Flight error: {part.errorText}</div>;
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Flight tracker error: {part.errorText}</div>;
+                  default: return null;
+                }
+
+              // Flight Search (search for available flights — uses FlightSearchCard)
+              case 'tool-search_flights':
+              case 'tool-get_flights':
+              case 'tool-find_flights':
+                switch (part.state) {
+                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="search_flights" input={part.input} />;
+                  case 'output-available': {
+                    const flightData = typeof part.output === 'object' ? part.output : {};
+                    // FlightSearchCard expects { data: {...} }
+                    return <FlightSearchCard key={pIdx} data={flightData as any} />;
+                  }
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Flight search error: {part.errorText}</div>;
                   default: return null;
                 }
 

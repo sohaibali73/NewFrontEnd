@@ -50,7 +50,7 @@ export function DocumentsTab({ colors, isDark }: DocumentsTabProps) {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${API()}/content/documents`, { headers: { ...authHeader() } });
+      const res = await fetch(`${API()}/content/documents`, { headers: authHeader() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setDocuments(data || []);
@@ -66,7 +66,7 @@ export function DocumentsTab({ colors, isDark }: DocumentsTabProps) {
 
   const handleDelete = async (id: string) => {
     try {
-      await fetch(`${API()}/content/documents/${id}`, { method: 'DELETE', headers: { ...authHeader() } });
+      await fetch(`${API()}/content/documents/${id}`, { method: 'DELETE', headers: authHeader() });
     } catch {}
     setDocuments(prev => prev.filter(d => d.id !== id));
   };
@@ -76,7 +76,7 @@ export function DocumentsTab({ colors, isDark }: DocumentsTabProps) {
     try {
       const res = await fetch(`${API()}/content/documents/${id}`, {
         method: 'PUT',
-        headers: { ...authHeader() },
+        headers: authHeader(),
         body: JSON.stringify({ title: editTitle.trim() }),
       });
       if (res.ok) {

@@ -43,7 +43,7 @@ export function SlideDecksTab({ colors, isDark }: SlideDecksTabProps) {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${API()}/content/slides`, { headers: { ...authHeader() } });
+      const res = await fetch(`${API()}/content/slides`, { headers: authHeader() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       const mapped: SlideDeck[] = (data || []).map((d: any) => ({
@@ -75,7 +75,7 @@ export function SlideDecksTab({ colors, isDark }: SlideDecksTabProps) {
     const interval = setInterval(async () => {
       for (const deck of inProgress) {
         try {
-          const res = await fetch(`${API()}/content/jobs/${deck.jobId}`, { headers: { ...authHeader() } });
+          const res = await fetch(`${API()}/content/jobs/${deck.jobId}`, { headers: authHeader() });
           if (!res.ok) continue;
           const job = await res.json();
           setDecks(prev => prev.map(d => {
@@ -104,7 +104,7 @@ export function SlideDecksTab({ colors, isDark }: SlideDecksTabProps) {
     try {
       await fetch(`${API()}/content/slides/${id}`, {
         method: 'DELETE',
-        headers: { ...authHeader() },
+        headers: authHeader(),
       });
       setDecks(prev => prev.filter(d => d.id !== id));
     } catch {
@@ -116,7 +116,7 @@ export function SlideDecksTab({ colors, isDark }: SlideDecksTabProps) {
     const url = deck.downloadUrl || deck.download_url;
     if (!url) return;
     try {
-      const res = await fetch(`${API()}${url}`, { headers: { ...authHeader() } });
+      const res = await fetch(`${API()}${url}`, { headers: authHeader() });
       if (!res.ok) throw new Error('Download failed');
       const blob = await res.blob();
       const objectUrl = URL.createObjectURL(blob);

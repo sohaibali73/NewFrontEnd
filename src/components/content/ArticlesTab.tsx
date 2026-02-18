@@ -37,7 +37,7 @@ export function ArticlesTab({ colors, isDark }: ArticlesTabProps) {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${API()}/content/articles`, { headers: { ...authHeader() } });
+      const res = await fetch(`${API()}/content/articles`, { headers: authHeader() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setArticles(data || []);
@@ -53,7 +53,7 @@ export function ArticlesTab({ colors, isDark }: ArticlesTabProps) {
 
   const handleDelete = async (id: string) => {
     try {
-      await fetch(`${API()}/content/articles/${id}`, { method: 'DELETE', headers: { ...authHeader() } });
+      await fetch(`${API()}/content/articles/${id}`, { method: 'DELETE', headers: authHeader() });
     } catch {}
     setArticles(prev => prev.filter(a => a.id !== id));
   };
@@ -63,7 +63,7 @@ export function ArticlesTab({ colors, isDark }: ArticlesTabProps) {
     try {
       const res = await fetch(`${API()}/content/articles/${id}`, {
         method: 'PUT',
-        headers: { ...authHeader() },
+        headers: authHeader(),
         body: JSON.stringify({ title: editTitle.trim() }),
       });
       if (res.ok) {

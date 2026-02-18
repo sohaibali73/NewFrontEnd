@@ -35,13 +35,14 @@ const nextConfig = {
   },
   
   async rewrites() {
+    const backendUrl = (process.env.NEXT_PUBLIC_API_URL ||
+      (process.env.NODE_ENV === 'development'
+        ? 'http://localhost:8000'
+        : 'https://potomac-analyst-workbench-production.up.railway.app')).replace(/\/+$/, '');
     return [
       {
         source: '/api/backend/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 
-          (process.env.NODE_ENV === 'development' 
-            ? 'http://localhost:8000' 
-            : 'https://potomac-analyst-workbench-production.up.railway.app')}/:path*`,
+        destination: `${backendUrl}/:path*`,
       },
     ];
   },

@@ -55,23 +55,29 @@ export function getEnv<K extends keyof EnvironmentVariables>(
 
 /**
  * Get API base URL with fallback for development
+ * Trailing slashes are stripped to prevent double-slash URLs (e.g. baseUrl//auth/login)
  */
 export function getApiUrl(): string {
+  let url: string;
+
   if (typeof window === 'undefined') {
     // Server-side
-    return getEnv(
+    url = getEnv(
       'NEXT_PUBLIC_API_URL',
       process.env.NODE_ENV === 'development'
         ? 'http://localhost:8000'
         : 'https://potomac-analyst-workbench-production.up.railway.app'
     );
+  } else {
+    // Client-side
+    url = process.env.NEXT_PUBLIC_API_URL ||
+      (process.env.NODE_ENV === 'development'
+        ? 'http://localhost:8000'
+        : 'https://potomac-analyst-workbench-production.up.railway.app');
   }
-  
-  // Client-side
-  return process.env.NEXT_PUBLIC_API_URL || 
-    (process.env.NODE_ENV === 'development' 
-      ? 'http://localhost:8000' 
-      : 'https://potomac-analyst-workbench-production.up.railway.app');
+
+  // Strip trailing slash to prevent double-slash URLs
+  return url.replace(/\/+$/, '');
 }
 
 /**

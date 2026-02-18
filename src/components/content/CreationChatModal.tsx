@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Loader2, X, Sparkles, Paperclip, Presentation, BookOpen, File, BarChart3 } from 'lucide-react';
+import { Send, Loader2, X, Sparkles, Paperclip, Presentation, BookOpen, File, BarChart3, Download, CheckCircle } from 'lucide-react';
 
 type ContentType = 'slides' | 'articles' | 'documents' | 'dashboards';
 
@@ -18,6 +18,9 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  downloadUrl?: string;
+  presentationId?: string;
+  title?: string;
 }
 
 const CONTENT_CONFIG: Record<ContentType, { label: string; icon: React.ElementType; placeholder: string; suggestions: string[] }> = {
@@ -71,6 +74,7 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const config = CONTENT_CONFIG[contentType];
@@ -91,6 +95,27 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
     textareaRef.current?.focus();
   }, []);
 
+  const handleDownload = useCallback(async (downloadUrl: string, title: string) => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(downloadUrl, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      });
+      if (!response.ok) throw new Error('Download failed');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title || 'presentation'}.pptx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download error:', err);
+    }
+  }, []);
+
   const handleSend = useCallback(async () => {
     if (!input.trim() || isLoading) return;
     const userMsg: ChatMessage = {
@@ -103,103 +128,161 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
     const currentInput = input.trim();
     setInput('');
     setIsLoading(true);
+    setStatusMessage('');
 
     try {
-      // Get API base URL from environment
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
       const token = localStorage.getItem('auth_token');
-      
-      if (!token) {
-        throw new Error('Authentication required');
-      }
 
-      // Call content chat streaming endpoint with content type
-      const response = await fetch(`${apiUrl}/content/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          text: currentInput,
-          contentType: contentType
-        }),
-      });
+      if (!token) throw new Error('Authentication required');
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      // Use the dedicated slides/generate endpoint for slides (potomac-pptx skill)
+      if (contentType === 'slides') {
+        const response = await fetch(`${apiUrl}/content/slides/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            prompt: currentInput,
+            title: currentInput.slice(0, 60),
+            slide_count: 10,
+          }),
+        });
 
-      // Handle streaming response
-      const reader = response.body?.getReader();
-      let assistantContent = '';
-      const assistantMsgId = `msg-${Date.now() + 1}`;
+        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 
-      // Create initial assistant message
-      setMessages((prev) => [...prev, {
-        id: assistantMsgId,
-        role: 'assistant',
-        content: '',
-        timestamp: new Date(),
-      }]);
+        const reader = response.body?.getReader();
+        const assistantMsgId = `msg-${Date.now() + 1}`;
+        let assistantContent = '';
+        let downloadUrl: string | undefined;
+        let presentationId: string | undefined;
+        let deckTitle = currentInput.slice(0, 60);
 
-      if (reader) {
-        const decoder = new TextDecoder();
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+        setMessages((prev) => [...prev, {
+          id: assistantMsgId,
+          role: 'assistant',
+          content: '',
+          timestamp: new Date(),
+        }]);
 
-            const chunk = decoder.decode(value);
-            const lines = chunk.split('\n');
-
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                try {
-                  const data = JSON.parse(line.slice(6));
-                  if (data.type === 'text') {
-                    assistantContent += data.text;
-                    // Update the assistant message
-                    setMessages((prev) => prev.map(msg => 
-                      msg.id === assistantMsgId 
-                        ? { ...msg, content: assistantContent }
-                        : msg
-                    ));
-                  } else if (data.type === 'complete') {
-                    // Notify parent if content was created
-                    if (onCreated && assistantContent) {
-                      onCreated({
-                        title: `${config.label} - ${new Date().toLocaleDateString()}`,
-                        messages: [...messages, userMsg, { id: assistantMsgId, role: 'assistant', content: assistantContent, timestamp: new Date() }]
-                      });
+        if (reader) {
+          const decoder = new TextDecoder();
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              const chunk = decoder.decode(value);
+              const lines = chunk.split('\n');
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const data = JSON.parse(line.slice(6));
+                    if (data.type === 'status') {
+                      setStatusMessage(data.message || '');
+                    } else if (data.type === 'complete') {
+                      assistantContent = data.text || 'Presentation generated successfully!';
+                      downloadUrl = data.download_url;
+                      presentationId = data.presentation_id;
+                      deckTitle = data.title || deckTitle;
+                      setStatusMessage('');
+                      setMessages((prev) => prev.map(msg =>
+                        msg.id === assistantMsgId
+                          ? { ...msg, content: assistantContent, downloadUrl, presentationId, title: deckTitle }
+                          : msg
+                      ));
+                      if (onCreated) {
+                        onCreated({ title: deckTitle, messages: [] });
+                      }
+                    } else if (data.type === 'error') {
+                      throw new Error(data.error);
                     }
-                    break;
-                  } else if (data.type === 'error') {
-                    throw new Error(data.error);
+                  } catch (parseError) {
+                    // ignore
                   }
-                } catch (parseError) {
-                  // Ignore invalid JSON chunks
                 }
               }
             }
+          } finally {
+            reader.releaseLock();
           }
-        } finally {
-          reader.releaseLock();
+        }
+      } else {
+        // Non-slides: use the general content chat endpoint
+        const response = await fetch(`${apiUrl}/content/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ text: currentInput, contentType }),
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+        const reader = response.body?.getReader();
+        let assistantContent = '';
+        const assistantMsgId = `msg-${Date.now() + 1}`;
+
+        setMessages((prev) => [...prev, {
+          id: assistantMsgId,
+          role: 'assistant',
+          content: '',
+          timestamp: new Date(),
+        }]);
+
+        if (reader) {
+          const decoder = new TextDecoder();
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              const chunk = decoder.decode(value);
+              const lines = chunk.split('\n');
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  try {
+                    const data = JSON.parse(line.slice(6));
+                    if (data.type === 'text') {
+                      assistantContent += data.text;
+                      setMessages((prev) => prev.map(msg =>
+                        msg.id === assistantMsgId ? { ...msg, content: assistantContent } : msg
+                      ));
+                    } else if (data.type === 'complete') {
+                      if (onCreated && assistantContent) {
+                        onCreated({
+                          title: `${config.label} - ${new Date().toLocaleDateString()}`,
+                          messages: [],
+                        });
+                      }
+                    } else if (data.type === 'error') {
+                      throw new Error(data.error);
+                    }
+                  } catch (parseError) {
+                    // ignore
+                  }
+                }
+              }
+            }
+          } finally {
+            reader.releaseLock();
+          }
         }
       }
     } catch (error) {
       console.error('Content creation error:', error);
-      const errorMsg: ChatMessage = {
+      setStatusMessage('');
+      setMessages((prev) => [...prev, {
         id: `msg-${Date.now() + 1}`,
         role: 'assistant',
         content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
         timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMsg]);
+      }]);
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, config.label, contentType, onCreated, messages]);
+  }, [input, isLoading, config.label, contentType, onCreated]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -281,15 +364,10 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
               >
                 New {config.label}
               </h2>
-              <p
-                style={{
-                  fontSize: '12px',
-                  color: colors.textMuted,
-                  margin: 0,
-                  lineHeight: 1.3,
-                }}
-              >
-                Describe what you need and the AI will generate it
+              <p style={{ fontSize: '12px', color: colors.textMuted, margin: 0, lineHeight: 1.3 }}>
+                {contentType === 'slides'
+                  ? 'Powered by Potomac PPTX Skill — brand-compliant presentations'
+                  : 'Describe what you need and the AI will generate it'}
               </p>
             </div>
           </div>
@@ -323,13 +401,7 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
         </div>
 
         {/* Messages Area */}
-        <div
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: '20px',
-          }}
-        >
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
           {messages.length === 0 ? (
             <div
               style={{
@@ -367,6 +439,24 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
               >
                 What would you like to create?
               </p>
+              {contentType === 'slides' && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 16px',
+                    backgroundColor: `${colors.primaryYellow}10`,
+                    border: `1px solid ${colors.primaryYellow}30`,
+                    borderRadius: '10px',
+                    fontSize: '12px',
+                    color: colors.primaryYellow,
+                  }}
+                >
+                  <Presentation size={14} />
+                  Uses <strong>potomac-pptx</strong> skill — generates a real .pptx file with Potomac branding
+                </div>
+              )}
               <div
                 style={{
                   display: 'flex',
@@ -421,51 +511,73 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
                     style={{
                       maxWidth: '85%',
                       padding: '10px 14px',
-                      borderRadius:
-                        msg.role === 'user'
-                          ? '14px 14px 4px 14px'
-                          : '14px 14px 14px 4px',
-                      backgroundColor:
-                        msg.role === 'user'
-                          ? colors.primaryYellow
-                          : isDark
-                            ? '#262626'
-                            : '#f0f0f0',
-                      color:
-                        msg.role === 'user' ? colors.darkGray : colors.text,
+                      borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                      backgroundColor: msg.role === 'user' ? colors.primaryYellow : isDark ? '#262626' : '#f0f0f0',
+                      color: msg.role === 'user' ? colors.darkGray : colors.text,
                       fontSize: '13px',
                       lineHeight: 1.6,
                       fontWeight: msg.role === 'user' ? 500 : 400,
                       whiteSpace: 'pre-wrap',
                     }}
                   >
-                    {msg.content}
+                    {msg.content || (isLoading && msg.role === 'assistant' ? '' : msg.content)}
+
+                    {/* Download button for completed presentations */}
+                    {msg.role === 'assistant' && msg.downloadUrl && (
+                      <div style={{ marginTop: '12px' }}>
+                        <button
+                          onClick={() => handleDownload(msg.downloadUrl!, msg.title || 'presentation')}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '10px 18px',
+                            backgroundColor: colors.primaryYellow,
+                            color: colors.darkGray,
+                            border: 'none',
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            fontFamily: "'Rajdhani', sans-serif",
+                            fontWeight: 700,
+                            fontSize: '13px',
+                            letterSpacing: '0.5px',
+                            transition: 'opacity 0.2s',
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+                        >
+                          <Download size={16} />
+                          DOWNLOAD PPTX
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Success badge when no download URL but complete */}
+                    {msg.role === 'assistant' && msg.content && contentType === 'slides' && !msg.downloadUrl && msg.content !== '' && (
+                      <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: colors.turquoise }}>
+                        <CheckCircle size={13} />
+                        Presentation outline generated
+                      </div>
+                    )}
                   </div>
-                  <span
-                    style={{
-                      fontSize: '10px',
-                      color: colors.textSecondary,
-                      marginTop: '3px',
-                      padding: '0 4px',
-                    }}
-                  >
-                    {msg.timestamp.toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                  <span style={{ fontSize: '10px', color: colors.textSecondary, marginTop: '3px', padding: '0 4px' }}>
+                    {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
               ))}
               {isLoading && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 14px' }}>
-                  <Loader2
-                    size={15}
-                    color={colors.primaryYellow}
-                    style={{ animation: 'spin 1s linear infinite' }}
-                  />
-                  <span style={{ color: colors.textMuted, fontSize: '12px' }}>
-                    Generating your {config.label.toLowerCase()}...
-                  </span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '10px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Loader2 size={15} color={colors.primaryYellow} style={{ animation: 'spin 1s linear infinite' }} />
+                    <span style={{ color: colors.textMuted, fontSize: '12px' }}>
+                      {statusMessage || `Generating your ${config.label.toLowerCase()}...`}
+                    </span>
+                  </div>
+                  {contentType === 'slides' && (
+                    <div style={{ fontSize: '11px', color: colors.textSecondary, paddingLeft: '23px' }}>
+                      Using potomac-pptx skill for brand-compliant output
+                    </div>
+                  )}
                 </div>
               )}
               <div ref={messagesEndRef} />
@@ -474,13 +586,7 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
         </div>
 
         {/* Input Area */}
-        <div
-          style={{
-            padding: '12px 20px 16px',
-            borderTop: `1px solid ${colors.border}`,
-            flexShrink: 0,
-          }}
-        >
+        <div style={{ padding: '12px 20px 16px', borderTop: `1px solid ${colors.border}`, flexShrink: 0 }}>
           <div
             style={{
               display: 'flex',
@@ -538,16 +644,8 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
                 width: '36px',
                 height: '36px',
                 borderRadius: '10px',
-                backgroundColor:
-                  input.trim() && !isLoading
-                    ? colors.primaryYellow
-                    : isDark
-                      ? '#333333'
-                      : '#e0e0e0',
-                color:
-                  input.trim() && !isLoading
-                    ? colors.darkGray
-                    : colors.textMuted,
+                backgroundColor: input.trim() && !isLoading ? colors.primaryYellow : isDark ? '#333333' : '#e0e0e0',
+                color: input.trim() && !isLoading ? colors.darkGray : colors.textMuted,
                 border: 'none',
                 cursor: input.trim() && !isLoading ? 'pointer' : 'not-allowed',
                 display: 'flex',
@@ -574,14 +672,8 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
           to { transform: rotate(360deg); }
         }
         @keyframes modalSlideIn {
-          from {
-            opacity: 0;
-            transform: translateY(12px) scale(0.97);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
+          from { opacity: 0; transform: translateY(12px) scale(0.97); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
         }
       `}</style>
     </div>

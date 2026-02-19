@@ -17,6 +17,7 @@ import {
   Smartphone,
   Monitor,
   Rocket,
+  Presentation,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -35,6 +36,7 @@ const navItems = [
   { name: 'DEVELOPER', href: '/developer', icon: Smartphone },
   { name: 'NON APPLE DEV', href: '/non-apple-developer', icon: Monitor },
   { name: 'AUTOPILOT DEMO', href: '/autopilot', icon: Rocket },
+  { name: 'PRESENTATIONS', href: '/deck-generator', icon: Presentation },
   { name: 'SETTINGS', href: '/settings', icon: Settings },
 ];
 

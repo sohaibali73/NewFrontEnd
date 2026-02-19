@@ -1,29 +1,25 @@
 """
-Potomac InDesign → PPTX Template Converter
-==========================================
+Potomac InDesign -> PPTX Template Converter (v2 - Native Elements)
+==================================================================
 Reads the manifest JSON produced by export_manifest.jsx and builds
-python-pptx template files for each slide type.
+python-pptx template files with NATIVE PowerPoint elements:
+  - Shapes are recreated as PowerPoint shapes (fills, strokes, corners)
+  - Text is editable PowerPoint text (fonts, sizes, colors, alignment)
+  - Images become placeholder zones
+  - No background PNG screenshots
 
 Usage:
-    pip install python-pptx Pillow
+    pip install python-pptx lxml Pillow
     python convert_to_templates.py \
         --manifest ./potomac_export/Bull_Bear_manifest.json \
         --images   ./potomac_export/slide_images/ \
-        --output   ./templates/bull-bear/ \
-        --logos    ./brand_assets/logos/
-
-The script does TWO things per slide:
-  1. Bakes the full-slide reference PNG as a background image (preserves all
-     complex vector/design elements perfectly)
-  2. Overlays transparent python-pptx placeholders exactly where each
-     editable text/image zone sits — so Claude can fill them at generation time.
+        --output   ./templates/bull-bear/
 """
 
 import json
 import os
 import sys
 import argparse
-import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -31,713 +27,274 @@ try:
     from pptx import Presentation
     from pptx.util import Inches, Pt, Emu
     from pptx.dml.color import RGBColor
-    from pptx.enum.text import PP_ALIGN
-    from pptx.util import Inches, Pt
-    import pptx.oxml.ns as pns
+    from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+    from pptx.enum.shapes import MSO_SHAPE
     from lxml import etree
 except ImportError:
     print("Install required packages: pip install python-pptx lxml Pillow")
     sys.exit(1)
 
-# ─── POTOMAC BRAND CONSTANTS ─────────────────────────────────────────────────
 
-BRAND = {
-    "yellow":    RGBColor(0xFE, 0xC0, 0x0F),
-    "dark_gray": RGBColor(0x21, 0x21, 0x21),
-    "turquoise": RGBColor(0x00, 0xDE, 0xD1),
-    "pink":      RGBColor(0xEB, 0x2F, 0x5C),
-    "white":     RGBColor(0xFF, 0xFF, 0xFF),
-    "light_bg":  RGBColor(0xF2, 0xF2, 0xF2),
-}
+# --- HELPERS ---
 
-FONT_HEADER = "Rajdhani"
-FONT_BODY   = "Quicksand"
-
-# Standard Potomac widescreen: 13.333" x 7.5"
-SLIDE_W = Inches(13.333)
-SLIDE_H = Inches(7.5)
-
-
-# ─── HELPERS ─────────────────────────────────────────────────────────────────
-
-def hex_to_rgb(hex_str: str) -> Optional[RGBColor]:
+def hex_to_rgb(hex_str: Optional[str]) -> Optional[RGBColor]:
     """Convert hex string (no #) to RGBColor."""
     if not hex_str:
         return None
     h = hex_str.lstrip("#")
     if len(h) != 6:
         return None
-    return RGBColor(int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+    try:
+        return RGBColor(int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+    except Exception:
+        return None
 
 
-def in_to_emu(inches: float) -> int:
-    return int(inches * 914400)
+def pt_to_emu(pt_val):
+    """Convert points to EMU."""
+    return int(pt_val * 12700)
 
 
-def is_dark_background(hex_str: str) -> bool:
-    """Determine if a hex color is dark (for choosing text color)."""
-    if not hex_str:
-        return False
-    h = hex_str.lstrip("#")
-    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-    luminance = 0.299 * r + 0.587 * g + 0.114 * b
-    return luminance < 128
+ALIGN_MAP = {
+    "left": PP_ALIGN.LEFT,
+    "center": PP_ALIGN.CENTER,
+    "right": PP_ALIGN.RIGHT,
+}
 
 
-def add_background_image(slide, image_path: str):
-    """Set a PNG as the full-slide background."""
-    if not image_path or not os.path.exists(image_path):
+def set_slide_bg_color(slide, hex_color):
+    """Set the slide background to a solid fill color."""
+    if not hex_color:
         return
-    left = top = 0
-    pic = slide.shapes.add_picture(image_path, left, top, SLIDE_W, SLIDE_H)
-    # Move background image to back
-    slide.shapes._spTree.remove(pic._element)
-    slide.shapes._spTree.insert(2, pic._element)
+    rgb = hex_to_rgb(hex_color)
+    if not rgb:
+        return
+    background = slide.background
+    fill = background.fill
+    fill.solid()
+    fill.fore_color.rgb = rgb
 
 
-def add_placeholder_textbox(slide, pos: dict, name: str, placeholder_text: str,
-                             font: str = FONT_BODY, size_pt: float = 14,
-                             bold: bool = False, all_caps: bool = False,
-                             color: RGBColor = None, align: str = "left",
-                             transparent: bool = True):
-    """
-    Add a named text placeholder over a specific zone.
-    The box is transparent by default so the background image shows through.
-    The placeholder text is there for python-pptx assembly to find & replace.
-    """
-    left   = Inches(pos["x_in"])
-    top    = Inches(pos["y_in"])
-    width  = Inches(pos["w_in"])
-    height = Inches(pos["h_in"])
+def add_shape_to_slide(slide, item, slide_w_in, slide_h_in):
+    """Add a native PowerPoint shape from manifest shape data."""
+    pos = item.get("position", {})
+    x = Inches(pos.get("x_in", 0))
+    y = Inches(pos.get("y_in", 0))
+    w = Inches(pos.get("w_in", 1))
+    h = Inches(pos.get("h_in", 1))
 
-    txBox = slide.shapes.add_textbox(left, top, width, height)
-    txBox.name = name  # key: this is how the assembler finds it
+    corner_radius = item.get("corner_radius", 0)
 
-    tf = txBox.text_frame
-    tf.word_wrap = True
+    # Choose shape type based on corner radius
+    if corner_radius and corner_radius > 0:
+        shape_type = MSO_SHAPE.ROUNDED_RECTANGLE
+    else:
+        shape_type = MSO_SHAPE.RECTANGLE
 
-    # Set placeholder text
-    p = tf.paragraphs[0]
-    run = p.add_run()
-    run.text = placeholder_text
+    shape = slide.shapes.add_shape(shape_type, x, y, w, h)
 
-    # Font
-    run.font.name = font
-    run.font.size = Pt(size_pt)
-    run.font.bold = bold
-    if color:
-        run.font.color.rgb = color
+    # Fill
+    fill_color = hex_to_rgb(item.get("fill_color"))
+    if fill_color:
+        shape.fill.solid()
+        shape.fill.fore_color.rgb = fill_color
+    else:
+        shape.fill.background()  # transparent
 
-    # Alignment
-    align_map = {
-        "left":   PP_ALIGN.LEFT,
-        "center": PP_ALIGN.CENTER,
-        "right":  PP_ALIGN.RIGHT,
-    }
-    p.alignment = align_map.get(align.lower(), PP_ALIGN.LEFT)
+    # Stroke
+    stroke_color = hex_to_rgb(item.get("stroke_color"))
+    stroke_weight = item.get("stroke_weight", 0)
+    if stroke_color and stroke_weight and stroke_weight > 0:
+        shape.line.color.rgb = stroke_color
+        shape.line.width = Pt(stroke_weight)
+    else:
+        shape.line.fill.background()  # no stroke
 
-    if all_caps:
-        run.font.all_caps = True
-
-    # Make fill transparent
-    if transparent:
-        fill = txBox.fill
-        fill.background()
-
-    return txBox
-
-
-def add_placeholder_image_zone(slide, pos: dict, name: str):
-    """
-    Add a named empty rectangle as an image placeholder zone.
-    The rectangle is transparent with a faint yellow border so it's
-    visible during template debugging but won't show in final output.
-    """
-    left   = Inches(pos["x_in"])
-    top    = Inches(pos["y_in"])
-    width  = Inches(pos["w_in"])
-    height = Inches(pos["h_in"])
-
-    shape = slide.shapes.add_shape(
-        1,  # MSO_SHAPE_TYPE.RECTANGLE
-        left, top, width, height
-    )
-    shape.name = name
-
-    # Transparent fill
-    shape.fill.background()
-
-    # Faint yellow border (debug only — remove for production)
-    shape.line.color.rgb = BRAND["yellow"]
-    shape.line.width = Pt(1)
+    # Opacity
+    opacity = item.get("opacity", 100)
+    if opacity < 100:
+        # Set shape transparency via XML
+        try:
+            sp = shape._element
+            ns = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+            solid_fill = sp.find('.//' + '{%s}solidFill' % ns)
+            if solid_fill is not None:
+                srgb = solid_fill.find('{%s}srgbClr' % ns)
+                if srgb is not None:
+                    alpha = etree.SubElement(srgb, '{%s}alpha' % ns)
+                    alpha.set('val', str(int(opacity * 1000)))
+        except Exception:
+            pass
 
     return shape
 
 
-# ─── TEMPLATE BUILDERS ───────────────────────────────────────────────────────
-# Each function takes a Presentation and a slide manifest dict, adds a slide,
-# and registers all editable zones. The function name = template_id.
+def add_text_to_slide(slide, item, slide_w_in, slide_h_in):
+    """Add an editable text box from manifest text data."""
+    pos = item.get("position", {})
+    x = Inches(pos.get("x_in", 0))
+    y = Inches(pos.get("y_in", 0))
+    w = Inches(pos.get("w_in", 1))
+    h = Inches(pos.get("h_in", 1))
 
-def build_template_cover_hero(prs: Presentation, slide_data: dict,
-                               bg_image: str):
-    """
-    Slide 1: Cover hero
-    - Full yellow bottom panel (~60% of height), white strip top
-    - Logo top-left on white strip
-    - Large left-aligned title on yellow area
-    - Right side: decorative product image placeholder
-    """
-    slide_layout = prs.slide_layouts[6]  # blank
-    slide = prs.slides.add_slide(slide_layout)
+    txBox = slide.shapes.add_textbox(x, y, w, h)
+    tf = txBox.text_frame
+    tf.word_wrap = True
 
-    add_background_image(slide, bg_image)
+    # Background fill for text frame
+    fill_color = hex_to_rgb(item.get("fill_color"))
+    is_transparent = item.get("is_transparent", True)
+    if fill_color and not is_transparent:
+        txBox.fill.solid()
+        txBox.fill.fore_color.rgb = fill_color
+    else:
+        txBox.fill.background()
 
-    # Editable zones (positions calibrated from Bull Bear PDF)
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.4, "y_in": 2.5, "w_in": 6.5, "h_in": 2.8},
-        name="main_title",
-        placeholder_text="{{main_title}}",
-        font=FONT_HEADER, size_pt=72, bold=True,
-        all_caps=True, color=BRAND["dark_gray"], align="left"
-    )
-    add_placeholder_image_zone(slide,
-        pos={"x_in": 6.8, "y_in": 1.2, "w_in": 6.1, "h_in": 5.8},
-        name="hero_image"
-    )
-    return slide
+    # Stroke
+    stroke_color = hex_to_rgb(item.get("stroke_color"))
+    stroke_weight = item.get("stroke_weight", 0)
+    if stroke_color and stroke_weight and stroke_weight > 0:
+        txBox.line.color.rgb = stroke_color
+        txBox.line.width = Pt(stroke_weight)
 
+    # Add paragraphs
+    paragraphs = item.get("paragraphs", [])
+    if not paragraphs:
+        # No paragraph data - just put the raw text content
+        text_content = item.get("text_content", "")
+        if text_content:
+            p = tf.paragraphs[0]
+            run = p.add_run()
+            run.text = text_content
+        return txBox
 
-def build_template_strategy_intro(prs: Presentation, slide_data: dict,
-                                   bg_image: str):
-    """
-    Slide 2: Strategy intro / title card
-    - Light gray background
-    - Breadcrumb top-left, icon top-right
-    - Large centered strategy name with icon image to the right of text
-    - Centered subtitle paragraph below
-    """
-    slide_layout = prs.slide_layouts[6]
-    slide = prs.slides.add_slide(slide_layout)
-    add_background_image(slide, bg_image)
+    for i, para_data in enumerate(paragraphs):
+        if i == 0:
+            p = tf.paragraphs[0]
+        else:
+            p = tf.add_paragraph()
 
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.35, "y_in": 0.18, "w_in": 6.0, "h_in": 0.32},
-        name="breadcrumb",
-        placeholder_text="{{breadcrumb}}",
-        font=FONT_HEADER, size_pt=11, bold=False,
-        all_caps=True, color=BRAND["dark_gray"], align="left"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 1.5, "y_in": 2.2, "w_in": 6.5, "h_in": 1.0},
-        name="strategy_name",
-        placeholder_text="{{strategy_name}}",
-        font=FONT_HEADER, size_pt=64, bold=True,
-        all_caps=True, color=BRAND["dark_gray"], align="left"
-    )
-    add_placeholder_image_zone(slide,
-        pos={"x_in": 7.8, "y_in": 1.9, "w_in": 2.8, "h_in": 1.6},
-        name="strategy_icon"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 1.5, "y_in": 3.9, "w_in": 10.3, "h_in": 1.2},
-        name="subtitle",
-        placeholder_text="{{subtitle}}",
-        font=FONT_BODY, size_pt=20, bold=False,
-        color=BRAND["dark_gray"], align="center"
-    )
-    return slide
+        text = para_data.get("text", "")
+        font_name = para_data.get("font", "Quicksand")
+        font_style = para_data.get("style", "Regular")
+        size_pt = para_data.get("size_pt", 12)
+        color_hex = para_data.get("color")
+        align = para_data.get("align", "left")
+        bold = para_data.get("bold", False)
+        italic = para_data.get("italic", False)
+        all_caps = para_data.get("all_caps", False)
 
+        run = p.add_run()
+        run.text = text
 
-def build_template_chart_full_light(prs: Presentation, slide_data: dict,
-                                     bg_image: str):
-    """
-    Slides 5,6,7: Full-width Optuma chart slide
-    - Light gray background
-    - Small breadcrumb top-left ("PROCESS"), icon top-right
-    - Large centered title (Rajdhani ALL CAPS)
-    - Full-width chart image placeholder (fills most of slide)
-    - "For illustrative purposes only." footer centered
-    - Optional vertical sidebar text on left edge (very small)
-    """
-    slide_layout = prs.slide_layouts[6]
-    slide = prs.slides.add_slide(slide_layout)
-    add_background_image(slide, bg_image)
+        # Font settings
+        run.font.name = font_name
+        run.font.size = Pt(size_pt)
+        run.font.bold = bold
+        run.font.italic = italic
 
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.35, "y_in": 0.18, "w_in": 3.0, "h_in": 0.32},
-        name="breadcrumb",
-        placeholder_text="{{breadcrumb}}",
-        font=FONT_HEADER, size_pt=11, bold=False,
-        all_caps=True, color=BRAND["dark_gray"], align="left"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 1.5, "y_in": 0.5, "w_in": 10.3, "h_in": 0.75},
-        name="slide_title",
-        placeholder_text="{{slide_title}}",
-        font=FONT_HEADER, size_pt=40, bold=True,
-        all_caps=True, color=BRAND["dark_gray"], align="center"
-    )
-    add_placeholder_image_zone(slide,
-        pos={"x_in": 0.2, "y_in": 1.35, "w_in": 12.9, "h_in": 5.55},
-        name="chart_image"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 1.5, "y_in": 6.95, "w_in": 10.3, "h_in": 0.35},
-        name="disclaimer",
-        placeholder_text="{{disclaimer}}",
-        font=FONT_BODY, size_pt=10, bold=False,
-        color=BRAND["dark_gray"], align="center"
-    )
-    return slide
+        if all_caps:
+            try:
+                run.font.all_caps = True
+            except Exception:
+                pass
+
+        color = hex_to_rgb(color_hex)
+        if color:
+            run.font.color.rgb = color
+
+        # Paragraph alignment
+        p.alignment = ALIGN_MAP.get(align, PP_ALIGN.LEFT)
+
+    return txBox
 
 
-def build_template_three_step_circles_dark(prs: Presentation,
-                                            slide_data: dict, bg_image: str):
-    """
-    Slide 4: Three-step process with numbered circles
-    - Dark charcoal background
-    - Breadcrumb top-left (light text), icon top-right (white)
-    - Large centered white title
-    - Yellow italic subtitle
-    - 3 numbered circle infographic (baked in background; labels editable)
-    """
-    slide_layout = prs.slide_layouts[6]
-    slide = prs.slides.add_slide(slide_layout)
-    add_background_image(slide, bg_image)
+def add_image_zone_to_slide(slide, item, images_dir=None):
+    """Add an image placeholder zone (or actual image if available)."""
+    pos = item.get("position", {})
+    x = Inches(pos.get("x_in", 0))
+    y = Inches(pos.get("y_in", 0))
+    w = Inches(pos.get("w_in", 1))
+    h = Inches(pos.get("h_in", 1))
 
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.35, "y_in": 0.18, "w_in": 3.0, "h_in": 0.32},
-        name="breadcrumb",
-        placeholder_text="{{breadcrumb}}",
-        font=FONT_HEADER, size_pt=11, bold=False,
-        all_caps=True, color=BRAND["white"], align="left"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 1.0, "y_in": 0.55, "w_in": 11.3, "h_in": 0.75},
-        name="slide_title",
-        placeholder_text="{{slide_title}}",
-        font=FONT_HEADER, size_pt=40, bold=True,
-        all_caps=True, color=BRAND["white"], align="center"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 1.0, "y_in": 1.35, "w_in": 11.3, "h_in": 0.45},
-        name="subtitle",
-        placeholder_text="{{subtitle}}",
-        font=FONT_BODY, size_pt=16, bold=False,
-        color=BRAND["yellow"], align="center"
-    )
-    # Step labels (3 circles — text only, circles are in background image)
-    for i, label_name in enumerate(["step1_label", "step2_label", "step3_label"]):
-        x = 0.7 + i * 4.2
-        add_placeholder_textbox(slide,
-            pos={"x_in": x, "y_in": 5.5, "w_in": 3.5, "h_in": 0.7},
-            name=label_name,
-            placeholder_text="{{" + label_name + "}}",
-            font=FONT_BODY, size_pt=13, bold=True,
-            color=BRAND["white"], align="center"
-        )
-    return slide
+    linked_file = item.get("linked_file")
+
+    # Try to find the actual linked image
+    if linked_file and images_dir:
+        img_path = os.path.join(images_dir, linked_file)
+        if os.path.exists(img_path):
+            try:
+                slide.shapes.add_picture(img_path, x, y, w, h)
+                return
+            except Exception:
+                pass
+
+    # Fallback: add a placeholder rectangle
+    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, x, y, w, h)
+    shape.name = "image_placeholder"
+    shape.fill.background()
+    # Light gray dashed border
+    shape.line.color.rgb = RGBColor(0xCC, 0xCC, 0xCC)
+    shape.line.width = Pt(0.5)
+    shape.line.dash_style = 2  # dash
 
 
-def build_template_three_col_equation_dark(prs: Presentation,
-                                            slide_data: dict, bg_image: str):
-    """
-    Slide 8: Three-column equation (Base + Trigger = Composite)
-    - Dark background
-    - Multi-line title with yellow accent words
-    - Three card columns with yellow pill headers
-    """
-    slide_layout = prs.slide_layouts[6]
-    slide = prs.slides.add_slide(slide_layout)
-    add_background_image(slide, bg_image)
+def add_line_to_slide(slide, item):
+    """Add a line shape."""
+    pos = item.get("position", {})
+    x = Inches(pos.get("x_in", 0))
+    y = Inches(pos.get("y_in", 0))
+    w = Inches(pos.get("w_in", 0.01))
+    h = Inches(pos.get("h_in", 0.01))
 
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.35, "y_in": 0.18, "w_in": 3.0, "h_in": 0.32},
-        name="breadcrumb",
-        placeholder_text="{{breadcrumb}}",
-        font=FONT_HEADER, size_pt=11, bold=False,
-        all_caps=True, color=BRAND["white"], align="left"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.5, "y_in": 0.5, "w_in": 12.3, "h_in": 1.2},
-        name="slide_title",
-        placeholder_text="{{slide_title}}",
-        font=FONT_HEADER, size_pt=36, bold=True,
-        all_caps=True, color=BRAND["white"], align="center"
-    )
-    col_positions = [
-        {"x_in": 0.45, "y_in": 2.0, "w_in": 3.4, "h_in": 2.8},
-        {"x_in": 4.75, "y_in": 2.0, "w_in": 3.4, "h_in": 2.8},
-        {"x_in": 9.05, "y_in": 2.0, "w_in": 3.4, "h_in": 2.8},
-    ]
-    col_names = ["col1_header", "col2_header", "col3_header"]
-    body_names = ["col1_body", "col2_body", "col3_body"]
-    for i, (cp, cn, bn) in enumerate(zip(col_positions, col_names, body_names)):
-        header_pos = {**cp, "y_in": cp["y_in"], "h_in": 0.38}
-        body_pos   = {**cp, "y_in": cp["y_in"] + 0.55, "h_in": 2.1}
-        add_placeholder_textbox(slide,
-            pos=header_pos, name=cn,
-            placeholder_text="{{" + cn + "}}",
-            font=FONT_BODY, size_pt=14, bold=True,
-            color=BRAND["dark_gray"], align="center"
-        )
-        add_placeholder_textbox(slide,
-            pos=body_pos, name=bn,
-            placeholder_text="{{" + bn + "}}",
-            font=FONT_BODY, size_pt=13, bold=False,
-            color=BRAND["white"], align="center"
-        )
-    return slide
+    # Determine if horizontal or vertical
+    cx = x + w
+    cy = y + h
+    connector = slide.shapes.add_connector(1, x, y, cx, cy)  # straight connector
+
+    stroke_color = hex_to_rgb(item.get("stroke_color"))
+    stroke_weight = item.get("stroke_weight", 1)
+    if stroke_color:
+        connector.line.color.rgb = stroke_color
+    if stroke_weight:
+        connector.line.width = Pt(stroke_weight)
 
 
-def build_template_four_col_equation_dark(prs: Presentation,
-                                           slide_data: dict, bg_image: str):
-    """
-    Slide 9: Four-column equation (Base + Trigger + Trigger = Composite)
-    - Dark background
-    - Title + yellow subtitle
-    - Four card columns, last one yellow-highlighted
-    """
-    slide_layout = prs.slide_layouts[6]
-    slide = prs.slides.add_slide(slide_layout)
-    add_background_image(slide, bg_image)
+def process_item(slide, item, slide_w_in, slide_h_in, images_dir=None, depth=0):
+    """Process a single manifest item and add it to the slide."""
+    if depth > 5:
+        return
 
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.35, "y_in": 0.18, "w_in": 3.0, "h_in": 0.32},
-        name="breadcrumb",
-        placeholder_text="{{breadcrumb}}",
-        font=FONT_HEADER, size_pt=11, bold=False,
-        all_caps=True, color=BRAND["white"], align="left"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.5, "y_in": 0.5, "w_in": 12.3, "h_in": 0.65},
-        name="slide_title",
-        placeholder_text="{{slide_title}}",
-        font=FONT_HEADER, size_pt=36, bold=True,
-        all_caps=True, color=BRAND["white"], align="center"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.5, "y_in": 1.2, "w_in": 12.3, "h_in": 0.38},
-        name="subtitle",
-        placeholder_text="{{subtitle}}",
-        font=FONT_BODY, size_pt=15, bold=False,
-        color=BRAND["yellow"], align="center"
-    )
-    cols = [
-        (0.25, "col1_header", "col1_body"),
-        (3.35, "col2_header", "col2_body"),
-        (6.45, "col3_header", "col3_body"),
-        (9.55, "col4_header", "col4_body"),
-    ]
-    for x_start, ch, cb in cols:
-        add_placeholder_textbox(slide,
-            pos={"x_in": x_start, "y_in": 2.0, "w_in": 2.9, "h_in": 0.38},
-            name=ch, placeholder_text="{{" + ch + "}}",
-            font=FONT_BODY, size_pt=14, bold=True,
-            color=BRAND["dark_gray"], align="center"
-        )
-        add_placeholder_textbox(slide,
-            pos={"x_in": x_start, "y_in": 2.55, "w_in": 2.9, "h_in": 2.3},
-            name=cb, placeholder_text="{{" + cb + "}}",
-            font=FONT_BODY, size_pt=13, bold=False,
-            color=BRAND["white"], align="center"
-        )
-    return slide
+    item_type = item.get("type", "other")
+    pos = item.get("position", {})
+
+    # Skip tiny invisible items
+    if pos.get("w_pt", 0) < 2 or pos.get("h_pt", 0) < 2:
+        return
+
+    if item_type == "shape":
+        add_shape_to_slide(slide, item, slide_w_in, slide_h_in)
+
+    elif item_type == "text":
+        add_text_to_slide(slide, item, slide_w_in, slide_h_in)
+
+    elif item_type == "image":
+        add_image_zone_to_slide(slide, item, images_dir)
+
+    elif item_type == "line":
+        try:
+            add_line_to_slide(slide, item)
+        except Exception:
+            pass
+
+    elif item_type == "group":
+        children = item.get("children", [])
+        for child in children:
+            process_item(slide, child, slide_w_in, slide_h_in, images_dir, depth + 1)
 
 
-def build_template_data_table_light(prs: Presentation, slide_data: dict,
-                                     bg_image: str):
-    """
-    Slide 11: Full-width data comparison table
-    - Light background
-    - Top-left title (not centered)
-    - Full-width table with yellow header row
-    - Source footnote
-    """
-    slide_layout = prs.slide_layouts[6]
-    slide = prs.slides.add_slide(slide_layout)
-    add_background_image(slide, bg_image)
+# --- SLIDE MAP (Bull Bear specific) ---
 
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.35, "y_in": 0.18, "w_in": 12.5, "h_in": 0.45},
-        name="slide_title",
-        placeholder_text="{{slide_title}}",
-        font=FONT_HEADER, size_pt=16, bold=False,
-        all_caps=True, color=BRAND["dark_gray"], align="left"
-    )
-    # Table area — content baked in background; add named zone for assembler
-    add_placeholder_image_zone(slide,
-        pos={"x_in": 0.35, "y_in": 0.8, "w_in": 12.6, "h_in": 5.9},
-        name="table_area"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.35, "y_in": 6.95, "w_in": 12.6, "h_in": 0.35},
-        name="footnote",
-        placeholder_text="{{footnote}}",
-        font=FONT_BODY, size_pt=10, bold=False,
-        color=BRAND["dark_gray"], align="center"
-    )
-    return slide
-
-
-def build_template_comparison_table(prs: Presentation, slide_data: dict,
-                                     bg_image: str):
-    """
-    Slide 12: Two-row comparison table with yellow highlight
-    - Light background
-    - Breadcrumb + centered title
-    - Small 2-row table with yellow-highlighted Potomac row
-    """
-    slide_layout = prs.slide_layouts[6]
-    slide = prs.slides.add_slide(slide_layout)
-    add_background_image(slide, bg_image)
-
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.35, "y_in": 0.18, "w_in": 6.0, "h_in": 0.32},
-        name="breadcrumb",
-        placeholder_text="{{breadcrumb}}",
-        font=FONT_HEADER, size_pt=11, bold=False,
-        all_caps=True, color=BRAND["dark_gray"], align="left"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 1.0, "y_in": 0.55, "w_in": 11.3, "h_in": 0.65},
-        name="slide_title",
-        placeholder_text="{{slide_title}}",
-        font=FONT_HEADER, size_pt=36, bold=True,
-        all_caps=True, color=BRAND["dark_gray"], align="center"
-    )
-    add_placeholder_image_zone(slide,
-        pos={"x_in": 0.8, "y_in": 1.8, "w_in": 11.7, "h_in": 3.2},
-        name="table_area"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.5, "y_in": 6.95, "w_in": 12.3, "h_in": 0.35},
-        name="footnote",
-        placeholder_text="{{footnote}}",
-        font=FONT_BODY, size_pt=10, bold=False,
-        color=BRAND["dark_gray"], align="center"
-    )
-    return slide
-
-
-def build_template_split_dark_light(prs: Presentation, slide_data: dict,
-                                     bg_image: str):
-    """
-    Slide 10: Diagonal split — dark left, light right
-    - Left side: heading + body text
-    - Right side: allocation charts / infographic
-    """
-    slide_layout = prs.slide_layouts[6]
-    slide = prs.slides.add_slide(slide_layout)
-    add_background_image(slide, bg_image)
-
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.35, "y_in": 0.18, "w_in": 4.0, "h_in": 0.32},
-        name="breadcrumb",
-        placeholder_text="{{breadcrumb}}",
-        font=FONT_HEADER, size_pt=11, bold=False,
-        all_caps=True, color=BRAND["white"], align="left"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.35, "y_in": 1.2, "w_in": 5.5, "h_in": 0.75},
-        name="left_heading",
-        placeholder_text="{{left_heading}}",
-        font=FONT_HEADER, size_pt=40, bold=True,
-        all_caps=True, color=BRAND["white"], align="left"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.35, "y_in": 2.1, "w_in": 5.5, "h_in": 3.2},
-        name="left_body",
-        placeholder_text="{{left_body}}",
-        font=FONT_BODY, size_pt=14, bold=False,
-        color=BRAND["white"], align="left"
-    )
-    add_placeholder_image_zone(slide,
-        pos={"x_in": 6.5, "y_in": 0.5, "w_in": 6.5, "h_in": 7.0},
-        name="right_infographic"
-    )
-    return slide
-
-
-def build_template_three_circles_dark(prs: Presentation, slide_data: dict,
-                                       bg_image: str):
-    """
-    Slide 13: Three circles on dark background (no numbers)
-    - "How are advisors using X?"
-    """
-    slide_layout = prs.slide_layouts[6]
-    slide = prs.slides.add_slide(slide_layout)
-    add_background_image(slide, bg_image)
-
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.35, "y_in": 0.18, "w_in": 6.0, "h_in": 0.32},
-        name="breadcrumb",
-        placeholder_text="{{breadcrumb}}",
-        font=FONT_HEADER, size_pt=11, bold=False,
-        all_caps=True, color=BRAND["white"], align="left"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 1.0, "y_in": 0.55, "w_in": 11.3, "h_in": 0.75},
-        name="slide_title",
-        placeholder_text="{{slide_title}}",
-        font=FONT_HEADER, size_pt=40, bold=True,
-        all_caps=True, color=BRAND["white"], align="center"
-    )
-    for i, name in enumerate(["circle1_text", "circle2_text", "circle3_text"]):
-        x = 0.5 + i * 4.1
-        add_placeholder_textbox(slide,
-            pos={"x_in": x, "y_in": 2.2, "w_in": 3.7, "h_in": 2.5},
-            name=name, placeholder_text="{{" + name + "}}",
-            font=FONT_BODY, size_pt=15, bold=False,
-            color=BRAND["white"], align="center"
-        )
-    return slide
-
-
-def build_template_thank_you(prs: Presentation, slide_data: dict,
-                              bg_image: str):
-    """Slide 14: Thank you / contact slide."""
-    slide_layout = prs.slide_layouts[6]
-    slide = prs.slides.add_slide(slide_layout)
-    add_background_image(slide, bg_image)
-
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.35, "y_in": 0.18, "w_in": 3.0, "h_in": 0.32},
-        name="breadcrumb",
-        placeholder_text="{{breadcrumb}}",
-        font=FONT_HEADER, size_pt=11, bold=False,
-        all_caps=True, color=BRAND["white"], align="left"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 1.0, "y_in": 0.6, "w_in": 11.3, "h_in": 0.75},
-        name="heading",
-        placeholder_text="{{heading}}",
-        font=FONT_HEADER, size_pt=44, bold=True,
-        all_caps=True, color=BRAND["white"], align="center"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 1.0, "y_in": 1.45, "w_in": 11.3, "h_in": 0.45},
-        name="subheading",
-        placeholder_text="{{subheading}}",
-        font=FONT_BODY, size_pt=18, bold=False,
-        color=BRAND["yellow"], align="center"
-    )
-    add_placeholder_image_zone(slide,
-        pos={"x_in": 0.5, "y_in": 2.1, "w_in": 6.8, "h_in": 4.8},
-        name="map_image"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 7.8, "y_in": 2.1, "w_in": 5.0, "h_in": 0.4},
-        name="contact_url",
-        placeholder_text="{{contact_url}}",
-        font=FONT_BODY, size_pt=16, bold=False,
-        color=BRAND["white"], align="left"
-    )
-    add_placeholder_image_zone(slide,
-        pos={"x_in": 7.8, "y_in": 2.7, "w_in": 2.5, "h_in": 2.5},
-        name="qr_code"
-    )
-    return slide
-
-
-def build_template_text_dark(prs: Presentation, slide_data: dict,
-                              bg_image: str):
-    """
-    Slides 15,16: Dense text slides (Disclosures / Definitions)
-    - Dark background
-    - Top-left title
-    - Large body text area
-    """
-    slide_layout = prs.slide_layouts[6]
-    slide = prs.slides.add_slide(slide_layout)
-    add_background_image(slide, bg_image)
-
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.35, "y_in": 0.18, "w_in": 12.0, "h_in": 0.42},
-        name="slide_title",
-        placeholder_text="{{slide_title}}",
-        font=FONT_HEADER, size_pt=18, bold=False,
-        all_caps=True, color=BRAND["white"], align="left"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.35, "y_in": 0.75, "w_in": 12.6, "h_in": 6.4},
-        name="body_text",
-        placeholder_text="{{body_text}}",
-        font=FONT_BODY, size_pt=11, bold=False,
-        color=BRAND["white"], align="left"
-    )
-    return slide
-
-
-def build_template_data_flow_diagram_light(prs: Presentation,
-                                            slide_data: dict, bg_image: str):
-    """
-    Slide 3: Data flow diagram (5-box, center yellow)
-    - Light background
-    - Large centered title
-    - Diagram is baked into background; only labels are editable
-    """
-    slide_layout = prs.slide_layouts[6]
-    slide = prs.slides.add_slide(slide_layout)
-    add_background_image(slide, bg_image)
-
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.35, "y_in": 0.18, "w_in": 3.0, "h_in": 0.32},
-        name="breadcrumb",
-        placeholder_text="{{breadcrumb}}",
-        font=FONT_HEADER, size_pt=11, bold=False,
-        all_caps=True, color=BRAND["dark_gray"], align="left"
-    )
-    add_placeholder_textbox(slide,
-        pos={"x_in": 0.5, "y_in": 0.55, "w_in": 12.3, "h_in": 0.65},
-        name="slide_title",
-        placeholder_text="{{slide_title}}",
-        font=FONT_HEADER, size_pt=36, bold=True,
-        all_caps=True, color=BRAND["dark_gray"], align="center"
-    )
-    box_defs = [
-        ("top_left_header",  "top_left_body",  0.25, 1.55),
-        ("top_right_header", "top_right_body",  9.3, 1.55),
-        ("center_header",    "center_body",     4.7, 1.55),
-        ("btm_left_header",  "btm_left_body",   0.25, 4.45),
-        ("btm_right_header", "btm_right_body",  9.3, 4.45),
-    ]
-    for hname, bname, x, y in box_defs:
-        add_placeholder_textbox(slide,
-            pos={"x_in": x, "y_in": y, "w_in": 3.5, "h_in": 0.38},
-            name=hname, placeholder_text="{{" + hname + "}}",
-            font=FONT_BODY, size_pt=14, bold=True,
-            color=BRAND["dark_gray"], align="center"
-        )
-        add_placeholder_textbox(slide,
-            pos={"x_in": x, "y_in": y + 0.5, "w_in": 3.5, "h_in": 2.5},
-            name=bname, placeholder_text="{{" + bname + "}}",
-            font=FONT_BODY, size_pt=12, bold=False,
-            color=BRAND["white"], align="center"
-        )
-    return slide
-
-
-# ─── TEMPLATE REGISTRY ────────────────────────────────────────────────────────
-
-TEMPLATE_BUILDERS = {
-    "cover-hero":                  build_template_cover_hero,
-    "strategy-intro":              build_template_strategy_intro,
-    "chart-full-light":            build_template_chart_full_light,
-    "three-step-circles-dark":     build_template_three_step_circles_dark,
-    "three-col-equation-dark":     build_template_three_col_equation_dark,
-    "four-col-equation-dark":      build_template_four_col_equation_dark,
-    "data-table-light":            build_template_data_table_light,
-    "comparison-table":            build_template_comparison_table,
-    "split-dark-light":            build_template_split_dark_light,
-    "three-circles-dark":          build_template_three_circles_dark,
-    "thank-you":                   build_template_thank_you,
-    "text-dark":                   build_template_text_dark,
-    "data-flow-diagram-light":     build_template_data_flow_diagram_light,
-}
-
-# Map from slide number in Bull Bear to template_id
-# You can override these in the manifest JSON under each slide's "template_id"
 BULL_BEAR_SLIDE_MAP = {
     1:  "cover-hero",
     2:  "strategy-intro",
@@ -758,7 +315,7 @@ BULL_BEAR_SLIDE_MAP = {
 }
 
 
-# ─── MAIN ────────────────────────────────────────────────────────────────────
+# --- MAIN CONVERTER ---
 
 def convert(manifest_path: str, images_dir: str, output_dir: str,
             logos_dir: str = None):
@@ -772,19 +329,16 @@ def convert(manifest_path: str, images_dir: str, output_dir: str,
     print(f"Slides: {manifest['total_slides']}")
     print(f"Dimensions: {manifest['slide_width_in']}\" x {manifest['slide_height_in']}\"")
 
-    slide_w = Inches(manifest["slide_width_in"])
-    slide_h = Inches(manifest["slide_height_in"])
+    slide_w_in = manifest["slide_width_in"]
+    slide_h_in = manifest["slide_height_in"]
+    slide_w = Inches(slide_w_in)
+    slide_h = Inches(slide_h_in)
 
-    # Update global dimensions if different from default
-    global SLIDE_W, SLIDE_H
-    SLIDE_W = slide_w
-    SLIDE_H = slide_h
-
-    # Build one .pptx per template type, deduplicated
+    # Build one .pptx per template type (deduplicated by template_id)
     built_templates = {}
 
     for slide_data in manifest["slides"]:
-        slide_num  = slide_data["slide_number"]
+        slide_num = slide_data["slide_number"]
         template_id = slide_data.get("template_id") or \
                       BULL_BEAR_SLIDE_MAP.get(slide_num)
 
@@ -796,56 +350,63 @@ def convert(manifest_path: str, images_dir: str, output_dir: str,
             print(f"  [OK] Slide {slide_num}: template '{template_id}' already built")
             continue
 
-        builder = TEMPLATE_BUILDERS.get(template_id)
-        if not builder:
-            print(f"  [WARN] Slide {slide_num}: unknown template_id '{template_id}'")
-            continue
+        print(f"  -> Building template '{template_id}' from slide {slide_num}...")
 
-        # Find reference image
-        bg_image = os.path.join(images_dir,
-                                f"slide_{str(slide_num).zfill(2)}.png")
-        if not os.path.exists(bg_image):
-            print(f"  [WARN] Background image not found: {bg_image}")
-            bg_image = None
-
-        # Build presentation with single slide
+        # Create presentation with single slide
         prs = Presentation()
-        prs.slide_width  = slide_w
+        prs.slide_width = slide_w
         prs.slide_height = slide_h
 
-        print(f"  -> Building template '{template_id}' from slide {slide_num}...")
+        slide_layout = prs.slide_layouts[6]  # blank
+        slide = prs.slides.add_slide(slide_layout)
+
+        # Set background color
+        bg_color = slide_data.get("background_color")
+        set_slide_bg_color(slide, bg_color)
+
+        # Process all items from the manifest (native elements)
+        items = slide_data.get("items", [])
+        item_count = 0
+        for item in items:
+            try:
+                process_item(slide, item, slide_w_in, slide_h_in, images_dir)
+                item_count += 1
+            except Exception as e:
+                print(f"     [WARN] Item error: {e}")
+
+        # Save
+        out_file = output_path / f"{template_id}.pptx"
         try:
-            builder(prs, slide_data, bg_image)
+            prs.save(str(out_file))
+            built_templates[template_id] = str(out_file)
+            print(f"     Saved: {out_file} ({item_count} elements)")
         except Exception as e:
-            print(f"     ERROR: {e}")
+            print(f"     ERROR saving: {e}")
             continue
 
-        out_file = output_path / f"{template_id}.pptx"
-        prs.save(str(out_file))
-        built_templates[template_id] = str(out_file)
-        print(f"     Saved: {out_file}")
-
-    # Write summary manifest
+    # Write summary registry
     summary = {
-        "deck_family":   manifest["deck_family"],
-        "slide_w_in":    manifest["slide_width_in"],
-        "slide_h_in":    manifest["slide_height_in"],
-        "templates":     built_templates,
-        "slide_map":     BULL_BEAR_SLIDE_MAP,
+        "deck_family": manifest.get("deck_family", "unknown"),
+        "slide_w_in": slide_w_in,
+        "slide_h_in": slide_h_in,
+        "templates": built_templates,
+        "slide_map": {str(k): v for k, v in BULL_BEAR_SLIDE_MAP.items()},
     }
     summary_path = output_path / "template_registry.json"
     with open(str(summary_path), "w") as f:
         json.dump(summary, f, indent=2)
-    print(f"\nDone! {len(built_templates)} templates built.")
+
+    print(f"\nDone! {len(built_templates)} templates built with native elements.")
     print(f"   Registry: {summary_path}")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Convert InDesign manifest to PPTX templates")
+    parser = argparse.ArgumentParser(
+        description="Convert InDesign manifest to native PPTX templates")
     parser.add_argument("--manifest", required=True)
-    parser.add_argument("--images",   required=True)
-    parser.add_argument("--output",   required=True)
-    parser.add_argument("--logos",    default=None)
+    parser.add_argument("--images", required=True)
+    parser.add_argument("--output", required=True)
+    parser.add_argument("--logos", default=None)
     args = parser.parse_args()
 
     convert(args.manifest, args.images, args.output, args.logos)

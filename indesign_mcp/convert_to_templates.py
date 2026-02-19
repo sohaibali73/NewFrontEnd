@@ -209,34 +209,82 @@ def add_text_to_slide(slide, item, slide_w_in, slide_h_in):
     return txBox
 
 
-def add_image_zone_to_slide(slide, item, images_dir=None):
-    """Add an image placeholder zone (or actual image if available)."""
+def find_image_file(item, images_dir, elements_dir=None):
+    """Find the actual image file for an image/group item."""
+    # 1. Check for exported element PNG
+    exported = item.get("exported_png")
+    if exported and elements_dir:
+        path = os.path.join(elements_dir, exported)
+        if os.path.exists(path):
+            return path
+
+    # 2. Check for full linked file path
+    linked = item.get("linked_file")
+    if linked:
+        # Try as absolute path
+        if os.path.exists(linked):
+            return linked
+        # Try relative to images dir
+        if images_dir:
+            path = os.path.join(images_dir, linked)
+            if os.path.exists(path):
+                return path
+            # Try just the filename
+            fname = os.path.basename(linked)
+            path = os.path.join(images_dir, fname)
+            if os.path.exists(path):
+                return path
+
+    # 3. Check linked_name
+    linked_name = item.get("linked_name")
+    if linked_name and images_dir:
+        path = os.path.join(images_dir, linked_name)
+        if os.path.exists(path):
+            return path
+
+    return None
+
+
+def add_image_zone_to_slide(slide, item, images_dir=None, elements_dir=None):
+    """Add an image (or placeholder zone if image not found)."""
     pos = item.get("position", {})
     x = Inches(pos.get("x_in", 0))
     y = Inches(pos.get("y_in", 0))
     w = Inches(pos.get("w_in", 1))
     h = Inches(pos.get("h_in", 1))
 
-    linked_file = item.get("linked_file")
-
-    # Try to find the actual linked image
-    if linked_file and images_dir:
-        img_path = os.path.join(images_dir, linked_file)
-        if os.path.exists(img_path):
-            try:
-                slide.shapes.add_picture(img_path, x, y, w, h)
-                return
-            except Exception:
-                pass
+    img_path = find_image_file(item, images_dir, elements_dir)
+    if img_path:
+        try:
+            slide.shapes.add_picture(img_path, x, y, w, h)
+            return
+        except Exception:
+            pass
 
     # Fallback: add a placeholder rectangle
     shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, x, y, w, h)
     shape.name = "image_placeholder"
     shape.fill.background()
-    # Light gray dashed border
     shape.line.color.rgb = RGBColor(0xCC, 0xCC, 0xCC)
     shape.line.width = Pt(0.5)
     shape.line.dash_style = 2  # dash
+
+
+def add_group_to_slide(slide, item, images_dir=None, elements_dir=None):
+    """Add a group element - place exported PNG if available."""
+    pos = item.get("position", {})
+    x = Inches(pos.get("x_in", 0))
+    y = Inches(pos.get("y_in", 0))
+    w = Inches(pos.get("w_in", 1))
+    h = Inches(pos.get("h_in", 1))
+
+    img_path = find_image_file(item, images_dir, elements_dir)
+    if img_path:
+        try:
+            slide.shapes.add_picture(img_path, x, y, w, h)
+            return
+        except Exception:
+            pass
 
 
 def add_line_to_slide(slide, item):
@@ -260,7 +308,8 @@ def add_line_to_slide(slide, item):
         connector.line.width = Pt(stroke_weight)
 
 
-def process_item(slide, item, slide_w_in, slide_h_in, images_dir=None, depth=0):
+def process_item(slide, item, slide_w_in, slide_h_in, images_dir=None,
+                 elements_dir=None, depth=0):
     """Process a single manifest item and add it to the slide."""
     if depth > 5:
         return
@@ -279,7 +328,7 @@ def process_item(slide, item, slide_w_in, slide_h_in, images_dir=None, depth=0):
         add_text_to_slide(slide, item, slide_w_in, slide_h_in)
 
     elif item_type == "image":
-        add_image_zone_to_slide(slide, item, images_dir)
+        add_image_zone_to_slide(slide, item, images_dir, elements_dir)
 
     elif item_type == "line":
         try:
@@ -288,9 +337,15 @@ def process_item(slide, item, slide_w_in, slide_h_in, images_dir=None, depth=0):
             pass
 
     elif item_type == "group":
-        children = item.get("children", [])
-        for child in children:
-            process_item(slide, child, slide_w_in, slide_h_in, images_dir, depth + 1)
+        # If group has an exported PNG, place it as an image
+        if item.get("exported_png"):
+            add_group_to_slide(slide, item, images_dir, elements_dir)
+        else:
+            # Fallback: recurse into children
+            children = item.get("children", [])
+            for child in children:
+                process_item(slide, child, slide_w_in, slide_h_in,
+                           images_dir, elements_dir, depth + 1)
 
 
 # --- SLIDE MAP (Bull Bear specific) ---
@@ -364,12 +419,18 @@ def convert(manifest_path: str, images_dir: str, output_dir: str,
         bg_color = slide_data.get("background_color")
         set_slide_bg_color(slide, bg_color)
 
+        # Detect elements directory (sibling to images_dir)
+        elements_dir = os.path.join(os.path.dirname(images_dir), "elements")
+        if not os.path.isdir(elements_dir):
+            elements_dir = None
+
         # Process all items from the manifest (native elements)
         items = slide_data.get("items", [])
         item_count = 0
         for item in items:
             try:
-                process_item(slide, item, slide_w_in, slide_h_in, images_dir)
+                process_item(slide, item, slide_w_in, slide_h_in,
+                           images_dir, elements_dir)
                 item_count += 1
             except Exception as e:
                 print(f"     [WARN] Item error: {e}")

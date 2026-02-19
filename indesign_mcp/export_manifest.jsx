@@ -361,22 +361,11 @@ if (!JSON.stringify) {
             } catch(e) {}
         }
 
-        // Process items layer-by-layer (bottom to top for z-order)
-        for (var li = doc.layers.length - 1; li >= 0; li--) {
-            var layer = doc.layers[li];
-            if (!layer.visible) continue;
-
-            try {
-                var layerItems = page.allPageItems;
-                for (var ii = 0; ii < layerItems.length; ii++) {
-                    try {
-                        if (layerItems[ii].itemLayer.name !== layer.name) continue;
-                    } catch(e) { continue; }
-
-                    var processed = processItem(layerItems[ii], pageY, pageX, slideNum, 0);
-                    if (processed) slideData.items.push(processed);
-                }
-            } catch(e) {}
+        // Process ALL page items (layer name is recorded per-item)
+        var allItems = page.allPageItems;
+        for (var ii = 0; ii < allItems.length; ii++) {
+            var processed = processItem(allItems[ii], pageY, pageX, slideNum, 0);
+            if (processed) slideData.items.push(processed);
         }
 
         // Export reference PNG of full page

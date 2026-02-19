@@ -1,15 +1,19 @@
 """
-Potomac InDesign -> PPTX Template Converter (v2 - Native Elements)
-==================================================================
-Reads the manifest JSON produced by export_manifest.jsx and builds
-python-pptx template files with NATIVE PowerPoint elements:
-  - Shapes are recreated as PowerPoint shapes (fills, strokes, corners)
-  - Text is editable PowerPoint text (fonts, sizes, colors, alignment)
-  - Images become placeholder zones
-  - No background PNG screenshots
+Potomac InDesign -> pptxgenjs JSON Template Converter
+=====================================================
+Reads the manifest JSON from export_manifest.jsx and converts each slide
+into a pptxgenjs-compatible JSON template definition.
+
+This integrates with the Potomac PPTX skill system which uses pptxgenjs
+for programmatic slide generation via Claude.
+
+Output per slide:
+  - pptxgenjs objects array (text, rect, image definitions)
+  - Background color
+  - Slide metadata (type, title, fonts, colors)
+  - Slide reference PNG path
 
 Usage:
-    pip install python-pptx lxml Pillow
     python convert_to_templates.py \
         --manifest ./potomac_export/Bull_Bear_manifest.json \
         --images   ./potomac_export/slide_images/ \
@@ -21,335 +25,26 @@ import os
 import sys
 import argparse
 from pathlib import Path
-from typing import Optional
-
-try:
-    from pptx import Presentation
-    from pptx.util import Inches, Pt, Emu
-    from pptx.dml.color import RGBColor
-    from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
-    from pptx.enum.shapes import MSO_SHAPE
-    from lxml import etree
-except ImportError:
-    print("Install required packages: pip install python-pptx lxml Pillow")
-    sys.exit(1)
 
 
-# --- HELPERS ---
-
-def hex_to_rgb(hex_str: Optional[str]) -> Optional[RGBColor]:
-    """Convert hex string (no #) to RGBColor."""
-    if not hex_str:
-        return None
-    h = hex_str.lstrip("#")
-    if len(h) != 6:
-        return None
-    try:
-        return RGBColor(int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
-    except Exception:
-        return None
-
-
-def pt_to_emu(pt_val):
-    """Convert points to EMU."""
-    return int(pt_val * 12700)
-
-
-ALIGN_MAP = {
-    "left": PP_ALIGN.LEFT,
-    "center": PP_ALIGN.CENTER,
-    "right": PP_ALIGN.RIGHT,
+# --- Potomac Brand Constants ---
+BRAND = {
+    "colors": {
+        "yellow": "FEC00F",
+        "dark_gray": "212121",
+        "turquoise": "00DED1",
+        "pink": "EB2F5C",
+        "white": "FFFFFF",
+        "light_bg": "F2F2F2",
+    },
+    "fonts": {
+        "header": "Rajdhani",
+        "body": "Quicksand",
+        "accent": "Lexend Deca",
+    }
 }
 
-
-def set_slide_bg_color(slide, hex_color):
-    """Set the slide background to a solid fill color."""
-    if not hex_color:
-        return
-    rgb = hex_to_rgb(hex_color)
-    if not rgb:
-        return
-    background = slide.background
-    fill = background.fill
-    fill.solid()
-    fill.fore_color.rgb = rgb
-
-
-def add_shape_to_slide(slide, item, slide_w_in, slide_h_in):
-    """Add a native PowerPoint shape from manifest shape data."""
-    pos = item.get("position", {})
-    x = Inches(pos.get("x_in", 0))
-    y = Inches(pos.get("y_in", 0))
-    w = Inches(pos.get("w_in", 1))
-    h = Inches(pos.get("h_in", 1))
-
-    corner_radius = item.get("corner_radius", 0)
-
-    # Choose shape type based on corner radius
-    if corner_radius and corner_radius > 0:
-        shape_type = MSO_SHAPE.ROUNDED_RECTANGLE
-    else:
-        shape_type = MSO_SHAPE.RECTANGLE
-
-    shape = slide.shapes.add_shape(shape_type, x, y, w, h)
-
-    # Fill
-    fill_color = hex_to_rgb(item.get("fill_color"))
-    if fill_color:
-        shape.fill.solid()
-        shape.fill.fore_color.rgb = fill_color
-    else:
-        shape.fill.background()  # transparent
-
-    # Stroke
-    stroke_color = hex_to_rgb(item.get("stroke_color"))
-    stroke_weight = item.get("stroke_weight", 0)
-    if stroke_color and stroke_weight and stroke_weight > 0:
-        shape.line.color.rgb = stroke_color
-        shape.line.width = Pt(stroke_weight)
-    else:
-        shape.line.fill.background()  # no stroke
-
-    # Opacity
-    opacity = item.get("opacity", 100)
-    if opacity < 100:
-        # Set shape transparency via XML
-        try:
-            sp = shape._element
-            ns = 'http://schemas.openxmlformats.org/drawingml/2006/main'
-            solid_fill = sp.find('.//' + '{%s}solidFill' % ns)
-            if solid_fill is not None:
-                srgb = solid_fill.find('{%s}srgbClr' % ns)
-                if srgb is not None:
-                    alpha = etree.SubElement(srgb, '{%s}alpha' % ns)
-                    alpha.set('val', str(int(opacity * 1000)))
-        except Exception:
-            pass
-
-    return shape
-
-
-def add_text_to_slide(slide, item, slide_w_in, slide_h_in):
-    """Add an editable text box from manifest text data."""
-    pos = item.get("position", {})
-    x = Inches(pos.get("x_in", 0))
-    y = Inches(pos.get("y_in", 0))
-    w = Inches(pos.get("w_in", 1))
-    h = Inches(pos.get("h_in", 1))
-
-    txBox = slide.shapes.add_textbox(x, y, w, h)
-    tf = txBox.text_frame
-    tf.word_wrap = True
-
-    # Background fill for text frame
-    fill_color = hex_to_rgb(item.get("fill_color"))
-    is_transparent = item.get("is_transparent", True)
-    if fill_color and not is_transparent:
-        txBox.fill.solid()
-        txBox.fill.fore_color.rgb = fill_color
-    else:
-        txBox.fill.background()
-
-    # Stroke
-    stroke_color = hex_to_rgb(item.get("stroke_color"))
-    stroke_weight = item.get("stroke_weight", 0)
-    if stroke_color and stroke_weight and stroke_weight > 0:
-        txBox.line.color.rgb = stroke_color
-        txBox.line.width = Pt(stroke_weight)
-
-    # Add paragraphs
-    paragraphs = item.get("paragraphs", [])
-    if not paragraphs:
-        # No paragraph data - just put the raw text content
-        text_content = item.get("text_content", "")
-        if text_content:
-            p = tf.paragraphs[0]
-            run = p.add_run()
-            run.text = text_content
-        return txBox
-
-    for i, para_data in enumerate(paragraphs):
-        if i == 0:
-            p = tf.paragraphs[0]
-        else:
-            p = tf.add_paragraph()
-
-        text = para_data.get("text", "")
-        font_name = para_data.get("font", "Quicksand")
-        font_style = para_data.get("style", "Regular")
-        size_pt = para_data.get("size_pt", 12)
-        color_hex = para_data.get("color")
-        align = para_data.get("align", "left")
-        bold = para_data.get("bold", False)
-        italic = para_data.get("italic", False)
-        all_caps = para_data.get("all_caps", False)
-
-        run = p.add_run()
-        run.text = text
-
-        # Font settings
-        run.font.name = font_name
-        run.font.size = Pt(size_pt)
-        run.font.bold = bold
-        run.font.italic = italic
-
-        if all_caps:
-            try:
-                run.font.all_caps = True
-            except Exception:
-                pass
-
-        color = hex_to_rgb(color_hex)
-        if color:
-            run.font.color.rgb = color
-
-        # Paragraph alignment
-        p.alignment = ALIGN_MAP.get(align, PP_ALIGN.LEFT)
-
-    return txBox
-
-
-def find_image_file(item, images_dir, elements_dir=None):
-    """Find the actual image file for an image/group item."""
-    # 1. Check for exported element PNG
-    exported = item.get("exported_png")
-    if exported and elements_dir:
-        path = os.path.join(elements_dir, exported)
-        if os.path.exists(path):
-            return path
-
-    # 2. Check for full linked file path
-    linked = item.get("linked_file")
-    if linked:
-        # Try as absolute path
-        if os.path.exists(linked):
-            return linked
-        # Try relative to images dir
-        if images_dir:
-            path = os.path.join(images_dir, linked)
-            if os.path.exists(path):
-                return path
-            # Try just the filename
-            fname = os.path.basename(linked)
-            path = os.path.join(images_dir, fname)
-            if os.path.exists(path):
-                return path
-
-    # 3. Check linked_name
-    linked_name = item.get("linked_name")
-    if linked_name and images_dir:
-        path = os.path.join(images_dir, linked_name)
-        if os.path.exists(path):
-            return path
-
-    return None
-
-
-def add_image_zone_to_slide(slide, item, images_dir=None, elements_dir=None):
-    """Add an image (or placeholder zone if image not found)."""
-    pos = item.get("position", {})
-    x = Inches(pos.get("x_in", 0))
-    y = Inches(pos.get("y_in", 0))
-    w = Inches(pos.get("w_in", 1))
-    h = Inches(pos.get("h_in", 1))
-
-    img_path = find_image_file(item, images_dir, elements_dir)
-    if img_path:
-        try:
-            slide.shapes.add_picture(img_path, x, y, w, h)
-            return
-        except Exception:
-            pass
-
-    # Fallback: add a placeholder rectangle
-    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, x, y, w, h)
-    shape.name = "image_placeholder"
-    shape.fill.background()
-    shape.line.color.rgb = RGBColor(0xCC, 0xCC, 0xCC)
-    shape.line.width = Pt(0.5)
-    shape.line.dash_style = 2  # dash
-
-
-def add_group_to_slide(slide, item, images_dir=None, elements_dir=None):
-    """Add a group element - place exported PNG if available."""
-    pos = item.get("position", {})
-    x = Inches(pos.get("x_in", 0))
-    y = Inches(pos.get("y_in", 0))
-    w = Inches(pos.get("w_in", 1))
-    h = Inches(pos.get("h_in", 1))
-
-    img_path = find_image_file(item, images_dir, elements_dir)
-    if img_path:
-        try:
-            slide.shapes.add_picture(img_path, x, y, w, h)
-            return
-        except Exception:
-            pass
-
-
-def add_line_to_slide(slide, item):
-    """Add a line shape."""
-    pos = item.get("position", {})
-    x = Inches(pos.get("x_in", 0))
-    y = Inches(pos.get("y_in", 0))
-    w = Inches(pos.get("w_in", 0.01))
-    h = Inches(pos.get("h_in", 0.01))
-
-    # Determine if horizontal or vertical
-    cx = x + w
-    cy = y + h
-    connector = slide.shapes.add_connector(1, x, y, cx, cy)  # straight connector
-
-    stroke_color = hex_to_rgb(item.get("stroke_color"))
-    stroke_weight = item.get("stroke_weight", 1)
-    if stroke_color:
-        connector.line.color.rgb = stroke_color
-    if stroke_weight:
-        connector.line.width = Pt(stroke_weight)
-
-
-def process_item(slide, item, slide_w_in, slide_h_in, images_dir=None,
-                 elements_dir=None, depth=0):
-    """Process a single manifest item and add it to the slide."""
-    if depth > 5:
-        return
-
-    item_type = item.get("type", "other")
-    pos = item.get("position", {})
-
-    # Skip tiny invisible items
-    if pos.get("w_pt", 0) < 2 or pos.get("h_pt", 0) < 2:
-        return
-
-    if item_type == "shape":
-        add_shape_to_slide(slide, item, slide_w_in, slide_h_in)
-
-    elif item_type == "text":
-        add_text_to_slide(slide, item, slide_w_in, slide_h_in)
-
-    elif item_type == "image":
-        add_image_zone_to_slide(slide, item, images_dir, elements_dir)
-
-    elif item_type == "line":
-        try:
-            add_line_to_slide(slide, item)
-        except Exception:
-            pass
-
-    elif item_type == "group":
-        # If group has an exported PNG, place it as an image
-        if item.get("exported_png"):
-            add_group_to_slide(slide, item, images_dir, elements_dir)
-        else:
-            # Fallback: recurse into children
-            children = item.get("children", [])
-            for child in children:
-                process_item(slide, child, slide_w_in, slide_h_in,
-                           images_dir, elements_dir, depth + 1)
-
-
-# --- SLIDE MAP (Bull Bear specific) ---
-
+# Slide map for Bull Bear deck
 BULL_BEAR_SLIDE_MAP = {
     1:  "cover-hero",
     2:  "strategy-intro",
@@ -370,7 +65,258 @@ BULL_BEAR_SLIDE_MAP = {
 }
 
 
-# --- MAIN CONVERTER ---
+def is_dark_bg(hex_color):
+    """Determine if background is dark for text color choice."""
+    if not hex_color:
+        return False
+    h = hex_color.lstrip("#")
+    if len(h) != 6:
+        return False
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return (0.299 * r + 0.587 * g + 0.114 * b) < 128
+
+
+def classify_slide_type(slide_data):
+    """Classify slide type based on content analysis."""
+    items = slide_data.get("items", [])
+    bg = slide_data.get("background_color", "")
+    text_items = [i for i in items if i.get("type") == "text"]
+    shape_items = [i for i in items if i.get("type") == "shape"]
+    image_items = [i for i in items if i.get("type") == "image"]
+    group_items = [i for i in items if i.get("type") == "group"]
+
+    # Get all text content
+    all_text = " ".join(i.get("text_content", "") for i in text_items).lower()
+
+    if "disclos" in all_text or "definition" in all_text:
+        return "disclosure"
+    if "thank you" in all_text:
+        return "closing"
+    if len(text_items) <= 2 and len(image_items) >= 1:
+        return "title"
+    if len(shape_items) > 8:
+        return "data_chart"
+    if bg and is_dark_bg(bg):
+        return "dark_section"
+    if len(text_items) > 5:
+        return "content"
+    return "content"
+
+
+def item_to_pptxgenjs_object(item, slide_w_in, slide_h_in, elements_dir=None):
+    """Convert a manifest item to a pptxgenjs object definition."""
+    pos = item.get("position", {})
+    x = pos.get("x_in", 0)
+    y = pos.get("y_in", 0)
+    w = pos.get("w_in", 1)
+    h = pos.get("h_in", 1)
+    item_type = item.get("type", "other")
+    layer = item.get("layer", "unknown")
+
+    # --- TEXT ---
+    if item_type == "text":
+        paragraphs = item.get("paragraphs", [])
+        if not paragraphs:
+            text_content = item.get("text_content", "")
+            if not text_content.strip():
+                return None
+            return {
+                "text": {
+                    "text": text_content,
+                    "options": {
+                        "x": round(x, 4), "y": round(y, 4),
+                        "w": round(w, 4), "h": round(h, 4),
+                        "fontSize": 12,
+                        "fontFace": BRAND["fonts"]["body"],
+                        "color": "212121",
+                        "isTextBox": True,
+                        "autoFit": True,
+                    }
+                }
+            }
+
+        # Build multi-paragraph text array for pptxgenjs
+        text_parts = []
+        primary_font = BRAND["fonts"]["body"]
+        primary_size = 12
+        primary_color = "212121"
+        primary_align = "left"
+        primary_bold = False
+
+        for i, para in enumerate(paragraphs):
+            text = para.get("text", "")
+            if not text.strip():
+                continue
+
+            font = para.get("font", BRAND["fonts"]["body"])
+            size = para.get("size_pt", 12)
+            color = para.get("color", "212121") or "212121"
+            align = para.get("align", "left")
+            bold = para.get("bold", False)
+            italic = para.get("italic", False)
+            all_caps = para.get("all_caps", False)
+
+            if i == 0:
+                primary_font = font
+                primary_size = size
+                primary_color = color
+                primary_align = align
+                primary_bold = bold
+
+            part = {
+                "text": text.upper() if all_caps else text,
+                "options": {
+                    "fontSize": round(size, 1),
+                    "fontFace": font,
+                    "color": color,
+                    "bold": bold,
+                    "italic": italic,
+                    "breakLine": True,
+                }
+            }
+            text_parts.append(part)
+
+        if not text_parts:
+            return None
+
+        # Use simple string for single-paragraph text
+        if len(text_parts) == 1:
+            return {
+                "text": {
+                    "text": text_parts[0]["text"],
+                    "options": {
+                        "x": round(x, 4), "y": round(y, 4),
+                        "w": round(w, 4), "h": round(h, 4),
+                        "fontSize": round(primary_size, 1),
+                        "fontFace": primary_font,
+                        "color": primary_color,
+                        "bold": primary_bold,
+                        "align": primary_align,
+                        "isTextBox": True,
+                        "autoFit": True,
+                    }
+                }
+            }
+
+        # Multi-paragraph: use text array
+        return {
+            "text": {
+                "text": text_parts,
+                "options": {
+                    "x": round(x, 4), "y": round(y, 4),
+                    "w": round(w, 4), "h": round(h, 4),
+                    "align": primary_align,
+                    "isTextBox": True,
+                    "autoFit": True,
+                }
+            }
+        }
+
+    # --- SHAPE ---
+    if item_type == "shape":
+        fill_color = item.get("fill_color")
+        stroke_color = item.get("stroke_color")
+        stroke_weight = item.get("stroke_weight", 0)
+        corner_radius = item.get("corner_radius", 0)
+        opacity = item.get("opacity", 100)
+
+        obj = {
+            "rect": {
+                "options": {
+                    "x": round(x, 4), "y": round(y, 4),
+                    "w": round(w, 4), "h": round(h, 4),
+                }
+            }
+        }
+
+        if corner_radius and corner_radius > 0:
+            obj["rect"]["options"]["rectRadius"] = round(corner_radius / 72, 4)
+            obj["rect"]["options"]["shape"] = "roundRect"
+
+        if fill_color:
+            obj["rect"]["options"]["fill"] = {"color": fill_color}
+            if opacity < 100:
+                obj["rect"]["options"]["fill"]["transparency"] = round(100 - opacity)
+
+        if stroke_color and stroke_weight and stroke_weight > 0:
+            obj["rect"]["options"]["line"] = {
+                "color": stroke_color,
+                "width": round(stroke_weight, 2)
+            }
+
+        return obj
+
+    # --- IMAGE ---
+    if item_type == "image":
+        linked = item.get("linked_file") or item.get("linked_name") or ""
+        exported = item.get("exported_png", "")
+
+        # Determine image path
+        img_path = None
+        if exported and elements_dir:
+            candidate = os.path.join(elements_dir, exported)
+            if os.path.exists(candidate):
+                img_path = candidate
+        if not img_path and linked and os.path.exists(linked):
+            img_path = linked
+
+        obj = {
+            "image": {
+                "options": {
+                    "x": round(x, 4), "y": round(y, 4),
+                    "w": round(w, 4), "h": round(h, 4),
+                },
+                "linked_file": linked,
+                "exported_png": exported,
+            }
+        }
+        if img_path:
+            obj["image"]["path"] = img_path
+        return obj
+
+    # --- GROUP (exported as PNG) ---
+    if item_type == "group":
+        exported = item.get("exported_png", "")
+        img_path = None
+        if exported and elements_dir:
+            candidate = os.path.join(elements_dir, exported)
+            if os.path.exists(candidate):
+                img_path = candidate
+
+        if img_path:
+            return {
+                "image": {
+                    "path": img_path,
+                    "options": {
+                        "x": round(x, 4), "y": round(y, 4),
+                        "w": round(w, 4), "h": round(h, 4),
+                    },
+                    "source": "group_export",
+                    "exported_png": exported,
+                }
+            }
+        # Group without export — skip or return placeholder
+        return None
+
+    # --- LINE ---
+    if item_type == "line":
+        stroke_color = item.get("stroke_color", "212121")
+        stroke_weight = item.get("stroke_weight", 1)
+        return {
+            "line": {
+                "options": {
+                    "x": round(x, 4), "y": round(y, 4),
+                    "w": round(w, 4), "h": round(h, 4),
+                    "line": {
+                        "color": stroke_color or "212121",
+                        "width": round(stroke_weight, 2) if stroke_weight else 1,
+                    }
+                }
+            }
+        }
+
+    return None
+
 
 def convert(manifest_path: str, images_dir: str, output_dir: str,
             logos_dir: str = None):
@@ -386,84 +332,100 @@ def convert(manifest_path: str, images_dir: str, output_dir: str,
 
     slide_w_in = manifest["slide_width_in"]
     slide_h_in = manifest["slide_height_in"]
-    slide_w = Inches(slide_w_in)
-    slide_h = Inches(slide_h_in)
 
-    # Build one .pptx per template type (deduplicated by template_id)
+    # Detect elements directory
+    elements_dir = os.path.join(os.path.dirname(images_dir), "elements")
+    if not os.path.isdir(elements_dir):
+        elements_dir = None
+
+    # Build pptxgenjs template for each slide
+    pptxgenjs_slides = []
     built_templates = {}
 
     for slide_data in manifest["slides"]:
         slide_num = slide_data["slide_number"]
         template_id = slide_data.get("template_id") or \
-                      BULL_BEAR_SLIDE_MAP.get(slide_num)
+                      BULL_BEAR_SLIDE_MAP.get(slide_num, f"slide-{slide_num}")
 
-        if not template_id:
-            print(f"  [WARN] Slide {slide_num}: no template_id, skipping")
-            continue
-
-        if template_id in built_templates:
-            print(f"  [OK] Slide {slide_num}: template '{template_id}' already built")
-            continue
-
-        print(f"  -> Building template '{template_id}' from slide {slide_num}...")
-
-        # Create presentation with single slide
-        prs = Presentation()
-        prs.slide_width = slide_w
-        prs.slide_height = slide_h
-
-        slide_layout = prs.slide_layouts[6]  # blank
-        slide = prs.slides.add_slide(slide_layout)
-
-        # Set background color
         bg_color = slide_data.get("background_color")
-        set_slide_bg_color(slide, bg_color)
+        slide_type = classify_slide_type(slide_data)
+        ref_image = slide_data.get("reference_image")
 
-        # Detect elements directory (sibling to images_dir)
-        elements_dir = os.path.join(os.path.dirname(images_dir), "elements")
-        if not os.path.isdir(elements_dir):
-            elements_dir = None
-
-        # Process all items from the manifest (native elements)
+        # Convert all items to pptxgenjs objects
+        objects = []
         items = slide_data.get("items", [])
-        item_count = 0
         for item in items:
-            try:
-                process_item(slide, item, slide_w_in, slide_h_in,
-                           images_dir, elements_dir)
-                item_count += 1
-            except Exception as e:
-                print(f"     [WARN] Item error: {e}")
+            obj = item_to_pptxgenjs_object(item, slide_w_in, slide_h_in, elements_dir)
+            if obj:
+                objects.append(obj)
 
-        # Save
-        out_file = output_path / f"{template_id}.pptx"
-        try:
-            prs.save(str(out_file))
-            built_templates[template_id] = str(out_file)
-            print(f"     Saved: {out_file} ({item_count} elements)")
-        except Exception as e:
-            print(f"     ERROR saving: {e}")
-            continue
+        # Build slide template
+        slide_template = {
+            "slide_number": slide_num,
+            "template_id": template_id,
+            "slide_type": slide_type,
+            "background": {"color": bg_color} if bg_color else {"color": "FFFFFF"},
+            "objects": objects,
+            "metadata": {
+                "layer": slide_data.get("items", [{}])[0].get("layer", "unknown") if items else "unknown",
+                "item_count": len(items),
+                "object_count": len(objects),
+                "reference_image": f"slide_images/{ref_image}" if ref_image else None,
+            }
+        }
 
-    # Write summary registry
-    summary = {
+        pptxgenjs_slides.append(slide_template)
+
+        # Also save individual template JSON (deduplicated)
+        if template_id not in built_templates:
+            template_file = output_path / f"{template_id}.json"
+            with open(str(template_file), "w", encoding="utf-8") as f:
+                json.dump(slide_template, f, indent=2, ensure_ascii=False)
+            built_templates[template_id] = str(template_file)
+            print(f"  -> {template_id}: {len(objects)} pptxgenjs objects")
+        else:
+            print(f"  [OK] Slide {slide_num}: '{template_id}' already built")
+
+    # Build master template catalog
+    catalog = {
         "deck_family": manifest.get("deck_family", "unknown"),
-        "slide_w_in": slide_w_in,
-        "slide_h_in": slide_h_in,
+        "document_name": manifest["document_name"],
+        "total_slides": manifest["total_slides"],
+        "slide_width_in": slide_w_in,
+        "slide_height_in": slide_h_in,
+        "aspect_ratio": manifest.get("aspect_ratio", 1.7778),
+        "layers": manifest.get("layers", []),
+        "brand": BRAND,
+        "pptxgenjs_defaults": {
+            "presLayout": "LAYOUT_WIDE",
+            "slideWidth": slide_w_in,
+            "slideHeight": slide_h_in,
+        },
+        "slide_type_guide": {
+            "title": "Full-width title with hero image",
+            "dark_section": "Dark background with white/yellow text",
+            "content": "Light background with body text",
+            "data_chart": "Full-width chart or data visualization",
+            "disclosure": "Dense legal/disclosure text",
+            "closing": "Thank you / contact information",
+        },
         "templates": built_templates,
         "slide_map": {str(k): v for k, v in BULL_BEAR_SLIDE_MAP.items()},
+        "slides": pptxgenjs_slides,
     }
-    summary_path = output_path / "template_registry.json"
-    with open(str(summary_path), "w") as f:
-        json.dump(summary, f, indent=2)
 
-    print(f"\nDone! {len(built_templates)} templates built with native elements.")
-    print(f"   Registry: {summary_path}")
+    catalog_path = output_path / "template_catalog.json"
+    with open(str(catalog_path), "w", encoding="utf-8") as f:
+        json.dump(catalog, f, indent=2, ensure_ascii=False)
+
+    print(f"\nDone! {len(built_templates)} pptxgenjs templates built.")
+    print(f"   Catalog: {catalog_path}")
+    print(f"   Total objects: {sum(len(s['objects']) for s in pptxgenjs_slides)}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Convert InDesign manifest to native PPTX templates")
+        description="Convert InDesign manifest to pptxgenjs JSON templates")
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--images", required=True)
     parser.add_argument("--output", required=True)

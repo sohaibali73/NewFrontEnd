@@ -1,0 +1,88 @@
+{
+  "slide_number": 1,
+  "template_id": "cover-hero",
+  "slide_type": "title",
+  "background": {
+    "color": "FFFFFF"
+  },
+  "objects": [
+    {
+      "text": {
+        "text": "BULL BEAR STRATEGY",
+        "options": {
+          "x": 1.8388,
+          "y": 6.4444,
+          "w": 11.4946,
+          "h": 3.8889,
+          "fontSize": 130,
+          "fontFace": "Rajdhani",
+          "color": "000000",
+          "bold": false,
+          "align": "left",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "image": {
+        "options": {
+          "x": 9.9941,
+          "y": 1.9686,
+          "w": 16.6726,
+          "h": 12.3321
+        },
+        "linked_file": "\\Users\\soophiahussain\\Documents\\InDesign PDF Assets\\Potomac Presentation copy 2\\fig_image_1_152926893.png",
+        "exported_png": ""
+      }
+    },
+    {
+      "image": {
+        "options": {
+          "x": 1.144,
+          "y": 0.9212,
+          "w": 6.2801,
+          "h": 1.2881
+        },
+        "linked_file": "\\Users\\soophiahussain\\Documents\\InDesign PDF Assets\\Potomac Presentation copy 2\\fig_image_7_28026649.png",
+        "exported_png": ""
+      }
+    },
+    {
+      "rect": {
+        "options": {
+          "x": 0,
+          "y": 1.796,
+          "w": 26.6667,
+          "h": 1.6723,
+          "rectRadius": 0.1667,
+          "shape": "roundRect",
+          "fill": {
+            "color": "FFFFFF"
+          }
+        }
+      }
+    },
+    {
+      "rect": {
+        "options": {
+          "x": 0,
+          "y": 1.8353,
+          "w": 26.6667,
+          "h": 13.1647,
+          "rectRadius": 0.1667,
+          "shape": "roundRect",
+          "fill": {
+            "color": "FEC00F"
+          }
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "layer": "Your Image Place",
+    "item_count": 7,
+    "object_count": 5,
+    "reference_image": null
+  }
+}

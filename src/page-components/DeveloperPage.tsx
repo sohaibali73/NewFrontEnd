@@ -4073,9 +4073,25 @@ export function DeveloperPage() {
     { id: 'backtest', label: 'BACKTEST', component: BacktestMockup },
     { id: 'content', label: 'CONTENT', component: ContentMockup },
     { id: 'settings', label: 'SETTINGS', component: SettingsMockup },
-  { id: 'carplay', label: 'CARPLAY', component: CarPlayMockup },
-  { id: 'airline', label: 'AIRLINE IFE', component: AirlineIFEMockup },
-]
+  ]
+
+  const carPlayScreens = [
+    { id: 'home', label: 'HOME', component: CarPlayHome },
+    { id: 'navigation', label: 'NAVIGATION', component: CarPlayNavigation },
+    { id: 'music', label: 'MUSIC', component: CarPlayMusic },
+    { id: 'phone', label: 'PHONE', component: CarPlayPhone },
+    { id: 'messages', label: 'MESSAGES', component: CarPlayMessages },
+    { id: 'analyst', label: 'ANALYST', component: CarPlayAnalyst },
+  ]
+
+  const ifeScreens = [
+    { id: 'home', label: 'HOME', component: AirlineHomeScreen },
+    { id: 'movies', label: 'MOVIES', component: AirlineMoviesScreen },
+    { id: 'tv', label: 'TV SHOWS', component: AirlineTVScreen },
+    { id: 'music', label: 'MUSIC', component: AirlineMusicScreen },
+    { id: 'map', label: 'FLIGHT MAP', component: AirlineFlightMap },
+    { id: 'analyst', label: 'ANALYST', component: AirlineAnalystScreen },
+  ]
 
   const ipadScreens = [
     { id: 'ipad-dashboard', label: 'DASHBOARD', component: IPadDashboardMockup },
@@ -4153,6 +4169,8 @@ export function DeveloperPage() {
               { id: 'mac', label: 'Mac (Catalyst)', icon: Laptop },
               { id: 'watch', label: 'Apple Watch', icon: Clock },
               { id: 'visionpro', label: 'Vision Pro', icon: Glasses },
+              { id: 'carplay', label: 'CarPlay', icon: Monitor },
+              { id: 'ife', label: 'Airline IFE', icon: Tablet },
             ] as const).map((device) => {
               const Icon = device.icon
               const isDeviceActive = activeDevice === device.id
@@ -4415,6 +4433,58 @@ export function DeveloperPage() {
                   { label: 'Canvas', value: 'Infinite spatial' },
                   { label: 'Audio', value: 'Spatial Audio' },
                   { label: 'Framework', value: 'RealityKit + SwiftUI' },
+                ].map((spec) => (
+                  <div key={spec.label} style={{ padding: '12px 16px', borderRadius: '10px', backgroundColor: colors.cardBg, border: `1px solid ${colors.border}` }}>
+                    <span style={{ fontSize: '9px', color: colors.textMuted, display: 'block', letterSpacing: '0.5px', marginBottom: '4px' }}>{spec.label}</span>
+                    <span style={{ fontSize: '12px', color: colors.text, fontWeight: 600 }}>{spec.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── CarPlay View ───────────────────────────────────────────── */}
+          {activeDevice === 'carplay' && (
+            <div>
+              <h3 style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: '16px', fontWeight: 600, color: colors.textMuted, letterSpacing: '1px', marginBottom: '4px' }}>CARPLAY - VEHICLE HEADUNIT</h3>
+              <p style={{ fontSize: '12px', color: colors.textMuted, marginBottom: '20px', lineHeight: 1.6 }}>Full-featured CarPlay implementation with navigation, music, phone, messages, and the Analyst trading app optimized for in-vehicle use. Features large touch targets, voice input via Siri, and glanceable information for safe driving. The Analyst app provides portfolio summaries, stock alerts, and quick AI assistance via voice.</p>
+
+              <CarPlayMockup colors={colors} />
+
+              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '28px' }}>
+                {[
+                  { label: 'Display', value: '8"-15" Touchscreen' },
+                  { label: 'Input', value: 'Touch + Siri Voice' },
+                  { label: 'Framework', value: 'CarPlay Framework' },
+                  { label: 'Templates', value: 'List, Map, Now Playing' },
+                  { label: 'Safe Area', value: 'Dashboard mounted' },
+                  { label: 'Features', value: 'Navigation, Media, Analyst' },
+                ].map((spec) => (
+                  <div key={spec.label} style={{ padding: '12px 16px', borderRadius: '10px', backgroundColor: colors.cardBg, border: `1px solid ${colors.border}` }}>
+                    <span style={{ fontSize: '9px', color: colors.textMuted, display: 'block', letterSpacing: '0.5px', marginBottom: '4px' }}>{spec.label}</span>
+                    <span style={{ fontSize: '12px', color: colors.text, fontWeight: 600 }}>{spec.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Airline IFE View ────────────────────────────────────────── */}
+          {activeDevice === 'ife' && (
+            <div>
+              <h3 style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: '16px', fontWeight: 600, color: colors.textMuted, letterSpacing: '1px', marginBottom: '4px' }}>AIRLINE IN-FLIGHT ENTERTAINMENT</h3>
+              <p style={{ fontSize: '12px', color: colors.textMuted, marginBottom: '20px', lineHeight: 1.6 }}>Potomac Airlines seatback In-Flight Entertainment (IFE) system featuring movies, TV shows, music, flight map, duty-free shopping, and the Analyst trading platform. Passengers can monitor their portfolios, receive trading alerts, and ask Yang questions during long-haul flights. The system integrates with the airline's Wi-Fi for real-time market data.</p>
+
+              <AirlineIFEMockup colors={colors} />
+
+              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginTop: '28px' }}>
+                {[
+                  { label: 'Display', value: '10.1" Seatback Touch' },
+                  { label: 'Input', value: 'Touch + Handset Remote' },
+                  { label: 'Connectivity', value: 'Satellite Wi-Fi' },
+                  { label: 'Content', value: 'Movies, TV, Music, Analyst' },
+                  { label: 'Features', value: 'Flight Map, Duty Free' },
+                  { label: 'Platform', value: 'Custom IFE Software' },
                 ].map((spec) => (
                   <div key={spec.label} style={{ padding: '12px 16px', borderRadius: '10px', backgroundColor: colors.cardBg, border: `1px solid ${colors.border}` }}>
                     <span style={{ fontSize: '9px', color: colors.textMuted, display: 'block', letterSpacing: '0.5px', marginBottom: '4px' }}>{spec.label}</span>

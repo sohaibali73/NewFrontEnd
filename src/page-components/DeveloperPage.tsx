@@ -1336,151 +1336,2626 @@ function CopyAsMarkdownButton({
   )
 }
 
-// ─── CarPlay Vehicle Headunit Mockup ──────────────────────────────────────
-function CarPlayMockup({ colors }: { colors: Record<string, string> }) {
+// ─── Airline In-Flight Entertainment (IFE) Seatback Unit ─────────────────────
+function AirlineIFEMockup({ colors }: { colors: Record<string, string> }) {
+  const [activeTab, setActiveTab] = useState<'home' | 'movies' | 'tv' | 'music' | 'map' | 'analyst' | 'shopping' | 'settings'>('home')
+  const [currentTime, setCurrentTime] = useState(new Date())
+  const [flightProgress, setFlightProgress] = useState(65)
+  const [showCallLight, setShowCallLight] = useState(false)
+  const [showBrightness, setShowBrightness] = useState(false)
+  const [brightness, setBrightness] = useState(80)
+  const [volume, setVolume] = useState(60)
+  const [showVolume, setShowVolume] = useState(false)
+  const [selectedMovie, setSelectedMovie] = useState<string | null>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [musicTrack, setMusicTrack] = useState(0)
+  const [showFlightInfo, setShowFlightInfo] = useState(true)
+
+  React.useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(new Date()), 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+  }
+
+  const flightInfo = {
+    flightNumber: 'PA 2847',
+    origin: 'JFK',
+    destination: 'LHR',
+    departure: '14:30',
+    arrival: '02:45 +1',
+    altitude: '38,000 ft',
+    speed: '567 mph',
+    temp: '-56°F',
+    headwind: '23 kts',
+    eta: '4h 32m',
+    distanceRemaining: '2,847 mi',
+  }
+
+  const movies = [
+    { id: '1', title: 'Dune: Part Two', duration: '2h 46m', rating: 'PG-13', year: '2024', genre: 'Sci-Fi', progress: 0, poster: '🏜️' },
+    { id: '2', title: 'Oppenheimer', duration: '3h', rating: 'R', year: '2023', genre: 'Drama', progress: 45, poster: '⚛️' },
+    { id: '3', title: 'The Holdovers', duration: '2h 13m', rating: 'R', year: '2023', genre: 'Comedy', progress: 0, poster: '🎓' },
+    { id: '4', title: 'Poor Things', duration: '2h 21m', rating: 'R', year: '2023', genre: 'Comedy', progress: 0, poster: '🦋' },
+    { id: '5', title: 'Killers of the Flower Moon', duration: '3h 26m', rating: 'R', year: '2023', genre: 'Crime', progress: 0, poster: '🌹' },
+    { id: '6', title: 'Barbie', duration: '1h 54m', rating: 'PG-13', year: '2023', genre: 'Comedy', progress: 100, poster: '💗' },
+  ]
+
+  const tvShows = [
+    { id: '1', title: 'The Bear S3', episodes: 10, genre: 'Drama', poster: '👨‍🍳' },
+    { id: '2', title: 'Succession S4', episodes: 10, genre: 'Drama', poster: '👑' },
+    { id: '3', title: 'Ted Lasso S3', episodes: 12, genre: 'Comedy', poster: '⚽' },
+    { id: '4', title: 'The Morning Show S3', episodes: 10, genre: 'Drama', poster: '📺' },
+  ]
+
+  const musicTracks = [
+    { id: 1, title: 'Chill Beats for Trading', artist: 'LoFi Markets', duration: '3:45' },
+    { id: 2, title: 'Algorithm Dreams', artist: 'Quantum Sound', duration: '4:12' },
+    { id: 3, title: 'Bull Market Blues', artist: 'Wall Street Jazz', duration: '5:23' },
+    { id: 4, title: 'Portfolio Serenity', artist: 'Zen Trading', duration: '6:01' },
+  ]
+
+  const navTabs = [
+    { id: 'home', label: 'HOME', icon: '🏠' },
+    { id: 'movies', label: 'MOVIES', icon: '🎬' },
+    { id: 'tv', label: 'TV SHOWS', icon: '📺' },
+    { id: 'music', label: 'MUSIC', icon: '🎵' },
+    { id: 'map', label: 'FLIGHT MAP', icon: '🗺️' },
+    { id: 'analyst', label: 'ANALYST', icon: '📈' },
+    { id: 'shopping', label: 'DUTY FREE', icon: '🛍️' },
+    { id: 'settings', label: 'SETTINGS', icon: '⚙️' },
+  ]
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'movies':
+        return <AirlineMoviesScreen movies={movies} selectedMovie={selectedMovie} setSelectedMovie={setSelectedMovie} setIsPlaying={setIsPlaying} colors={colors} />
+      case 'tv':
+        return <AirlineTVScreen shows={tvShows} colors={colors} />
+      case 'music':
+        return <AirlineMusicScreen tracks={musicTracks} currentTrack={musicTrack} setTrack={setMusicTrack} isPlaying={isPlaying} setIsPlaying={setIsPlaying} colors={colors} />
+      case 'map':
+        return <AirlineFlightMap flightInfo={flightInfo} progress={flightProgress} colors={colors} />
+      case 'analyst':
+        return <AirlineAnalystScreen colors={colors} />
+      case 'shopping':
+        return <AirlineShoppingScreen colors={colors} />
+      case 'settings':
+        return <AirlineSettingsScreen colors={colors} />
+      default:
+        return <AirlineHomeScreen flightInfo={flightInfo} movies={movies} setActiveTab={setActiveTab} colors={colors} />
+    }
+  }
+
   return (
-    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%)', padding: '20px' }}>
-      {/* Vehicle Headunit Display - Widescreen Landscape */}
-      <div style={{ width: '100%', maxWidth: '900px', aspectRatio: '16/9', background: '#000', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.8), inset 0 0 0 1px rgba(255,255,255,0.05)' }}>
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, #0a0a0a 0%, #000 100%)' }}>
-          
-          {/* Status Bar */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 24px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Clock size={16} color="#fff" />
-                <span style={{ fontSize: '16px', color: '#fff', fontWeight: 600 }}>{'2:30 PM'}</span>
-              </div>
-              <div style={{ fontSize: '14px', color: '#999' }}>{'72°F'}</div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Signal size={16} color="#5AC85A" />
-              <Wifi size={16} color="#fff" />
-              <span style={{ fontSize: '14px', color: '#fff', fontWeight: 600 }}>{'P'}</span>
-            </div>
-          </div>
-          
-          {/* Main Content - Split View */}
-          <div style={{ flex: 1, display: 'flex', gap: '1px', background: 'rgba(255,255,255,0.05)' }}>
-            
-            {/* Left: Navigation */}
-            <div style={{ flex: 2, background: '#000', position: 'relative', display: 'flex', flexDirection: 'column' }}>
-              {/* Map Simulation */}
-              <div style={{ flex: 1, background: 'linear-gradient(135deg, #1a4d2e 0%, #0d2818 100%)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ position: 'absolute', top: 20, left: 20, right: 20 }}>
-                  <div style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '8px', background: 'linear-gradient(135deg, #4A90E2, #357ABD)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ fontSize: '24px' }}>{'🧭'}</span>
+    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(180deg, #0a0a12 0%, #050508 100%)', padding: '12px' }}>
+      {/* Seatback Unit Frame */}
+      <div style={{ position: 'relative' }}>
+        {/* Outer bezel with seatback texture */}
+        <div style={{ 
+          padding: '8px', 
+          background: 'linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 50%, #252525 100%)', 
+          borderRadius: '12px', 
+          boxShadow: '0 20px 60px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.08)' 
+        }}>
+          {/* Screen bezel */}
+          <div style={{ 
+            padding: '2px', 
+            background: '#0a0a0a', 
+            borderRadius: '10px', 
+            boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.8)' 
+          }}>
+            {/* Main display - 10.1" seatback standard */}
+            <div style={{ 
+              width: '880px', 
+              height: '500px', 
+              background: '#000', 
+              borderRadius: '8px', 
+              overflow: 'hidden', 
+              position: 'relative'
+            }}>
+              {/* ── TOP STATUS BAR ─────────────────────────────────── */}
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                padding: '8px 16px', 
+                background: 'linear-gradient(180deg, rgba(20,20,30,0.98) 0%, rgba(0,0,0,0.95) 100%)',
+                borderBottom: '1px solid rgba(255,255,255,0.05)'
+              }}>
+                {/* Left - Flight Info */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ 
+                      width: '32px', 
+                      height: '32px', 
+                      borderRadius: '6px', 
+                      background: 'linear-gradient(135deg, #FEC00F, #FFD740)', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center' 
+                    }}>
+                      <span style={{ fontSize: '14px', fontWeight: 700, color: '#000' }}>PA</span>
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '18px', color: '#fff', fontWeight: 700, marginBottom: '4px' }}>{'Main Street'}</div>
-                      <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>{'in 0.3 miles, turn right'}</div>
+                    <div>
+                      <div style={{ fontSize: '12px', color: '#fff', fontWeight: 700, fontFamily: "'Rajdhani', sans-serif" }}>{flightInfo.flightNumber}</div>
+                      <div style={{ fontSize: '9px', color: '#888' }}>{flightInfo.origin} → {flightInfo.destination}</div>
                     </div>
-                    <div style={{ fontSize: '28px', fontWeight: 700, color: '#4A90E2' }}>{'15'}</div>
-                    <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.6)' }}>{'min'}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px' }}>
+                    <span style={{ fontSize: '16px' }}>✈️</span>
+                    <span style={{ fontSize: '11px', color: '#22C55E', fontWeight: 600 }}>ON TIME</span>
                   </div>
                 </div>
                 
-                {/* Route indicator */}
-                <div style={{ fontSize: '80px', opacity: 0.2 }}>{'➡️'}</div>
-                
-                {/* Bottom nav controls */}
-                <div style={{ position: 'absolute', bottom: 20, right: 20, display: 'flex', gap: '12px' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                    <span style={{ fontSize: '20px' }}>{'🔍'}</span>
+                {/* Center - Time & Flight Progress */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '18px', color: '#fff', fontWeight: 300, fontFamily: 'monospace' }}>{formatTime(currentTime)} UTC</div>
+                    <div style={{ fontSize: '10px', color: '#666' }}>Local: 9:23 PM EST</div>
                   </div>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                    <span style={{ fontSize: '20px' }}>{'🏠'}</span>
+                  <div style={{ width: '200px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#888', marginBottom: '4px' }}>
+                      <span>{flightInfo.origin}</span>
+                      <span>{flightProgress}%</span>
+                      <span>{flightInfo.destination}</span>
+                    </div>
+                    <div style={{ height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                      <div style={{ width: `${flightProgress}%`, height: '100%', background: 'linear-gradient(90deg, #FEC00F, #FFD740)', borderRadius: '2px' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+                      <span style={{ fontSize: '9px', color: '#FEC00F' }}>✈</span>
+                    </div>
                   </div>
                 </div>
+                
+                {/* Right - Quick Controls */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button 
+                    onClick={() => setShowVolume(!showVolume)}
+                    style={{ 
+                      width: '32px', 
+                      height: '32px', 
+                      borderRadius: '50%', 
+                      background: showVolume ? 'rgba(254,192,15,0.2)' : 'rgba(255,255,255,0.05)', 
+                      border: 'none',
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    <Volume2 size={14} color={showVolume ? '#FEC00F' : '#888'} />
+                  </button>
+                  <button 
+                    onClick={() => setShowBrightness(!showBrightness)}
+                    style={{ 
+                      width: '32px', 
+                      height: '32px', 
+                      borderRadius: '50%', 
+                      background: showBrightness ? 'rgba(254,192,15,0.2)' : 'rgba(255,255,255,0.05)', 
+                      border: 'none',
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    <span style={{ fontSize: '14px' }}>☀️</span>
+                  </button>
+                  <button 
+                    onClick={() => setShowCallLight(!showCallLight)}
+                    style={{ 
+                      width: '32px', 
+                      height: '32px', 
+                      borderRadius: '50%', 
+                      background: showCallLight ? 'rgba(220,38,38,0.3)' : 'rgba(255,255,255,0.05)', 
+                      border: showCallLight ? '2px solid #DC2626' : 'none',
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    <Bell size={14} color={showCallLight ? '#DC2626' : '#888'} />
+                  </button>
+                </div>
               </div>
-            </div>
-            
-            {/* Right: App Drawer & Now Playing */}
-            <div style={{ width: '320px', background: '#0a0a0a', display: 'flex', flexDirection: 'column' }}>
               
-              {/* App Grid */}
-              <div style={{ padding: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                
-                {/* Phone App */}
-                <div style={{ aspectRatio: '1', borderRadius: '16px', background: 'linear-gradient(135deg, #34C759 0%, #30B352 100%)', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 4px 12px rgba(52,199,89,0.3)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '28px' }}>{'📞'}</span>
-                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#ff3b30', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#fff', fontWeight: 700 }}>{'2'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '16px', color: '#fff', fontWeight: 700 }}>{'Phone'}</div>
-                    <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', marginTop: '2px' }}>{'2 missed calls'}</div>
-                  </div>
-                </div>
-                
-                {/* Messages App */}
-                <div style={{ aspectRatio: '1', borderRadius: '16px', background: 'linear-gradient(135deg, #FFD60A 0%, #FFC400 100%)', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 4px 12px rgba(255,214,10,0.3)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <MessageCircle size={28} color="#000" />
-                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#ff3b30', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#fff', fontWeight: 700 }}>{'5'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '16px', color: '#000', fontWeight: 700 }}>{'Messages'}</div>
-                    <div style={{ fontSize: '12px', color: 'rgba(0,0,0,0.6)', marginTop: '2px' }}>{'Yang: Trade alert'}</div>
-                  </div>
-                </div>
-                
-              </div>
-              
-              {/* Now Playing */}
-              <div style={{ flex: 1, background: 'linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%)', margin: '0 20px 20px', borderRadius: '20px', padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.3)' }}>
-                <div>
-                  <div style={{ width: '100%', aspectRatio: '1', borderRadius: '16px', background: 'linear-gradient(135deg, #E94E77 0%, #C93E68 100%)', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 24px rgba(233,78,119,0.4)' }}>
-                    <Volume2 size={48} color="#fff" />
-                  </div>
-                  <div style={{ fontSize: '16px', color: '#fff', fontWeight: 700, marginBottom: '4px' }}>{'Market Analysis Podcast'}</div>
-                  <div style={{ fontSize: '14px', color: '#999', marginBottom: '16px' }}>{'Potomac Trading Insights'}</div>
-                </div>
-                
-                {/* Playback Controls */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '24px', marginBottom: '16px' }}>
-                    <div style={{ cursor: 'pointer' }}>
-                      <ChevronLeft size={32} color="#999" />
-                    </div>
-                    <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 12px rgba(255,255,255,0.2)' }}>
-                      <span style={{ fontSize: '20px', marginLeft: '4px' }}>{'▶'}</span>
-                    </div>
-                    <div style={{ cursor: 'pointer' }}>
-                      <ChevronRightIcon size={32} color="#999" />
-                    </div>
-                  </div>
+              {/* ── MAIN CONTENT ────────────────────────────────────── */}
+              <div style={{ height: 'calc(100% - 56px - 52px)', display: 'flex', position: 'relative' }}>
+                {/* Sidebar Navigation */}
+                <div style={{ 
+                  width: '100px', 
+                  background: 'rgba(10,10,15,0.95)', 
+                  borderRight: '1px solid rgba(255,255,255,0.05)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  padding: '8px 4px',
+                  gap: '2px'
+                }}>
+                  {navTabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => { setActiveTab(tab.id as typeof activeTab); setSelectedMovie(null) }}
+                      style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        alignItems: 'center', 
+                        gap: '4px',
+                        padding: '8px 4px', 
+                        borderRadius: '8px', 
+                        background: activeTab === tab.id ? 'rgba(254,192,15,0.15)' : 'transparent', 
+                        border: 'none',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <span style={{ fontSize: '18px' }}>{tab.icon}</span>
+                      <span style={{ fontSize: '8px', fontWeight: 600, color: activeTab === tab.id ? '#FEC00F' : '#888', letterSpacing: '0.5px' }}>{tab.label}</span>
+                    </button>
+                  ))}
                   
-                  {/* Progress Bar */}
-                  <div style={{ height: '4px', borderRadius: '2px', background: '#333', overflow: 'hidden', marginBottom: '8px' }}>
-                    <div style={{ width: '45%', height: '100%', background: '#fff', borderRadius: '2px' }} />
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#666' }}>
-                    <span>{'12:34'}</span>
-                    <span>{'28:00'}</span>
+                  <div style={{ flex: 1 }} />
+                  
+                  {/* Seat control buttons */}
+                  <div style={{ padding: '8px 4px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                    <button style={{ 
+                      width: '100%', 
+                      padding: '6px', 
+                      borderRadius: '6px', 
+                      background: 'rgba(255,255,255,0.05)', 
+                      border: 'none',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '2px',
+                      cursor: 'pointer'
+                    }}>
+                      <span style={{ fontSize: '14px' }}>🪑</span>
+                      <span style={{ fontSize: '7px', color: '#888' }}>SEAT</span>
+                    </button>
                   </div>
                 </div>
+                
+                {/* Main Content Area */}
+                <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                  {renderContent()}
+                </div>
               </div>
-            </div>
-          </div>
-          
-          {/* Bottom Control Bar */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.5)' }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
-              <span style={{ fontSize: '24px' }}>{'🏠'}</span>
-            </div>
-            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(254,192,15,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
-              <Activity size={24} color="#FEC00F" />
-            </div>
-            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
-              <Mic size={24} color="#fff" />
-            </div>
-            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
-              <Bell size={24} color="#fff" />
+              
+              {/* ── BOTTOM NAV BAR ───────────────────────────────────── */}
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                padding: '8px 16px', 
+                background: 'linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(10,10,15,0.98) 100%)',
+                borderTop: '1px solid rgba(255,255,255,0.05)'
+              }}>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button style={{ 
+                    padding: '6px 12px', 
+                    borderRadius: '16px', 
+                    background: 'rgba(255,255,255,0.05)', 
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}>
+                    <span style={{ fontSize: '12px' }}>◀◀</span>
+                    <span style={{ fontSize: '9px', color: '#888' }}>BACK</span>
+                  </button>
+                  <button style={{ 
+                    padding: '6px 12px', 
+                    borderRadius: '16px', 
+                    background: 'rgba(255,255,255,0.05)', 
+                    border: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}>
+                    <span style={{ fontSize: '12px' }}>🏠</span>
+                    <span style={{ fontSize: '9px', color: '#888' }}>HOME</span>
+                  </button>
+                </div>
+                
+                {/* Language & Accessibility */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button style={{ 
+                    padding: '4px 10px', 
+                    borderRadius: '12px', 
+                    background: 'rgba(255,255,255,0.05)', 
+                    border: 'none',
+                    fontSize: '9px',
+                    color: '#888',
+                    cursor: 'pointer'
+                  }}>
+                    EN
+                  </button>
+                  <button style={{ 
+                    padding: '4px 10px', 
+                    borderRadius: '12px', 
+                    background: 'rgba(255,255,255,0.05)', 
+                    border: 'none',
+                    fontSize: '9px',
+                    color: '#888',
+                    cursor: 'pointer'
+                  }}>
+                    ♿
+                  </button>
+                  <button style={{ 
+                    padding: '4px 10px', 
+                    borderRadius: '12px', 
+                    background: 'rgba(255,255,255,0.05)', 
+                    border: 'none',
+                    fontSize: '9px',
+                    color: '#888',
+                    cursor: 'pointer'
+                  }}>
+                    ❓
+                  </button>
+                </div>
+              </div>
+              
+              {/* ── OVERLAYS ─────────────────────────────────────────── */}
+              {/* Volume Slider */}
+              {showVolume && (
+                <div style={{ 
+                  position: 'absolute', 
+                  top: '48px', 
+                  right: '60px', 
+                  width: '200px', 
+                  padding: '12px', 
+                  background: 'rgba(20,20,25,0.98)', 
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                  zIndex: 100
+                }}>
+                  <div style={{ fontSize: '10px', color: '#888', marginBottom: '8px' }}>VOLUME</div>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="100" 
+                    value={volume} 
+                    onChange={(e) => setVolume(parseInt(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#666', marginTop: '4px' }}>
+                    <span>🔇</span>
+                    <span>{volume}%</span>
+                    <span>🔊</span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Brightness Slider */}
+              {showBrightness && (
+                <div style={{ 
+                  position: 'absolute', 
+                  top: '48px', 
+                  right: '100px', 
+                  width: '200px', 
+                  padding: '12px', 
+                  background: 'rgba(20,20,25,0.98)', 
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                  zIndex: 100
+                }}>
+                  <div style={{ fontSize: '10px', color: '#888', marginBottom: '8px' }}>BRIGHTNESS</div>
+                  <input 
+                    type="range" 
+                    min="10" 
+                    max="100" 
+                    value={brightness} 
+                    onChange={(e) => setBrightness(parseInt(e.target.value))}
+                    style={{ width: '100%' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#666', marginTop: '4px' }}>
+                    <span>🌙</span>
+                    <span>{brightness}%</span>
+                    <span>☀️</span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Call Light Confirmation */}
+              {showCallLight && (
+                <div style={{ 
+                  position: 'absolute', 
+                  top: '50%', 
+                  left: '50%', 
+                  transform: 'translate(-50%, -50%)',
+                  padding: '20px 24px', 
+                  background: 'rgba(20,20,25,0.98)', 
+                  borderRadius: '16px',
+                  boxShadow: '0 12px 48px rgba(0,0,0,0.8)',
+                  zIndex: 100,
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔔</div>
+                  <div style={{ fontSize: '14px', color: '#fff', fontWeight: 600, marginBottom: '8px' }}>Call Light Activated</div>
+                  <div style={{ fontSize: '11px', color: '#888', marginBottom: '16px' }}>A flight attendant will assist you shortly.</div>
+                  <button
+                    onClick={() => setShowCallLight(false)}
+                    style={{ 
+                      padding: '8px 24px', 
+                      borderRadius: '20px', 
+                      background: '#DC2626', 
+                      border: 'none',
+                      color: '#fff',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancel Request
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
+        
+        {/* Physical buttons below screen */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          gap: '24px', 
+          marginTop: '12px' 
+        }}>
+          {[
+            { icon: '🖥️', label: 'DISPLAY' },
+            { icon: '💡', label: 'LIGHT' },
+            { icon: '🔔', label: 'CALL' },
+          ].map((btn) => (
+            <div key={btn.label} style={{ 
+              padding: '6px 14px',
+              borderRadius: '16px', 
+              background: 'linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 100%)', 
+              boxShadow: '0 4px 8px rgba(0,0,0,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <span style={{ fontSize: '12px' }}>{btn.icon}</span>
+              <span style={{ fontSize: '8px', color: '#666' }}>{btn.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Airline Home Screen ─────────────────────────────────────────────────────
+function AirlineHomeScreen({ flightInfo, movies, setActiveTab, colors }: { flightInfo: any, movies: any[], setActiveTab: (tab: any) => void, colors: Record<string, string> }) {
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'linear-gradient(180deg, #08080c 0%, #0a0a12 100%)', overflow: 'hidden' }}>
+      {/* Welcome Banner */}
+      <div style={{ 
+        padding: '20px 24px', 
+        background: 'linear-gradient(135deg, rgba(254,192,15,0.1) 0%, rgba(254,192,15,0.02) 100%)',
+        borderBottom: '1px solid rgba(254,192,15,0.1)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: '#fff', fontFamily: "'Rajdhani', sans-serif", marginBottom: '4px' }}>
+              Welcome Aboard
+            </div>
+            <div style={{ fontSize: '12px', color: '#888' }}>
+              Your flight to {flightInfo.destination} has {flightInfo.eta} remaining
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#FEC00F', fontFamily: "'Rajdhani', sans-serif" }}>{flightInfo.altitude}</div>
+              <div style={{ fontSize: '9px', color: '#666' }}>ALTITUDE</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#22C55E', fontFamily: "'Rajdhani', sans-serif" }}>{flightInfo.speed}</div>
+              <div style={{ fontSize: '9px', color: '#666' }}>GROUND SPEED</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#3B82F6', fontFamily: "'Rajdhani', sans-serif" }}>{flightInfo.temp}</div>
+              <div style={{ fontSize: '9px', color: '#666' }}>OUTSIDE</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Content Grid */}
+      <div style={{ flex: 1, padding: '16px', display: 'flex', gap: '16px', overflow: 'hidden' }}>
+        {/* Featured Content */}
+        <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* Continue Watching */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontSize: '12px', color: '#fff', fontWeight: 600 }}>CONTINUE WATCHING</span>
+              <button onClick={() => setActiveTab('movies')} style={{ fontSize: '10px', color: '#FEC00F', background: 'none', border: 'none', cursor: 'pointer' }}>See All →</button>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', overflowX: 'auto' }}>
+              {movies.filter(m => m.progress > 0 && m.progress < 100).map((movie) => (
+                <div key={movie.id} style={{ 
+                  minWidth: '140px', 
+                  borderRadius: '10px', 
+                  background: '#1a1a1f', 
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s'
+                }}>
+                  <div style={{ height: '80px', background: 'linear-gradient(135deg, #2a2a2f, #1a1a1f)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '32px' }}>{movie.poster}</span>
+                  </div>
+                  <div style={{ padding: '8px' }}>
+                    <div style={{ fontSize: '10px', color: '#fff', fontWeight: 600, marginBottom: '4px' }}>{movie.title}</div>
+                    <div style={{ height: '3px', borderRadius: '2px', background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                      <div style={{ width: `${movie.progress}%`, height: '100%', background: '#FEC00F' }} />
+                    </div>
+                    <div style={{ fontSize: '8px', color: '#666', marginTop: '2px' }}>{movie.progress}% watched</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Featured Movies */}
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontSize: '12px', color: '#fff', fontWeight: 600 }}>FEATURED MOVIES</span>
+              <button onClick={() => setActiveTab('movies')} style={{ fontSize: '10px', color: '#FEC00F', background: 'none', border: 'none', cursor: 'pointer' }}>Browse All →</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', overflow: 'auto' }}>
+              {movies.slice(0, 4).map((movie) => (
+                <div key={movie.id} style={{ 
+                  borderRadius: '10px', 
+                  background: '#1a1a1f', 
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s'
+                }}>
+                  <div style={{ height: '100px', background: 'linear-gradient(135deg, #2a2a2f, #1a1a1f)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '40px' }}>{movie.poster}</span>
+                  </div>
+                  <div style={{ padding: '8px' }}>
+                    <div style={{ fontSize: '10px', color: '#fff', fontWeight: 600, marginBottom: '2px' }}>{movie.title}</div>
+                    <div style={{ fontSize: '8px', color: '#888' }}>{movie.duration} • {movie.rating}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        {/* Quick Actions Sidebar */}
+        <div style={{ width: '180px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {/* Quick Actions */}
+          <div style={{ 
+            padding: '12px', 
+            borderRadius: '12px', 
+            background: 'linear-gradient(135deg, rgba(254,192,15,0.15) 0%, rgba(254,192,15,0.05) 100%)',
+            border: '1px solid rgba(254,192,15,0.2)'
+          }}>
+            <div style={{ fontSize: '10px', color: '#FEC00F', fontWeight: 600, marginBottom: '8px' }}>QUICK ACCESS</div>
+            {[
+              { icon: '🎬', label: 'Movies', tab: 'movies' },
+              { icon: '🎵', label: 'Music', tab: 'music' },
+              { icon: '🗺️', label: 'Flight Map', tab: 'map' },
+              { icon: '📈', label: 'Analyst', tab: 'analyst' },
+            ].map((action) => (
+              <button
+                key={action.label}
+                onClick={() => setActiveTab(action.tab)}
+                style={{ 
+                  width: '100%',
+                  padding: '8px', 
+                  marginBottom: '4px',
+                  borderRadius: '8px', 
+                  background: 'rgba(255,255,255,0.05)', 
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer'
+                }}
+              >
+                <span style={{ fontSize: '14px' }}>{action.icon}</span>
+                <span style={{ fontSize: '10px', color: '#d4d4d4' }}>{action.label}</span>
+              </button>
+            ))}
+          </div>
+          
+          {/* Meal Service */}
+          <div style={{ 
+            padding: '12px', 
+            borderRadius: '12px', 
+            background: '#1a1a1f',
+            border: '1px solid rgba(255,255,255,0.05)'
+          }}>
+            <div style={{ fontSize: '10px', color: '#888', fontWeight: 600, marginBottom: '8px' }}>MEAL SERVICE</div>
+            <div style={{ fontSize: '18px', marginBottom: '4px' }}>🍽️</div>
+            <div style={{ fontSize: '10px', color: '#fff', fontWeight: 600 }}>Dinner Service</div>
+            <div style={{ fontSize: '9px', color: '#888' }}>Starting in 45 min</div>
+          </div>
+          
+          {/* Wi-Fi */}
+          <div style={{ 
+            padding: '12px', 
+            borderRadius: '12px', 
+            background: '#1a1a1f',
+            border: '1px solid rgba(255,255,255,0.05)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <Wifi size={14} color="#22C55E" />
+              <span style={{ fontSize: '10px', color: '#22C55E', fontWeight: 600 }}>Wi-Fi Available</span>
+            </div>
+            <button style={{ 
+              width: '100%',
+              padding: '8px', 
+              borderRadius: '8px', 
+              background: '#FEC00F', 
+              border: 'none',
+              fontSize: '10px',
+              fontWeight: 600,
+              color: '#000',
+              cursor: 'pointer'
+            }}>
+              Connect - $12.99
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Airline Movies Screen ───────────────────────────────────────────────────
+function AirlineMoviesScreen({ movies, selectedMovie, setSelectedMovie, setIsPlaying, colors }: { movies: any[], selectedMovie: string | null, setSelectedMovie: (id: string | null) => void, setIsPlaying: (v: boolean) => void, colors: Record<string, string> }) {
+  const categories = ['All', 'New Releases', 'Action', 'Comedy', 'Drama', 'Sci-Fi', 'Family']
+  const [activeCategory, setActiveCategory] = useState('All')
+  
+  const selectedMovieData = movies.find(m => m.id === selectedMovie)
+  
+  return (
+    <div style={{ height: '100%', display: 'flex', background: '#08080c', overflow: 'hidden' }}>
+      {/* Movie List */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Category Tabs */}
+        <div style={{ display: 'flex', gap: '6px', padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              style={{ 
+                padding: '6px 14px', 
+                borderRadius: '16px', 
+                background: activeCategory === cat ? '#FEC00F' : 'rgba(255,255,255,0.05)', 
+                border: 'none',
+                fontSize: '10px',
+                fontWeight: 600,
+                color: activeCategory === cat ? '#000' : '#888',
+                cursor: 'pointer'
+              }}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+        
+        {/* Movie Grid */}
+        <div style={{ flex: 1, padding: '16px', overflow: 'auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+            {movies.map((movie) => (
+              <div
+                key={movie.id}
+                onClick={() => setSelectedMovie(movie.id)}
+                style={{ 
+                  borderRadius: '12px', 
+                  background: selectedMovie === movie.id ? 'rgba(254,192,15,0.1)' : '#1a1a1f', 
+                  border: selectedMovie === movie.id ? '2px solid #FEC00F' : '2px solid transparent',
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <div style={{ height: '120px', background: 'linear-gradient(135deg, #2a2a2f, #1a1a1f)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                  <span style={{ fontSize: '48px' }}>{movie.poster}</span>
+                  {movie.progress > 0 && movie.progress < 100 && (
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '4px', background: 'rgba(0,0,0,0.5)' }}>
+                      <div style={{ width: `${movie.progress}%`, height: '100%', background: '#FEC00F' }} />
+                    </div>
+                  )}
+                  {movie.progress === 100 && (
+                    <div style={{ position: 'absolute', top: '8px', right: '8px', padding: '2px 6px', borderRadius: '4px', background: '#22C55E', fontSize: '8px', color: '#fff', fontWeight: 600 }}>WATCHED</div>
+                  )}
+                </div>
+                <div style={{ padding: '10px' }}>
+                  <div style={{ fontSize: '11px', color: '#fff', fontWeight: 600, marginBottom: '4px' }}>{movie.title}</div>
+                  <div style={{ display: 'flex', gap: '8px', fontSize: '9px', color: '#888' }}>
+                    <span>{movie.duration}</span>
+                    <span>•</span>
+                    <span>{movie.rating}</span>
+                    <span>•</span>
+                    <span>{movie.year}</span>
+                  </div>
+                  <div style={{ fontSize: '9px', color: '#666', marginTop: '4px' }}>{movie.genre}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      {/* Movie Details Panel */}
+      {selectedMovieData && (
+        <div style={{ width: '280px', background: '#0a0a0f', borderLeft: '1px solid rgba(255,255,255,0.05)', padding: '16px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ height: '160px', background: 'linear-gradient(135deg, #2a2a2f, #1a1a1f)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px' }}>
+            <span style={{ fontSize: '64px' }}>{selectedMovieData.poster}</span>
+          </div>
+          <h2 style={{ fontSize: '16px', color: '#fff', fontWeight: 600, marginBottom: '8px' }}>{selectedMovieData.title}</h2>
+          <div style={{ display: 'flex', gap: '12px', fontSize: '10px', color: '#888', marginBottom: '12px' }}>
+            <span>{selectedMovieData.duration}</span>
+            <span>{selectedMovieData.rating}</span>
+            <span>{selectedMovieData.year}</span>
+          </div>
+          <div style={{ fontSize: '10px', color: '#666', marginBottom: '16px', lineHeight: 1.6 }}>
+            An epic continuation of the beloved sci-fi saga. Follow the journey through the desert planet as destiny unfolds.
+          </div>
+          
+          <button
+            onClick={() => setIsPlaying(true)}
+            style={{ 
+              width: '100%',
+              padding: '12px', 
+              borderRadius: '10px', 
+              background: '#FEC00F', 
+              border: 'none',
+              fontSize: '12px',
+              fontWeight: 700,
+              color: '#000',
+              cursor: 'pointer',
+              marginBottom: '8px'
+            }}
+          >
+            {selectedMovieData.progress > 0 && selectedMovieData.progress < 100 ? '▶ RESUME' : '▶ WATCH NOW'}
+          </button>
+          
+          <button style={{ 
+            width: '100%',
+            padding: '10px', 
+            borderRadius: '10px', 
+            background: 'rgba(255,255,255,0.05)', 
+            border: '1px solid rgba(255,255,255,0.1)',
+            fontSize: '10px',
+            color: '#888',
+            cursor: 'pointer',
+            marginBottom: '8px'
+          }}>
+            + ADD TO WATCHLIST
+          </button>
+          
+          <div style={{ flex: 1 }} />
+          
+          <div style={{ fontSize: '9px', color: '#555' }}>
+            Audio: English, Spanish, French<br/>
+            Subtitles: 12 languages available
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Airline TV Screen ───────────────────────────────────────────────────────
+function AirlineTVScreen({ shows, colors }: { shows: any[], colors: Record<string, string> }) {
+  return (
+    <div style={{ height: '100%', background: '#08080c', padding: '16px', overflow: 'auto' }}>
+      <div style={{ fontSize: '14px', color: '#fff', fontWeight: 600, marginBottom: '16px' }}>TV SHOWS</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+        {shows.map((show) => (
+          <div key={show.id} style={{ 
+            borderRadius: '12px', 
+            background: '#1a1a1f', 
+            overflow: 'hidden',
+            cursor: 'pointer'
+          }}>
+            <div style={{ height: '140px', background: 'linear-gradient(135deg, #2a2a2f, #1a1a1f)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: '56px' }}>{show.poster}</span>
+            </div>
+            <div style={{ padding: '12px' }}>
+              <div style={{ fontSize: '12px', color: '#fff', fontWeight: 600, marginBottom: '4px' }}>{show.title}</div>
+              <div style={{ fontSize: '10px', color: '#888', marginBottom: '8px' }}>{show.episodes} Episodes • {show.genre}</div>
+              <button style={{ 
+                padding: '6px 12px', 
+                borderRadius: '6px', 
+                background: 'rgba(254,192,15,0.1)', 
+                border: '1px solid rgba(254,192,15,0.2)',
+                fontSize: '9px',
+                color: '#FEC00F',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}>
+                View Episodes
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Airline Music Screen ────────────────────────────────────────────────────
+function AirlineMusicScreen({ tracks, currentTrack, setTrack, isPlaying, setIsPlaying, colors }: { tracks: any[], currentTrack: number, setTrack: (i: number) => void, isPlaying: boolean, setIsPlaying: (v: boolean) => void, colors: Record<string, string> }) {
+  const genres = ['All', 'Pop', 'Rock', 'Classical', 'Jazz', 'Lo-Fi', 'Ambient']
+  const [activeGenre, setActiveGenre] = useState('All')
+  
+  return (
+    <div style={{ height: '100%', display: 'flex', background: '#08080c', overflow: 'hidden' }}>
+      {/* Playlist */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', gap: '6px', padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+          {genres.slice(0, 5).map((genre) => (
+            <button
+              key={genre}
+              onClick={() => setActiveGenre(genre)}
+              style={{ 
+                padding: '6px 14px', 
+                borderRadius: '16px', 
+                background: activeGenre === genre ? '#FEC00F' : 'rgba(255,255,255,0.05)', 
+                border: 'none',
+                fontSize: '10px',
+                fontWeight: 600,
+                color: activeGenre === genre ? '#000' : '#888',
+                cursor: 'pointer'
+              }}
+            >
+              {genre}
+            </button>
+          ))}
+        </div>
+        
+        <div style={{ flex: 1, padding: '16px', overflow: 'auto' }}>
+          <div style={{ fontSize: '14px', color: '#fff', fontWeight: 600, marginBottom: '12px' }}>POTOMAC TRADING PLAYLIST</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {tracks.map((track, i) => (
+              <div
+                key={track.id}
+                onClick={() => { setTrack(i); setIsPlaying(true) }}
+                style={{ 
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '10px 12px', 
+                  borderRadius: '10px', 
+                  background: currentTrack === i ? 'rgba(254,192,15,0.15)' : 'rgba(255,255,255,0.03)', 
+                  border: currentTrack === i ? '1px solid rgba(254,192,15,0.3)' : '1px solid transparent',
+                  cursor: 'pointer'
+                }}
+              >
+                <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: currentTrack === i ? '#FEC00F' : '#2a2a2f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {currentTrack === i && isPlaying ? <span style={{ fontSize: '12px' }}>▶</span> : <span style={{ fontSize: '16px' }}>🎵</span>}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '11px', color: '#fff', fontWeight: 600 }}>{track.title}</div>
+                  <div style={{ fontSize: '10px', color: '#888' }}>{track.artist}</div>
+                </div>
+                <span style={{ fontSize: '10px', color: '#666' }}>{track.duration}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      {/* Now Playing */}
+      <div style={{ width: '240px', background: '#0a0a0f', borderLeft: '1px solid rgba(255,255,255,0.05)', padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ 
+          width: '160px', 
+          height: '160px', 
+          borderRadius: '20px', 
+          background: 'linear-gradient(135deg, #FEC00F, #FFD740)', 
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: '20px',
+          boxShadow: '0 8px 32px rgba(254,192,15,0.3)'
+        }}>
+          <span style={{ fontSize: '64px' }}>🎵</span>
+        </div>
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <div style={{ fontSize: '14px', color: '#fff', fontWeight: 600, marginBottom: '4px' }}>{tracks[currentTrack].title}</div>
+          <div style={{ fontSize: '11px', color: '#888' }}>{tracks[currentTrack].artist}</div>
+        </div>
+        
+        {/* Progress */}
+        <div style={{ width: '100%', marginBottom: '20px' }}>
+          <div style={{ height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+            <div style={{ width: '35%', height: '100%', background: '#FEC00F' }} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#666', marginTop: '4px' }}>
+            <span>1:18</span>
+            <span>{tracks[currentTrack].duration}</span>
+          </div>
+        </div>
+        
+        {/* Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+            <span style={{ fontSize: '20px', opacity: 0.6 }}>⏮</span>
+          </button>
+          <button
+            onClick={() => setIsPlaying(!isPlaying)}
+            style={{ 
+              width: '48px', 
+              height: '48px', 
+              borderRadius: '50%', 
+              background: '#FEC00F',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <span style={{ fontSize: '20px', marginLeft: isPlaying ? 0 : '4px' }}>{isPlaying ? '⏸' : '▶'}</span>
+          </button>
+          <button style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+            <span style={{ fontSize: '20px', opacity: 0.6 }}>⏭</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Airline Flight Map Screen ───────────────────────────────────────────────
+function AirlineFlightMap({ flightInfo, progress, colors }: { flightInfo: any, progress: number, colors: Record<string, string> }) {
+  return (
+    <div style={{ height: '100%', display: 'flex', background: '#08080c' }}>
+      {/* Map Area */}
+      <div style={{ flex: 1, position: 'relative', background: 'linear-gradient(135deg, #0d1a0d 0%, #0a1208 100%)' }}>
+        {/* Grid overlay */}
+        <div style={{ 
+          position: 'absolute', 
+          inset: 0, 
+          backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)', 
+          backgroundSize: '40px 40px' 
+        }} />
+        
+        {/* Flight path visualization */}
+        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+          {/* Curved path */}
+          <path d="M 80 200 Q 350 50 500 150 T 620 100" stroke="rgba(254,192,15,0.3)" strokeWidth="2" fill="none" strokeDasharray="8 8" />
+          <path d="M 80 200 Q 350 50 500 150 T 620 100" stroke="#FEC00F" strokeWidth="2" fill="none" strokeDashoffset={100 - progress} />
+          
+          {/* Origin marker */}
+          <circle cx="80" cy="200" r="8" fill="#3B82F6" />
+          <text x="80" y="220" textAnchor="middle" fill="#888" fontSize="10">{flightInfo.origin}</text>
+          
+          {/* Destination marker */}
+          <circle cx="620" cy="100" r="8" fill="#22C55E" />
+          <text x="620" y="120" textAnchor="middle" fill="#888" fontSize="10">{flightInfo.destination}</text>
+          
+          {/* Current position */}
+          <circle cx={80 + (540 * progress / 100)} cy={200 - (100 * progress / 100)} r="12" fill="#FEC00F" />
+          <text x={80 + (540 * progress / 100)} y={220 - (100 * progress / 100)} textAnchor="middle" fill="#FEC00F" fontSize="14">✈️</text>
+        </svg>
+        
+        {/* Map legend */}
+        <div style={{ position: 'absolute', bottom: '16px', left: '16px', display: 'flex', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#3B82F6' }} />
+            <span style={{ fontSize: '9px', color: '#888' }}>Origin</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#22C55E' }} />
+            <span style={{ fontSize: '9px', color: '#888' }}>Destination</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#FEC00F' }} />
+            <span style={{ fontSize: '9px', color: '#888' }}>Current Position</span>
+          </div>
+        </div>
+      </div>
+      
+      {/* Flight Info Panel */}
+      <div style={{ width: '220px', background: '#0a0a0f', borderLeft: '1px solid rgba(255,255,255,0.05)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ fontSize: '12px', color: '#fff', fontWeight: 600 }}>FLIGHT INFORMATION</div>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          {[
+            { label: 'Altitude', value: flightInfo.altitude, icon: '📏' },
+            { label: 'Speed', value: flightInfo.speed, icon: '💨' },
+            { label: 'Headwind', value: flightInfo.headwind, icon: '🌬️' },
+            { label: 'Temp', value: flightInfo.temp, icon: '🌡️' },
+          ].map((item) => (
+            <div key={item.label} style={{ padding: '10px', borderRadius: '10px', background: '#1a1a1f' }}>
+              <div style={{ fontSize: '14px', marginBottom: '4px' }}>{item.icon}</div>
+              <div style={{ fontSize: '12px', color: '#fff', fontWeight: 600 }}>{item.value}</div>
+              <div style={{ fontSize: '9px', color: '#666' }}>{item.label}</div>
+            </div>
+          ))}
+        </div>
+        
+        <div style={{ padding: '12px', borderRadius: '10px', background: 'rgba(254,192,15,0.1)', border: '1px solid rgba(254,192,15,0.2)' }}>
+          <div style={{ fontSize: '10px', color: '#FEC00F', fontWeight: 600, marginBottom: '8px' }}>TIME TO DESTINATION</div>
+          <div style={{ fontSize: '24px', color: '#fff', fontWeight: 300, fontFamily: "'Rajdhani', sans-serif" }}>{flightInfo.eta}</div>
+          <div style={{ fontSize: '10px', color: '#888' }}>{flightInfo.distanceRemaining} remaining</div>
+        </div>
+        
+        <div style={{ flex: 1 }} />
+        
+        <div style={{ padding: '10px', borderRadius: '10px', background: '#1a1a1f' }}>
+          <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px' }}>Local Time at Destination</div>
+          <div style={{ fontSize: '16px', color: '#fff', fontWeight: 600 }}>{flightInfo.arrival}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Airline Analyst Screen ───────────────────────────────────────────────────
+function AirlineAnalystScreen({ colors }: { colors: Record<string, string> }) {
+  const [selectedStock, setSelectedStock] = useState('AAPL')
+  const stocks = [
+    { symbol: 'AAPL', price: '$198.45', change: '+2.3%', positive: true },
+    { symbol: 'MSFT', price: '$415.20', change: '+1.1%', positive: true },
+    { symbol: 'TSLA', price: '$245.80', change: '-0.8%', positive: false },
+    { symbol: 'NVDA', price: '$875.40', change: '+3.5%', positive: true },
+  ]
+  
+  return (
+    <div style={{ height: '100%', display: 'flex', background: '#08080c', overflow: 'hidden' }}>
+      {/* Portfolio & Watchlist */}
+      <div style={{ flex: 1, padding: '16px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+          <div style={{ 
+            width: '36px', 
+            height: '36px', 
+            borderRadius: '10px', 
+            background: 'linear-gradient(135deg, #FEC00F, #FFD740)', 
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <Activity size={18} color="#000" />
+          </div>
+          <div>
+            <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: '16px', fontWeight: 700, color: '#fff' }}>ANALYST</div>
+            <div style={{ fontSize: '9px', color: '#FEC00F', letterSpacing: '1px' }}>BY POTOMAC</div>
+          </div>
+        </div>
+        
+        {/* Portfolio Value */}
+        <div style={{ 
+          padding: '16px', 
+          borderRadius: '14px', 
+          background: 'linear-gradient(135deg, rgba(254,192,15,0.15) 0%, rgba(254,192,15,0.05) 100%)',
+          border: '1px solid rgba(254,192,15,0.2)',
+          marginBottom: '16px'
+        }}>
+          <div style={{ fontSize: '10px', color: '#888' }}>PORTFOLIO VALUE</div>
+          <div style={{ fontSize: '28px', color: '#FEC00F', fontWeight: 700, fontFamily: "'Rajdhani', sans-serif" }}>$48,234</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', color: '#22C55E' }}>+$1,125</span>
+            <span style={{ fontSize: '10px', color: '#22C55E', padding: '2px 6px', borderRadius: '4px', background: 'rgba(34,197,94,0.2)' }}>+2.3%</span>
+          </div>
+        </div>
+        
+        {/* Watchlist */}
+        <div style={{ fontSize: '10px', color: '#888', marginBottom: '8px' }}>WATCHLIST</div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'auto' }}>
+          {stocks.map((stock) => (
+            <button
+              key={stock.symbol}
+              onClick={() => setSelectedStock(stock.symbol)}
+              style={{ 
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '10px 12px', 
+                borderRadius: '10px', 
+                background: selectedStock === stock.symbol ? 'rgba(254,192,15,0.15)' : 'rgba(255,255,255,0.03)', 
+                border: selectedStock === stock.symbol ? '1px solid rgba(254,192,15,0.3)' : '1px solid transparent',
+                cursor: 'pointer',
+                textAlign: 'left'
+              }}
+            >
+              <span style={{ fontSize: '12px', color: '#fff', fontWeight: 700, width: '50px' }}>{stock.symbol}</span>
+              <span style={{ fontSize: '12px', color: '#fff', flex: 1 }}>{stock.price}</span>
+              <span style={{ fontSize: '11px', color: stock.positive ? '#22C55E' : '#f87171', fontWeight: 600 }}>{stock.change}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      
+      {/* AI Assistant */}
+      <div style={{ width: '280px', background: '#0a0a0f', borderLeft: '1px solid rgba(255,255,255,0.05)', padding: '16px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ fontSize: '10px', color: '#888', marginBottom: '10px' }}>ASK YANG</div>
+        
+        <div style={{ 
+          flex: 1, 
+          borderRadius: '12px', 
+          background: 'rgba(255,255,255,0.03)', 
+          border: '1px solid rgba(255,255,255,0.05)', 
+          padding: '12px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+          overflow: 'auto',
+          marginBottom: '12px'
+        }}>
+          <div style={{ alignSelf: 'flex-end', maxWidth: '85%', padding: '8px 12px', borderRadius: '12px', background: '#FEC00F', fontSize: '10px', color: '#000' }}>
+            What's the outlook on {selectedStock}?
+          </div>
+          <div style={{ alignSelf: 'flex-start', maxWidth: '90%', padding: '10px 12px', borderRadius: '12px', background: 'rgba(255,255,255,0.05)', fontSize: '10px', color: '#d4d4d4', lineHeight: 1.5 }}>
+            {selectedStock} is showing strong momentum with RSI at 65. Recent earnings beat expectations by 4.2%. Consider setting a stop-loss at $192 for risk management.
+          </div>
+        </div>
+        
+        <button style={{ 
+          padding: '12px', 
+          borderRadius: '12px', 
+          background: 'rgba(254,192,15,0.1)', 
+          border: '2px solid rgba(254,192,15,0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '10px',
+          cursor: 'pointer'
+        }}>
+          <Mic size={16} color="#FEC00F" />
+          <span style={{ fontSize: '11px', color: '#FEC00F', fontWeight: 600 }}>Tap to ask Yang</span>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Airline Shopping Screen ──────────────────────────────────────────────────
+function AirlineShoppingScreen({ colors }: { colors: Record<string, string> }) {
+  const products = [
+    { id: '1', name: 'Luxury Perfume Set', price: '$89.99', image: ' perfume' },
+    { id: '2', name: 'Designer Watch', price: '$249.99', image: '⌚' },
+    { id: '3', name: 'Premium Chocolates', price: '$34.99', image: '🍫' },
+    { id: '4', name: 'Travel Neck Pillow', price: '$45.99', image: ' pillow' },
+    { id: '5', name: 'Noise-Canceling Earbuds', price: '$159.99', image: '🎧' },
+    { id: '6', name: 'Cashmere Blanket', price: '$129.99', image: ' blanket' },
+  ]
+  
+  return (
+    <div style={{ height: '100%', background: '#08080c', padding: '16px', overflow: 'auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <div style={{ fontSize: '14px', color: '#fff', fontWeight: 600 }}>DUTY FREE SHOPPING</div>
+        <div style={{ padding: '4px 10px', borderRadius: '12px', background: 'rgba(254,192,15,0.1)', fontSize: '9px', color: '#FEC00F' }}>
+          Tax-Free Prices
+        </div>
+      </div>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+        {products.map((product) => (
+          <div key={product.id} style={{ 
+            borderRadius: '12px', 
+            background: '#1a1a1f', 
+            overflow: 'hidden',
+            cursor: 'pointer'
+          }}>
+            <div style={{ height: '100px', background: 'linear-gradient(135deg, #2a2a2f, #1a1a1f)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: '40px' }}>{product.image}</span>
+            </div>
+            <div style={{ padding: '10px' }}>
+              <div style={{ fontSize: '10px', color: '#fff', fontWeight: 600, marginBottom: '4px' }}>{product.name}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', color: '#FEC00F', fontWeight: 600 }}>{product.price}</span>
+                <button style={{ 
+                  padding: '4px 10px', 
+                  borderRadius: '6px', 
+                  background: '#FEC00F', 
+                  border: 'none',
+                  fontSize: '9px',
+                  fontWeight: 600,
+                  color: '#000',
+                  cursor: 'pointer'
+                }}>
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      <div style={{ marginTop: '16px', padding: '12px', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: '10px', color: '#888' }}>CART TOTAL</div>
+          <div style={{ fontSize: '16px', color: '#fff', fontWeight: 600 }}>$0.00</div>
+        </div>
+        <button style={{ 
+          padding: '10px 20px', 
+          borderRadius: '10px', 
+          background: '#FEC00F', 
+          border: 'none',
+          fontSize: '11px',
+          fontWeight: 600,
+          color: '#000',
+          cursor: 'pointer'
+        }}>
+          View Cart (0)
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Airline Settings Screen ──────────────────────────────────────────────────
+function AirlineSettingsScreen({ colors }: { colors: Record<string, string> }) {
+  const settings = [
+    { icon: '🌐', label: 'Language', value: 'English' },
+    { icon: '♿', label: 'Accessibility', value: 'Off' },
+    { icon: '🔔', label: 'Notifications', value: 'On' },
+    { icon: '🌙', label: 'Dark Mode', value: 'On' },
+    { icon: '📺', label: 'Display Size', value: 'Medium' },
+    { icon: '🎮', label: 'Game Controls', value: 'Default' },
+  ]
+  
+  return (
+    <div style={{ height: '100%', background: '#08080c', padding: '16px', overflow: 'auto' }}>
+      <div style={{ fontSize: '14px', color: '#fff', fontWeight: 600, marginBottom: '16px' }}>SETTINGS</div>
+      
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {settings.map((setting, i) => (
+          <div key={i} style={{ 
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '12px', 
+            borderRadius: '10px', 
+            background: '#1a1a1f',
+            cursor: 'pointer'
+          }}>
+            <span style={{ fontSize: '20px' }}>{setting.icon}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '11px', color: '#fff', fontWeight: 600 }}>{setting.label}</div>
+            </div>
+            <span style={{ fontSize: '10px', color: '#888' }}>{setting.value}</span>
+            <ChevronRightIcon size={14} color="#444" />
+          </div>
+        ))}
+      </div>
+      
+      <div style={{ marginTop: '20px', padding: '12px', borderRadius: '12px', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, #FEC00F, #FFD740)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Activity size={18} color="#000" />
+        </div>
+        <div>
+          <div style={{ fontSize: '11px', color: '#fff', fontWeight: 600 }}>Analyst Connected</div>
+          <div style={{ fontSize: '9px', color: '#22C55E' }}>Trading features available</div>
+        </div>
+        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22C55E', marginLeft: 'auto' }} />
+      </div>
+    </div>
+  )
+}
+
+// ─── CarPlay Interactive Headunit Mockup ──────────────────────────────────────
+function CarPlayMockup({ colors }: { colors: Record<string, string> }) {
+  const [activeApp, setActiveApp] = useState<'home' | 'navigation' | 'music' | 'phone' | 'messages' | 'analyst' | 'settings'>('home')
+  const [currentTime, setCurrentTime] = useState(new Date())
+  const [isPlaying, setIsPlaying] = useState(true)
+  const [musicProgress, setMusicProgress] = useState(35)
+  const [showVoiceAssistant, setShowVoiceAssistant] = useState(false)
+  const [navDestination, setNavDestination] = useState('Wall Street, NYC')
+  const [eta, setEta] = useState(18)
+
+  // Update clock every minute
+  React.useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(new Date()), 60000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+  }
+
+  const temperature = '72°F'
+  const apps = [
+    { id: 'navigation', icon: '🧭', label: 'Maps', color: '#4A90E2', badge: null },
+    { id: 'phone', icon: '📞', label: 'Phone', color: '#34C759', badge: 2 },
+    { id: 'messages', icon: '💬', label: 'Messages', color: '#FFD60A', badge: 5 },
+    { id: 'music', icon: '🎵', label: 'Music', color: '#E94E77', badge: null },
+    { id: 'analyst', icon: '📈', label: 'Analyst', color: '#FEC00F', badge: 3 },
+    { id: 'settings', icon: '⚙️', label: 'Settings', color: '#8E8E93', badge: null },
+  ]
+
+  // Render different app content based on activeApp
+  const renderAppContent = () => {
+    switch (activeApp) {
+      case 'navigation':
+        return <CarPlayNavigation destination={navDestination} eta={eta} colors={colors} />
+      case 'music':
+        return <CarPlayMusic isPlaying={isPlaying} setIsPlaying={setIsPlaying} progress={musicProgress} setProgress={setMusicProgress} colors={colors} />
+      case 'phone':
+        return <CarPlayPhone colors={colors} />
+      case 'messages':
+        return <CarPlayMessages colors={colors} />
+      case 'analyst':
+        return <CarPlayAnalyst colors={colors} />
+      case 'settings':
+        return <CarPlaySettings colors={colors} />
+      default:
+        return <CarPlayHome apps={apps} setActiveApp={setActiveApp} colors={colors} />
+    }
+  }
+
+  return (
+    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%)', padding: '16px' }}>
+      {/* Vehicle Headunit Frame - Widescreen 16:9 with Bezel */}
+      <div style={{ position: 'relative' }}>
+        {/* Outer bezel/frame */}
+        <div style={{ 
+          padding: '12px', 
+          background: 'linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 50%, #2a2a2a 100%)', 
+          borderRadius: '16px', 
+          boxShadow: '0 25px 80px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.5)' 
+        }}>
+          {/* Screen bezel */}
+          <div style={{ 
+            padding: '3px', 
+            background: '#111', 
+            borderRadius: '12px', 
+            boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.8)' 
+          }}>
+            {/* Actual display */}
+            <div style={{ 
+              width: '960px', 
+              height: '400px', 
+              background: '#000', 
+              borderRadius: '10px', 
+              overflow: 'hidden', 
+              position: 'relative',
+              boxShadow: 'inset 0 0 30px rgba(0,0,0,0.5)'
+            }}>
+              {/* Screen content */}
+              <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#000' }}>
+                
+                {/* ── Status Bar ──────────────────────────────────── */}
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  padding: '10px 24px', 
+                  background: 'linear-gradient(180deg, rgba(30,30,30,0.95) 0%, rgba(0,0,0,0.9) 100%)',
+                  borderBottom: '1px solid rgba(255,255,255,0.08)' 
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Clock size={16} color="#fff" />
+                      <span style={{ fontSize: '16px', color: '#fff', fontWeight: 600, fontFamily: 'system-ui' }}>{formatTime(currentTime)}</span>
+                    </div>
+                    <span style={{ fontSize: '14px', color: '#999' }}>{temperature}</span>
+                  </div>
+                  
+                  {/* Center - Active App Title */}
+                  <div style={{ 
+                    padding: '4px 16px', 
+                    background: activeApp !== 'home' ? 'rgba(255,255,255,0.08)' : 'transparent', 
+                    borderRadius: '12px',
+                    minWidth: '100px',
+                    textAlign: 'center'
+                  }}>
+                    <span style={{ fontSize: '13px', color: activeApp !== 'home' ? '#fff' : '#666', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                      {activeApp === 'home' ? 'CARPLAY' : activeApp}
+                    </span>
+                  </div>
+                  
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                    <Signal size={16} color="#5AC85A" />
+                    <Wifi size={16} color="#fff" />
+                    <div style={{ 
+                      padding: '2px 10px', 
+                      background: 'rgba(254,192,15,0.15)', 
+                      borderRadius: '4px', 
+                      border: '1px solid rgba(254,192,15,0.3)' 
+                    }}>
+                      <span style={{ fontSize: '13px', color: '#FEC00F', fontWeight: 700 }}>P</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* ── Main Content Area ───────────────────────────── */}
+                <div style={{ flex: 1, display: 'flex', position: 'relative', overflow: 'hidden' }}>
+                  {renderAppContent()}
+                </div>
+                
+                {/* ── Bottom Control Bar ───────────────────────────── */}
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between', 
+                  padding: '12px 32px', 
+                  borderTop: '1px solid rgba(255,255,255,0.08)', 
+                  background: 'linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(20,20,20,0.95) 100%)' 
+                }}>
+                  {/* Left - Back/Home */}
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <button
+                      onClick={() => setActiveApp('home')}
+                      style={{ 
+                        width: '52px', 
+                        height: '52px', 
+                        borderRadius: '50%', 
+                        background: activeApp === 'home' ? 'rgba(254,192,15,0.2)' : 'rgba(255,255,255,0.08)', 
+                        border: 'none',
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        cursor: 'pointer', 
+                        transition: 'all 0.2s',
+                        boxShadow: activeApp === 'home' ? '0 0 20px rgba(254,192,15,0.3)' : 'none'
+                      }}
+                    >
+                      <span style={{ fontSize: '22px' }}>🏠</span>
+                    </button>
+                    {activeApp !== 'home' && (
+                      <button
+                        onClick={() => setActiveApp('home')}
+                        style={{ 
+                          width: '52px', 
+                          height: '52px', 
+                          borderRadius: '50%', 
+                          background: 'rgba(255,255,255,0.08)', 
+                          border: 'none',
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          cursor: 'pointer', 
+                          transition: 'all 0.2s' 
+                        }}
+                      >
+                        <ChevronLeft size={24} color="#fff" />
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Center - App Dock */}
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    {apps.slice(0, 5).map((app) => (
+                      <button
+                        key={app.id}
+                        onClick={() => setActiveApp(app.id as typeof activeApp)}
+                        style={{ 
+                          width: '48px', 
+                          height: '48px', 
+                          borderRadius: '12px', 
+                          background: activeApp === app.id ? `${app.color}33` : 'rgba(255,255,255,0.05)', 
+                          border: activeApp === app.id ? `2px solid ${app.color}` : '2px solid transparent',
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          cursor: 'pointer', 
+                          transition: 'all 0.2s',
+                          position: 'relative'
+                        }}
+                      >
+                        <span style={{ fontSize: '20px' }}>{app.icon}</span>
+                        {app.badge && (
+                          <div style={{ 
+                            position: 'absolute', 
+                            top: '-4px', 
+                            right: '-4px', 
+                            width: '18px', 
+                            height: '18px', 
+                            borderRadius: '50%', 
+                            background: '#ff3b30', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            fontSize: '10px', 
+                            color: '#fff', 
+                            fontWeight: 700,
+                            border: '2px solid #000'
+                          }}>
+                            {app.badge}
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {/* Right - Voice & Notifications */}
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <button
+                      onClick={() => setShowVoiceAssistant(!showVoiceAssistant)}
+                      style={{ 
+                        width: '52px', 
+                        height: '52px', 
+                        borderRadius: '50%', 
+                        background: showVoiceAssistant ? 'rgba(254,192,15,0.3)' : 'rgba(255,255,255,0.08)', 
+                        border: showVoiceAssistant ? '2px solid #FEC00F' : 'none',
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        cursor: 'pointer', 
+                        transition: 'all 0.2s' 
+                      }}
+                    >
+                      <Mic size={22} color={showVoiceAssistant ? '#FEC00F' : '#fff'} />
+                    </button>
+                    <button
+                      style={{ 
+                        width: '52px', 
+                        height: '52px', 
+                        borderRadius: '50%', 
+                        background: 'rgba(255,255,255,0.08)', 
+                        border: 'none',
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        cursor: 'pointer', 
+                        transition: 'all 0.2s',
+                        position: 'relative'
+                      }}
+                    >
+                      <Bell size={22} color="#fff" />
+                      <div style={{ 
+                        position: 'absolute', 
+                        top: '8px', 
+                        right: '8px', 
+                        width: '10px', 
+                        height: '10px', 
+                        borderRadius: '50%', 
+                        background: '#ff3b30',
+                        border: '2px solid #000'
+                      }} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Voice Assistant Overlay */}
+              {showVoiceAssistant && (
+                <div style={{ 
+                  position: 'absolute', 
+                  inset: 0, 
+                  background: 'rgba(0,0,0,0.95)', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  zIndex: 10
+                }}>
+                  <div style={{ 
+                    width: '100px', 
+                    height: '100px', 
+                    borderRadius: '50%', 
+                    background: 'linear-gradient(135deg, #FEC00F 0%, #FFD740 100%)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    marginBottom: '24px',
+                    boxShadow: '0 0 60px rgba(254,192,15,0.5)',
+                    animation: 'pulse-glow 2s ease-in-out infinite'
+                  }}>
+                    <Mic size={40} color="#000" />
+                  </div>
+                  <span style={{ fontSize: '20px', color: '#fff', fontWeight: 600, marginBottom: '8px' }}>Listening...</span>
+                  <span style={{ fontSize: '14px', color: '#666' }}>Say "Hey Siri" or tap to speak</span>
+                  <button
+                    onClick={() => setShowVoiceAssistant(false)}
+                    style={{ 
+                      marginTop: '32px', 
+                      padding: '12px 32px', 
+                      borderRadius: '25px', 
+                      background: 'rgba(255,255,255,0.1)', 
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      color: '#fff',
+                      fontSize: '14px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Physical buttons below screen */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          gap: '40px', 
+          marginTop: '16px' 
+        }}>
+          {['Volume', 'Tune', 'Source', 'Home'].map((btn) => (
+            <div key={btn} style={{ 
+              width: btn === 'Tune' ? '50px' : '40px', 
+              height: btn === 'Tune' ? '50px' : '40px', 
+              borderRadius: btn === 'Tune' ? '50%' : '8px', 
+              background: 'linear-gradient(145deg, #333 0%, #222 100%)', 
+              boxShadow: '0 4px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              {btn === 'Volume' && <span style={{ fontSize: '12px', color: '#666' }}>+ −</span>}
+              {btn === 'Tune' && <span style={{ fontSize: '10px', color: '#666' }}>↻</span>}
+              {btn === 'Source' && <span style={{ fontSize: '10px', color: '#666' }}>SRC</span>}
+              {btn === 'Home' && <span style={{ fontSize: '14px' }}>🏠</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── CarPlay Home Screen ─────────────────────────────────────────────────────
+function CarPlayHome({ apps, setActiveApp, colors }: { apps: Array<{id: string, icon: string, label: string, color: string, badge: number | null}>, setActiveApp: (app: any) => void, colors: Record<string, string> }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', padding: '24px', gap: '24px' }}>
+      {/* Left Side - Map Widget */}
+      <div style={{ 
+        flex: 1, 
+        borderRadius: '16px', 
+        background: 'linear-gradient(135deg, #1a4d2e 0%, #0d2818 100%)', 
+        position: 'relative',
+        overflow: 'hidden',
+        cursor: 'pointer'
+      }}
+      onClick={() => setActiveApp('navigation')}
+      >
+        {/* Map grid lines */}
+        <div style={{ 
+          position: 'absolute', 
+          inset: 0, 
+          backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)', 
+          backgroundSize: '40px 40px' 
+        }} />
+        
+        {/* Current location marker */}
+        <div style={{ 
+          position: 'absolute', 
+          top: '50%', 
+          left: '50%', 
+          transform: 'translate(-50%, -50%)',
+          width: '20px',
+          height: '20px',
+          borderRadius: '50%',
+          background: '#4A90E2',
+          boxShadow: '0 0 20px rgba(74,144,226,0.5)'
+        }}>
+          <div style={{ 
+            position: 'absolute', 
+            top: '50%', 
+            left: '50%', 
+            transform: 'translate(-50%, -50%)',
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            background: '#fff'
+          }} />
+        </div>
+        
+        {/* Navigation hint */}
+        <div style={{ 
+          position: 'absolute', 
+          bottom: '16px', 
+          left: '16px', 
+          right: '16px',
+          padding: '12px 16px',
+          background: 'rgba(0,0,0,0.8)',
+          backdropFilter: 'blur(10px)',
+          borderRadius: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <span style={{ fontSize: '24px' }}>🧭</span>
+          <div>
+            <div style={{ fontSize: '13px', color: '#fff', fontWeight: 600 }}>Tap to navigate</div>
+            <div style={{ fontSize: '11px', color: '#999' }}>Recent: Wall Street, NYC</div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Right Side - App Grid */}
+      <div style={{ width: '380px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* App Grid 2x3 */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          {apps.map((app) => (
+            <button
+              key={app.id}
+              onClick={() => setActiveApp(app.id as any)}
+              style={{ 
+                aspectRatio: '1.1', 
+                borderRadius: '18px', 
+                background: `linear-gradient(135deg, ${app.color}22 0%, ${app.color}11 100%)`, 
+                border: `1px solid ${app.color}44`,
+                display: 'flex', 
+                flexDirection: 'column',
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '8px',
+                cursor: 'pointer', 
+                transition: 'all 0.2s',
+                position: 'relative'
+              }}
+            >
+              <span style={{ fontSize: '36px' }}>{app.icon}</span>
+              <span style={{ fontSize: '14px', color: '#fff', fontWeight: 600 }}>{app.label}</span>
+              {app.badge && (
+                <div style={{ 
+                  position: 'absolute', 
+                  top: '12px', 
+                  right: '12px', 
+                  minWidth: '22px', 
+                  height: '22px', 
+                  borderRadius: '11px', 
+                  background: '#ff3b30', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  fontSize: '11px', 
+                  color: '#fff', 
+                  fontWeight: 700,
+                  padding: '0 6px'
+                }}>
+                  {app.badge}
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+        
+        {/* Now Playing Mini */}
+        <div style={{ 
+          padding: '16px', 
+          borderRadius: '14px', 
+          background: 'linear-gradient(135deg, rgba(233,78,119,0.2) 0%, rgba(201,62,104,0.1) 100%)',
+          border: '1px solid rgba(233,78,119,0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '14px',
+          cursor: 'pointer'
+        }}
+        onClick={() => setActiveApp('music')}
+        >
+          <div style={{ 
+            width: '48px', 
+            height: '48px', 
+            borderRadius: '10px', 
+            background: 'linear-gradient(135deg, #E94E77 0%, #C93E68 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 16px rgba(233,78,119,0.4)'
+          }}>
+            <Volume2 size={24} color="#fff" />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '13px', color: '#fff', fontWeight: 600, marginBottom: '2px' }}>Market Analysis Podcast</div>
+            <div style={{ fontSize: '11px', color: '#999' }}>Potomac Trading Insights</div>
+            <div style={{ 
+              marginTop: '6px', 
+              height: '3px', 
+              borderRadius: '2px', 
+              background: 'rgba(255,255,255,0.2)',
+              overflow: 'hidden'
+            }}>
+              <div style={{ width: '35%', height: '100%', background: '#E94E77', borderRadius: '2px' }} />
+            </div>
+          </div>
+          <div style={{ 
+            width: '36px', 
+            height: '36px', 
+            borderRadius: '50%', 
+            background: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <span style={{ fontSize: '14px', marginLeft: '2px' }}>▶</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── CarPlay Navigation Screen ──────────────────────────────────────────────
+function CarPlayNavigation({ destination, eta, colors }: { destination: string, eta: number, colors: Record<string, string> }) {
+  const [routeStarted, setRouteStarted] = useState(false)
+  
+  return (
+    <div style={{ flex: 1, display: 'flex', position: 'relative' }}>
+      {/* Map View */}
+      <div style={{ flex: 1, background: 'linear-gradient(135deg, #1a4d2e 0%, #0d2818 100%)', position: 'relative' }}>
+        {/* Map grid */}
+        <div style={{ 
+          position: 'absolute', 
+          inset: 0, 
+          backgroundImage: 'linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)', 
+          backgroundSize: '50px 50px' 
+        }} />
+        
+        {/* Route line */}
+        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+          <path d="M 100 350 Q 200 300 300 250 T 500 150 T 700 100" stroke="#4A90E2" strokeWidth="6" fill="none" strokeLinecap="round" />
+          <path d="M 100 350 Q 200 300 300 250 T 500 150 T 700 100" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" strokeDasharray="10 10" />
+        </svg>
+        
+        {/* Current location */}
+        <div style={{ 
+          position: 'absolute', 
+          bottom: '80px', 
+          left: '100px',
+          width: '24px',
+          height: '24px',
+          borderRadius: '50%',
+          background: '#4A90E2',
+          boxShadow: '0 0 30px rgba(74,144,226,0.8)',
+          border: '3px solid #fff'
+        }}>
+          <div style={{ 
+            position: 'absolute', 
+            top: '50%', 
+            left: '50%', 
+            transform: 'translate(-50%, -50%)',
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            background: '#fff'
+          }} />
+        </div>
+        
+        {/* Destination marker */}
+        <div style={{ 
+          position: 'absolute', 
+          top: '100px', 
+          right: '200px',
+        }}>
+          <div style={{ 
+            width: '32px',
+            height: '32px',
+            background: '#FEC00F',
+            borderRadius: '50% 50% 50% 0',
+            transform: 'rotate(-45deg)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 20px rgba(254,192,15,0.5)'
+          }}>
+            <span style={{ transform: 'rotate(45deg)', fontSize: '14px' }}>📍</span>
+          </div>
+        </div>
+        
+        {/* Navigation Card */}
+        <div style={{ 
+          position: 'absolute', 
+          top: '20px', 
+          left: '20px', 
+          right: '20px',
+          background: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(20px)',
+          borderRadius: '16px',
+          padding: '16px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
+        }}>
+          <div style={{ 
+            width: '56px', 
+            height: '56px', 
+            borderRadius: '12px', 
+            background: 'linear-gradient(135deg, #4A90E2, #357ABD)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <span style={{ fontSize: '28px' }}>➡️</span>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '18px', color: '#fff', fontWeight: 700, marginBottom: '4px' }}>Turn right onto Broadway</div>
+            <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>in 0.3 miles</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '36px', fontWeight: 300, color: '#4A90E2' }}>{eta}</div>
+            <div style={{ fontSize: '12px', color: '#999' }}>min</div>
+          </div>
+        </div>
+        
+        {/* Zoom controls */}
+        <div style={{ 
+          position: 'absolute', 
+          bottom: '24px', 
+          right: '24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
+        }}>
+          {['+', '−'].map((btn, i) => (
+            <button key={btn} style={{ 
+              width: '44px', 
+              height: '44px', 
+              borderRadius: '12px', 
+              background: 'rgba(0,0,0,0.8)', 
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: '#fff',
+              fontSize: '20px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              {btn}
+            </button>
+          ))}
+        </div>
+      </div>
+      
+      {/* Right Sidebar */}
+      <div style={{ 
+        width: '280px', 
+        background: 'rgba(0,0,0,0.5)',
+        padding: '20px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px',
+        borderLeft: '1px solid rgba(255,255,255,0.08)'
+      }}>
+        {/* Destination */}
+        <div style={{ 
+          padding: '16px', 
+          borderRadius: '14px', 
+          background: 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255,255,255,0.08)'
+        }}>
+          <div style={{ fontSize: '11px', color: '#999', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Destination</div>
+          <div style={{ fontSize: '15px', color: '#fff', fontWeight: 600 }}>{destination}</div>
+        </div>
+        
+        {/* ETA Details */}
+        <div style={{ 
+          padding: '16px', 
+          borderRadius: '14px', 
+          background: 'rgba(74,144,226,0.1)',
+          border: '1px solid rgba(74,144,226,0.2)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <span style={{ fontSize: '12px', color: '#999' }}>Distance</span>
+            <span style={{ fontSize: '14px', color: '#fff', fontWeight: 600 }}>12.4 mi</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <span style={{ fontSize: '12px', color: '#999' }}>ETA</span>
+            <span style={{ fontSize: '14px', color: '#4A90E2', fontWeight: 600 }}>3:45 PM</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '12px', color: '#999' }}>Traffic</span>
+            <span style={{ fontSize: '14px', color: '#22C55E', fontWeight: 600 }}>Light</span>
+          </div>
+        </div>
+        
+        {/* Route Options */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto' }}>
+          <button style={{ 
+            padding: '14px', 
+            borderRadius: '12px', 
+            background: 'rgba(255,255,255,0.08)', 
+            border: '1px solid rgba(255,255,255,0.1)',
+            color: '#fff',
+            fontSize: '13px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
+          }}>
+            <span>🔄</span> Alternate Route
+          </button>
+          <button style={{ 
+            padding: '14px', 
+            borderRadius: '12px', 
+            background: 'rgba(220,38,38,0.1)', 
+            border: '1px solid rgba(220,38,38,0.2)',
+            color: '#f87171',
+            fontSize: '13px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
+          }}>
+            <span>✕</span> End Route
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── CarPlay Music Screen ───────────────────────────────────────────────────
+function CarPlayMusic({ isPlaying, setIsPlaying, progress, setProgress, colors }: { isPlaying: boolean, setIsPlaying: (v: boolean) => void, progress: number, setProgress: (v: number) => void, colors: Record<string, string> }) {
+  const tracks = [
+    { title: 'Market Analysis Podcast', artist: 'Potomac Trading', duration: '28:00', active: true },
+    { title: 'Daily Market Recap', artist: 'Financial News', duration: '45:00', active: false },
+    { title: 'Tech Sector Deep Dive', artist: 'Potomac Trading', duration: '32:00', active: false },
+  ]
+  
+  return (
+    <div style={{ flex: 1, display: 'flex', padding: '24px', gap: '24px' }}>
+      {/* Left - Now Playing */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        {/* Album Art */}
+        <div style={{ 
+          width: '220px', 
+          height: '220px', 
+          borderRadius: '20px', 
+          background: 'linear-gradient(135deg, #E94E77 0%, #C93E68 50%, #8B2F5C 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: '24px',
+          boxShadow: '0 20px 60px rgba(233,78,119,0.5)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          <Volume2 size={64} color="rgba(255,255,255,0.9)" />
+          <div style={{ 
+            position: 'absolute', 
+            inset: 0, 
+            background: 'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)',
+            animation: 'shimmer 3s infinite'
+          }} />
+        </div>
+        
+        {/* Track Info */}
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <div style={{ fontSize: '22px', color: '#fff', fontWeight: 700, marginBottom: '6px' }}>Market Analysis Podcast</div>
+          <div style={{ fontSize: '15px', color: '#999' }}>Potomac Trading Insights</div>
+        </div>
+        
+        {/* Progress Bar */}
+        <div style={{ width: '100%', maxWidth: '400px', marginBottom: '24px' }}>
+          <div style={{ 
+            height: '6px', 
+            borderRadius: '3px', 
+            background: 'rgba(255,255,255,0.1)',
+            overflow: 'hidden',
+            cursor: 'pointer',
+            marginBottom: '8px'
+          }}
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect()
+            const x = e.clientX - rect.left
+            const percent = (x / rect.width) * 100
+            setProgress(percent)
+          }}
+          >
+            <div style={{ width: `${progress}%`, height: '100%', background: '#E94E77', borderRadius: '3px', transition: 'width 0.1s' }} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#666' }}>
+            <span>9:52</span>
+            <span>28:00</span>
+          </div>
+        </div>
+        
+        {/* Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+          <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '12px' }}>
+            <span style={{ fontSize: '28px', opacity: 0.6 }}>⏮</span>
+          </button>
+          <button 
+            onClick={() => setIsPlaying(!isPlaying)}
+            style={{ 
+              width: '72px', 
+              height: '72px', 
+              borderRadius: '50%', 
+              background: '#fff',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 24px rgba(255,255,255,0.2)'
+            }}
+          >
+            <span style={{ fontSize: '28px', marginLeft: isPlaying ? '0' : '4px' }}>{isPlaying ? '⏸' : '▶'}</span>
+          </button>
+          <button style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '12px' }}>
+            <span style={{ fontSize: '28px', opacity: 0.6 }}>⏭</span>
+          </button>
+        </div>
+      </div>
+      
+      {/* Right - Queue */}
+      <div style={{ width: '300px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ fontSize: '14px', color: '#999', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Up Next</div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'auto' }}>
+          {tracks.map((track, i) => (
+            <div key={i} style={{ 
+              padding: '14px', 
+              borderRadius: '12px', 
+              background: track.active ? 'rgba(233,78,119,0.15)' : 'rgba(255,255,255,0.03)',
+              border: track.active ? '1px solid rgba(233,78,119,0.3)' : '1px solid transparent',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}>
+              <div style={{ 
+                width: '44px', 
+                height: '44px', 
+                borderRadius: '8px', 
+                background: track.active ? '#E94E77' : 'rgba(255,255,255,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                {track.active ? <Volume2 size={20} color="#fff" /> : <span style={{ fontSize: '18px' }}>🎵</span>}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '13px', color: '#fff', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</div>
+                <div style={{ fontSize: '11px', color: '#666' }}>{track.artist}</div>
+              </div>
+              <span style={{ fontSize: '11px', color: '#666' }}>{track.duration}</span>
+            </div>
+          ))}
+        </div>
+        
+        {/* Source Selector */}
+        <div style={{ 
+          marginTop: '16px',
+          padding: '12px', 
+          borderRadius: '10px', 
+          background: 'rgba(255,255,255,0.05)',
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '16px'
+        }}>
+          {['📱', '🎧', '📻', '📁'].map((icon, i) => (
+            <button key={i} style={{ 
+              width: '40px', 
+              height: '40px', 
+              borderRadius: '10px', 
+              background: i === 0 ? 'rgba(255,255,255,0.15)' : 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '18px'
+            }}>
+              {icon}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── CarPlay Phone Screen ───────────────────────────────────────────────────
+function CarPlayPhone({ colors }: { colors: Record<string, string> }) {
+  const recentCalls = [
+    { name: 'Yang (AI Assistant)', type: 'incoming', time: '2:30 PM', duration: '5:42' },
+    { name: 'Trading Desk', type: 'outgoing', time: '1:15 PM', duration: '12:08' },
+    { name: 'John Smith', type: 'missed', time: '11:30 AM', duration: '' },
+    { name: 'Portfolio Review', type: 'incoming', time: 'Yesterday', duration: '23:15' },
+  ]
+  
+  const dialpadNumbers = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#']
+  
+  return (
+    <div style={{ flex: 1, display: 'flex', padding: '20px', gap: '20px' }}>
+      {/* Left - Recent Calls */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ fontSize: '14px', color: '#999', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Recent</div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {recentCalls.map((call, i) => (
+            <div key={i} style={{ 
+              padding: '14px', 
+              borderRadius: '12px', 
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '14px',
+              cursor: 'pointer',
+              transition: 'background 0.2s'
+            }}>
+              <div style={{ 
+                width: '44px', 
+                height: '44px', 
+                borderRadius: '50%', 
+                background: call.type === 'missed' ? 'rgba(220,38,38,0.2)' : call.type === 'incoming' ? 'rgba(34,197,94,0.2)' : 'rgba(59,130,246,0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <span style={{ fontSize: '18px' }}>
+                  {call.type === 'missed' ? '📵' : call.type === 'incoming' ? '📞' : '📱'}
+                </span>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '14px', color: call.type === 'missed' ? '#f87171' : '#fff', fontWeight: 600 }}>{call.name}</div>
+                <div style={{ fontSize: '12px', color: '#666' }}>{call.time} {call.duration && `• ${call.duration}`}</div>
+              </div>
+              <button style={{ 
+                width: '40px', 
+                height: '40px', 
+                borderRadius: '50%', 
+                background: '#34C759',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <span style={{ fontSize: '16px' }}>📞</span>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      {/* Right - Dialpad */}
+      <div style={{ width: '280px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ 
+          width: '100%', 
+          padding: '16px', 
+          textAlign: 'center',
+          marginBottom: '16px',
+          borderBottom: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          <div style={{ fontSize: '28px', color: '#fff', fontWeight: 300, letterSpacing: '2px' }}>(555) 123-4567</div>
+        </div>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+          {dialpadNumbers.map((num) => (
+            <button key={num} style={{ 
+              width: '64px', 
+              height: '64px', 
+              borderRadius: '50%', 
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: '#fff',
+              fontSize: '24px',
+              fontWeight: 300,
+              cursor: 'pointer',
+              transition: 'all 0.1s'
+            }}>
+              {num}
+            </button>
+          ))}
+        </div>
+        
+        <button style={{ 
+          width: '64px', 
+          height: '64px', 
+          borderRadius: '50%', 
+          background: '#34C759',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 4px 20px rgba(52,199,89,0.4)'
+        }}>
+          <span style={{ fontSize: '28px' }}>📞</span>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── CarPlay Messages Screen ────────────────────────────────────────────────
+function CarPlayMessages({ colors }: { colors: Record<string, string> }) {
+  const messages = [
+    { sender: 'Yang (AI)', preview: 'AAPL triggered buy signal at $198.45...', time: '2:30 PM', unread: true },
+    { sender: 'Trading Alert', preview: 'Portfolio rebalancing recommended...', time: '1:15 PM', unread: true },
+    { sender: 'Market News', preview: 'Fed announces interest rate decision...', time: '11:00 AM', unread: false },
+  ]
+  
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '24px' }}>
+      <div style={{ fontSize: '14px', color: '#999', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Messages</div>
+      
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {messages.map((msg, i) => (
+          <div key={i} style={{ 
+            padding: '18px', 
+            borderRadius: '16px', 
+            background: msg.unread ? 'rgba(254,192,15,0.08)' : 'rgba(255,255,255,0.03)',
+            border: msg.unread ? '1px solid rgba(254,192,15,0.2)' : '1px solid rgba(255,255,255,0.05)',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+              <div style={{ 
+                width: '36px', 
+                height: '36px', 
+                borderRadius: '10px', 
+                background: msg.unread ? 'rgba(254,192,15,0.2)' : 'rgba(255,255,255,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <span style={{ fontSize: '18px' }}>{msg.sender === 'Yang (AI)' ? '🤖' : '💬'}</span>
+              </div>
+              <span style={{ fontSize: '15px', color: '#fff', fontWeight: 600, flex: 1 }}>{msg.sender}</span>
+              <span style={{ fontSize: '12px', color: '#666' }}>{msg.time}</span>
+              {msg.unread && (
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#FEC00F' }} />
+              )}
+            </div>
+            <div style={{ fontSize: '13px', color: '#999', paddingLeft: '48px' }}>{msg.preview}</div>
+          </div>
+        ))}
+      </div>
+      
+      {/* Voice input for replies */}
+      <div style={{ 
+        marginTop: '16px',
+        padding: '16px', 
+        borderRadius: '14px', 
+        background: 'rgba(255,255,255,0.05)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '16px'
+      }}>
+        <span style={{ fontSize: '13px', color: '#666', flex: 1 }}>Tap to dictate a reply...</span>
+        <button style={{ 
+          width: '44px', 
+          height: '44px', 
+          borderRadius: '50%', 
+          background: '#FEC00F',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <Mic size={20} color="#000" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── CarPlay Analyst App Screen ─────────────────────────────────────────────
+function CarPlayAnalyst({ colors }: { colors: Record<string, string> }) {
+  const [selectedStock, setSelectedStock] = useState('AAPL')
+  const stocks = [
+    { symbol: 'AAPL', price: '$198.45', change: '+2.3%', positive: true },
+    { symbol: 'MSFT', price: '$415.20', change: '+1.1%', positive: true },
+    { symbol: 'TSLA', price: '$245.80', change: '-0.8%', positive: false },
+    { symbol: 'NVDA', price: '$875.40', change: '+3.5%', positive: true },
+  ]
+  
+  return (
+    <div style={{ flex: 1, display: 'flex', padding: '20px', gap: '20px' }}>
+      {/* Left - Portfolio Overview */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+          <div style={{ 
+            width: '40px', 
+            height: '40px', 
+            borderRadius: '10px', 
+            background: 'linear-gradient(135deg, #FEC00F, #FFD740)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <Activity size={22} color="#000" />
+          </div>
+          <div>
+            <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: '18px', fontWeight: 700, color: '#fff', letterSpacing: '1px' }}>ANALYST</div>
+            <div style={{ fontSize: '10px', color: '#FEC00F', letterSpacing: '2px' }}>BY POTOMAC</div>
+          </div>
+        </div>
+        
+        {/* Portfolio Value */}
+        <div style={{ 
+          padding: '20px', 
+          borderRadius: '16px', 
+          background: 'linear-gradient(135deg, rgba(254,192,15,0.15) 0%, rgba(254,192,15,0.05) 100%)',
+          border: '1px solid rgba(254,192,15,0.2)',
+          marginBottom: '16px'
+        }}>
+          <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Portfolio Value</div>
+          <div style={{ fontSize: '36px', color: '#FEC00F', fontWeight: 700, fontFamily: "'Rajdhani', sans-serif" }}>$48,234</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+            <span style={{ fontSize: '14px', color: '#22C55E' }}>+$1,125</span>
+            <span style={{ fontSize: '12px', color: '#22C55E', background: 'rgba(34,197,94,0.2)', padding: '2px 8px', borderRadius: '4px' }}>+2.3%</span>
+          </div>
+        </div>
+        
+        {/* Watchlist */}
+        <div style={{ fontSize: '12px', color: '#999', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>Watchlist</div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {stocks.map((stock) => (
+            <button
+              key={stock.symbol}
+              onClick={() => setSelectedStock(stock.symbol)}
+              style={{ 
+                padding: '12px', 
+                borderRadius: '12px', 
+                background: selectedStock === stock.symbol ? 'rgba(254,192,15,0.15)' : 'rgba(255,255,255,0.03)',
+                border: selectedStock === stock.symbol ? '1px solid rgba(254,192,15,0.3)' : '1px solid transparent',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                textAlign: 'left'
+              }}
+            >
+              <span style={{ fontSize: '15px', color: '#fff', fontWeight: 700, width: '50px' }}>{stock.symbol}</span>
+              <span style={{ fontSize: '14px', color: '#fff', flex: 1 }}>{stock.price}</span>
+              <span style={{ 
+                fontSize: '13px', 
+                color: stock.positive ? '#22C55E' : '#f87171',
+                fontWeight: 600
+              }}>{stock.change}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      
+      {/* Right - AI Assistant */}
+      <div style={{ width: '340px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ fontSize: '12px', color: '#999', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Ask Yang</div>
+        
+        {/* Chat Messages */}
+        <div style={{ 
+          flex: 1, 
+          borderRadius: '14px', 
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          padding: '14px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+          marginBottom: '12px'
+        }}>
+          <div style={{ 
+            alignSelf: 'flex-end', 
+            maxWidth: '80%',
+            padding: '10px 14px',
+            borderRadius: '14px 14px 4px 14px',
+            background: '#FEC00F',
+            fontSize: '12px',
+            color: '#000'
+          }}>
+            What's the outlook on {selectedStock}?
+          </div>
+          <div style={{ 
+            alignSelf: 'flex-start', 
+            maxWidth: '85%',
+            padding: '10px 14px',
+            borderRadius: '4px 14px 14px 14px',
+            background: 'rgba(255,255,255,0.08)',
+            fontSize: '12px',
+            color: '#d4d4d4',
+            lineHeight: 1.5
+          }}>
+            {selectedStock} is showing strong momentum with RSI at 65. Recent earnings beat expectations by 4.2%. Consider setting a stop-loss at $192 for risk management.
+          </div>
+        </div>
+        
+        {/* Voice Input */}
+        <button style={{ 
+          padding: '16px', 
+          borderRadius: '14px', 
+          background: 'rgba(254,192,15,0.1)',
+          border: '2px solid rgba(254,192,15,0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '12px',
+          cursor: 'pointer',
+          transition: 'all 0.2s'
+        }}>
+          <Mic size={22} color="#FEC00F" />
+          <span style={{ fontSize: '14px', color: '#FEC00F', fontWeight: 600 }}>Tap to ask Yang</span>
+        </button>
+        
+        {/* Quick Actions */}
+        <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+          {['Market Summary', 'Top Movers', 'Alerts'].map((action) => (
+            <button key={action} style={{ 
+              flex: 1,
+              padding: '10px', 
+              borderRadius: '10px', 
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              color: '#999',
+              fontSize: '11px',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}>
+              {action}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── CarPlay Settings Screen ────────────────────────────────────────────────
+function CarPlaySettings({ colors }: { colors: Record<string, string> }) {
+  const settings = [
+    { icon: '📱', label: 'Display', value: 'Auto' },
+    { icon: '🔊', label: 'Audio', value: 'Car Speakers' },
+    { icon: '🔔', label: 'Notifications', value: 'On' },
+    { icon: '🌙', label: 'Dark Mode', value: 'Auto' },
+    { icon: '🚗', label: 'Vehicle', value: 'Connected' },
+    { icon: 'ℹ️', label: 'About', value: 'v2.0' },
+  ]
+  
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '24px' }}>
+      <div style={{ fontSize: '14px', color: '#999', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px' }}>Settings</div>
+      
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        {settings.map((setting, i) => (
+          <div key={i} style={{ 
+            padding: '16px', 
+            borderRadius: '14px', 
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}>
+            <span style={{ fontSize: '24px' }}>{setting.icon}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '14px', color: '#fff', fontWeight: 600 }}>{setting.label}</div>
+              <div style={{ fontSize: '12px', color: '#666' }}>{setting.value}</div>
+            </div>
+            <ChevronRightIcon size={18} color="#444" />
+          </div>
+        ))}
+      </div>
+      
+      {/* Analyst Connection Status */}
+      <div style={{ 
+        marginTop: '16px',
+        padding: '16px', 
+        borderRadius: '14px', 
+        background: 'rgba(34,197,94,0.1)',
+        border: '1px solid rgba(34,197,94,0.2)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '14px'
+      }}>
+        <div style={{ 
+          width: '44px', 
+          height: '44px', 
+          borderRadius: '12px', 
+          background: 'linear-gradient(135deg, #FEC00F, #FFD740)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <Activity size={22} color="#000" />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: '14px', color: '#fff', fontWeight: 600 }}>Analyst Connected</div>
+          <div style={{ fontSize: '12px', color: '#22C55E' }}>All features available</div>
+        </div>
+        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 10px rgba(34,197,94,0.5)' }} />
       </div>
     </div>
   )
@@ -1598,8 +4073,9 @@ export function DeveloperPage() {
     { id: 'backtest', label: 'BACKTEST', component: BacktestMockup },
     { id: 'content', label: 'CONTENT', component: ContentMockup },
     { id: 'settings', label: 'SETTINGS', component: SettingsMockup },
-    { id: 'carplay', label: 'CARPLAY', component: CarPlayMockup },
-  ]
+  { id: 'carplay', label: 'CARPLAY', component: CarPlayMockup },
+  { id: 'airline', label: 'AIRLINE IFE', component: AirlineIFEMockup },
+]
 
   const ipadScreens = [
     { id: 'ipad-dashboard', label: 'DASHBOARD', component: IPadDashboardMockup },

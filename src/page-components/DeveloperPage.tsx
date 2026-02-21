@@ -4043,7 +4043,7 @@ export function DeveloperPage() {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
   const [activeScreen, setActiveScreen] = useState('splash')
-  const [activeDevice, setActiveDevice] = useState<'iphone' | 'ipad' | 'mac' | 'watch' | 'visionpro'>('iphone')
+  const [activeDevice, setActiveDevice] = useState<'iphone' | 'ipad' | 'mac' | 'watch' | 'visionpro' | 'carplay' | 'ife'>('iphone')
   const [activeWatchScreen, setActiveWatchScreen] = useState('complication')
   const [activeVPScreen, setActiveVPScreen] = useState('dashboard')
   const [highlightedCard, setHighlightedCard] = useState<string | null>(null)

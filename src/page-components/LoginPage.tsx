@@ -80,9 +80,9 @@ export function LoginPage() {
       {/* Left Side - Branding */}
       <div style={{
         flex: isMobile ? undefined : 1,
-        background: resolvedTheme === 'dark' 
+        background: isDark 
           ? 'linear-gradient(135deg, #1A1A1D 0%, #0A0A0B 50%, #1A1A1D 100%)'
-          : 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 50%, #f8f9fa 100%)',
+          : 'linear-gradient(160deg, #fdf8ef 0%, #fefcf7 40%, #f5f0e8 100%)',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
@@ -191,13 +191,14 @@ export function LoginPage() {
                   alignItems: 'center',
                   gap: '16px',
                   padding: '16px 24px',
-                  backgroundColor: 'rgba(254, 192, 15, 0.05)',
-                  border: '1px solid rgba(254, 192, 15, 0.1)',
+                  backgroundColor: isDark ? 'rgba(254, 192, 15, 0.05)' : 'rgba(255, 255, 255, 0.8)',
+                  border: `1px solid ${isDark ? 'rgba(254, 192, 15, 0.1)' : 'rgba(254, 192, 15, 0.2)'}`,
                   borderRadius: '12px',
+                  boxShadow: isDark ? 'none' : '0 2px 8px rgba(0,0,0,0.04)',
                 }}
               >
-                <feature.icon size={24} color="#FEC00F" />
-                <span style={{ color: isDark ? '#E0E0E0' : '#444444', fontSize: '14px', fontWeight: 500 }}>
+                <feature.icon size={24} color={isDark ? '#FEC00F' : '#d4a00a'} />
+                <span style={{ color: isDark ? '#E0E0E0' : '#333333', fontSize: '14px', fontWeight: 600 }}>
                   {feature.text}
                 </span>
               </div>
@@ -224,8 +225,9 @@ export function LoginPage() {
         flexDirection: 'column',
         justifyContent: 'center',
         padding: isSmallMobile ? '32px 24px' : '60px',
-        borderLeft: isMobile ? 'none' : `1px solid ${isDark ? '#2A2A2A' : '#e0e0e0'}`,
-        borderTop: isMobile ? `1px solid ${isDark ? '#2A2A2A' : '#e0e0e0'}` : 'none',
+        borderLeft: isMobile ? 'none' : `1px solid ${isDark ? '#2A2A2A' : '#e8e0d0'}`,
+        borderTop: isMobile ? `1px solid ${isDark ? '#2A2A2A' : '#e8e0d0'}` : 'none',
+        boxShadow: isDark ? 'none' : '-8px 0 30px rgba(0,0,0,0.06)',
         minHeight: isMobile ? 'auto' : '100dvh',
         paddingBottom: isSmallMobile ? 'max(32px, env(safe-area-inset-bottom))' : '60px',
       }}>

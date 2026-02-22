@@ -86,9 +86,9 @@ export function ForgotPasswordPage() {
       {/* Left Side - Branding */}
       <div style={{
         flex: isMobile ? undefined : 1,
-        background: resolvedTheme === 'dark' 
+        background: isDark 
           ? 'linear-gradient(135deg, #1A1A1D 0%, #0A0A0B 50%, #1A1A1D 100%)'
-          : 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 50%, #f8f9fa 100%)',
+          : 'linear-gradient(160deg, #fdf8ef 0%, #fefcf7 40%, #f5f0e8 100%)',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',

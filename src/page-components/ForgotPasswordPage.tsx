@@ -157,7 +157,7 @@ export function ForgotPasswordPage() {
             fontFamily: "'Rajdhani', sans-serif",
             fontSize: '48px',
             fontWeight: 700,
-            color: '#FFFFFF',
+            color: isDark ? '#FFFFFF' : '#1a1a1a',
             letterSpacing: '4px',
             marginBottom: '8px',
           }}>
@@ -174,7 +174,7 @@ export function ForgotPasswordPage() {
             BY POTOMAC
           </p>
           <p style={{
-            color: '#9E9E9E',
+            color: isDark ? '#9E9E9E' : '#666666',
             fontSize: '16px',
             lineHeight: 1.7,
             marginBottom: '48px',
@@ -195,10 +195,10 @@ export function ForgotPasswordPage() {
           }}>
             <Key size={28} color="#FEC00F" />
             <div style={{ textAlign: 'left' }}>
-              <p style={{ color: '#E0E0E0', fontSize: '14px', fontWeight: 600, margin: 0 }}>
+              <p style={{ color: isDark ? '#E0E0E0' : '#333333', fontSize: '14px', fontWeight: 600, margin: 0 }}>
                 Secure Password Reset
               </p>
-              <p style={{ color: '#9E9E9E', fontSize: '12px', margin: '4px 0 0 0' }}>
+              <p style={{ color: isDark ? '#9E9E9E' : '#666666', fontSize: '12px', margin: '4px 0 0 0' }}>
                 We'll send you a secure link to reset your password
               </p>
             </div>
@@ -219,13 +219,13 @@ export function ForgotPasswordPage() {
       {/* Right Side - Reset Form */}
       <div style={{
         width: isMobile ? '100%' : '500px',
-        backgroundColor: '#121212',
+        backgroundColor: isDark ? '#121212' : '#ffffff',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
         padding: isSmallMobile ? '32px 24px' : '60px',
-        borderLeft: isMobile ? 'none' : '1px solid #2A2A2A',
-        borderTop: isMobile ? '1px solid #2A2A2A' : 'none',
+        borderLeft: isMobile ? 'none' : `1px solid ${isDark ? '#2A2A2A' : '#e0e0e0'}`,
+        borderTop: isMobile ? `1px solid ${isDark ? '#2A2A2A' : '#e0e0e0'}` : 'none',
         minHeight: isMobile ? 'auto' : '100dvh',
         paddingBottom: isSmallMobile ? 'max(32px, env(safe-area-inset-bottom))' : '60px',
       }}>
@@ -257,14 +257,14 @@ export function ForgotPasswordPage() {
                 fontFamily: "'Rajdhani', sans-serif",
                 fontSize: '28px',
                 fontWeight: 700,
-                color: '#FFFFFF',
+                color: isDark ? '#FFFFFF' : '#1a1a1a',
                 letterSpacing: '2px',
                 marginBottom: '8px',
               }}>
                 FORGOT PASSWORD?
               </h2>
               <p style={{
-                color: '#757575',
+                color: isDark ? '#757575' : '#666666',
                 fontSize: '14px',
                 marginBottom: '40px',
                 lineHeight: 1.6,
@@ -297,7 +297,7 @@ export function ForgotPasswordPage() {
                     fontFamily: "'Rajdhani', sans-serif",
                     fontSize: '12px',
                     fontWeight: 600,
-                    color: '#FFFFFF',
+                    color: isDark ? '#FFFFFF' : '#1a1a1a',
                     letterSpacing: '1px',
                     marginBottom: '8px',
                   }}>
@@ -313,10 +313,10 @@ export function ForgotPasswordPage() {
                         width: '100%',
                         height: '52px',
                         padding: '0 16px 0 48px',
-                        backgroundColor: '#1E1E1E',
-                        border: '1px solid #2A2A2A',
+                        backgroundColor: isDark ? '#1E1E1E' : '#f5f5f5',
+                        border: `1px solid ${isDark ? '#2A2A2A' : '#d0d0d0'}`,
                         borderRadius: '10px',
-                        color: '#FFFFFF',
+                        color: isDark ? '#FFFFFF' : '#1a1a1a',
                         fontSize: '16px',
                         fontFamily: "'Quicksand', sans-serif",
                         outline: 'none',
@@ -413,7 +413,7 @@ export function ForgotPasswordPage() {
                   fontFamily: "'Rajdhani', sans-serif",
                   fontSize: '28px',
                   fontWeight: 700,
-                  color: '#FFFFFF',
+                  color: isDark ? '#FFFFFF' : '#1a1a1a',
                   letterSpacing: '2px',
                   marginBottom: '12px',
                 }}>
@@ -421,7 +421,7 @@ export function ForgotPasswordPage() {
                 </h2>
 
                 <p style={{
-                  color: '#9E9E9E',
+                  color: isDark ? '#9E9E9E' : '#666666',
                   fontSize: '14px',
                   lineHeight: 1.7,
                   marginBottom: '32px',

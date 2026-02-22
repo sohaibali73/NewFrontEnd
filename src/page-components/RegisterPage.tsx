@@ -19,12 +19,15 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // Use logo from public directory (not src/assets which doesn't work in Next.js)
 const logoSrc = '/potomac-icon.png';
 
 export function RegisterPage() {
   const router = useRouter();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -176,10 +179,10 @@ export function RegisterPage() {
     width: '100%',
     height: '52px',
     padding: '0 16px',
-    backgroundColor: '#1E1E1E',
-    border: '1px solid #2A2A2A',
+    backgroundColor: isDark ? '#1E1E1E' : '#f5f5f5',
+    border: `1px solid ${isDark ? '#2A2A2A' : '#d0d0d0'}`,
     borderRadius: '10px',
-    color: '#FFFFFF',
+    color: isDark ? '#FFFFFF' : '#1a1a1a',
     fontSize: '16px',
     fontFamily: "'Quicksand', sans-serif",
     outline: 'none',
@@ -193,7 +196,7 @@ export function RegisterPage() {
     fontFamily: "'Rajdhani', sans-serif",
     fontSize: '12px',
     fontWeight: 600,
-    color: '#FFFFFF',
+    color: isDark ? '#FFFFFF' : '#1a1a1a',
     letterSpacing: '1px',
     marginBottom: '8px',
   };
@@ -221,9 +224,9 @@ export function RegisterPage() {
     height: '52px',
     padding: '0 24px',
     backgroundColor: 'transparent',
-    border: '1px solid #2A2A2A',
+    border: `1px solid ${isDark ? '#2A2A2A' : '#d0d0d0'}`,
     borderRadius: '10px',
-    color: '#FFFFFF',
+    color: isDark ? '#FFFFFF' : '#1a1a1a',
     fontSize: '14px',
     fontFamily: "'Rajdhani', sans-serif",
     fontWeight: 700,
@@ -238,7 +241,7 @@ export function RegisterPage() {
   return (
     <div style={{
       minHeight: '100dvh',
-      backgroundColor: '#0A0A0B',
+      backgroundColor: isDark ? '#0A0A0B' : '#ffffff',
       display: 'flex',
       fontFamily: "'Quicksand', sans-serif",
       flexDirection: isMobile ? 'column' : 'row',
@@ -248,13 +251,13 @@ export function RegisterPage() {
       {/* Left Side - Form */}
       <div style={{
         width: isMobile ? '100%' : '550px',
-        backgroundColor: '#121212',
+        backgroundColor: isDark ? '#121212' : '#ffffff',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
         padding: isSmallMobile ? '32px 24px' : '60px',
-        borderRight: isMobile ? 'none' : '1px solid #2A2A2A',
-        borderTop: isMobile ? '1px solid #2A2A2A' : 'none',
+        borderRight: isMobile ? 'none' : `1px solid ${isDark ? '#2A2A2A' : '#e0e0e0'}`,
+        borderTop: isMobile ? `1px solid ${isDark ? '#2A2A2A' : '#e0e0e0'}` : 'none',
         overflowY: 'auto',
         minHeight: isMobile ? 'auto' : '100dvh',
         paddingBottom: isSmallMobile ? 'max(60px, env(safe-area-inset-bottom))' : '60px',
@@ -291,7 +294,7 @@ export function RegisterPage() {
                 fontFamily: "'Rajdhani', sans-serif",
                 fontSize: '20px',
                 fontWeight: 700,
-                color: '#FFFFFF',
+                color: isDark ? '#FFFFFF' : '#1a1a1a',
                 letterSpacing: '2px',
                 margin: 0,
               }}>
@@ -358,7 +361,7 @@ export function RegisterPage() {
             fontFamily: "'Rajdhani', sans-serif",
             fontSize: '28px',
             fontWeight: 700,
-            color: '#FFFFFF',
+            color: isDark ? '#FFFFFF' : '#1a1a1a',
             letterSpacing: '2px',
             marginBottom: '8px',
           }}>
@@ -708,7 +711,9 @@ export function RegisterPage() {
       {/* Right Side - Branding */}
       <div style={{
         flex: isMobile ? undefined : 1,
-        background: 'linear-gradient(135deg, #1A1A1D 0%, #0A0A0B 50%, #1A1A1D 100%)',
+        background: isDark
+          ? 'linear-gradient(135deg, #1A1A1D 0%, #0A0A0B 50%, #1A1A1D 100%)'
+          : 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 50%, #f8f9fa 100%)',
         display: isMobile ? 'none' : 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
@@ -775,7 +780,7 @@ export function RegisterPage() {
             fontFamily: "'Rajdhani', sans-serif",
             fontSize: '56px',
             fontWeight: 700,
-            color: '#FFFFFF',
+            color: isDark ? '#FFFFFF' : '#1a1a1a',
             letterSpacing: '6px',
             marginBottom: '8px',
           }}>
@@ -812,7 +817,7 @@ export function RegisterPage() {
                 }}
               >
                 <feature.icon size={24} color="#FEC00F" />
-                <span style={{ color: '#E0E0E0', fontSize: '14px', fontWeight: 500 }}>
+                <span style={{ color: isDark ? '#E0E0E0' : '#444444', fontSize: '14px', fontWeight: 500 }}>
                   {feature.text}
                 </span>
               </div>

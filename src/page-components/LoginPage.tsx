@@ -21,6 +21,7 @@ export function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -150,7 +151,7 @@ export function LoginPage() {
             fontFamily: "'Rajdhani', sans-serif",
             fontSize: '48px',
             fontWeight: 700,
-            color: '#FFFFFF',
+            color: isDark ? '#FFFFFF' : '#1a1a1a',
             letterSpacing: '4px',
             marginBottom: '8px',
           }}>
@@ -167,7 +168,7 @@ export function LoginPage() {
             BY POTOMAC
           </p>
           <p style={{
-            color: '#9E9E9E',
+            color: isDark ? '#9E9E9E' : '#666666',
             fontSize: '16px',
             lineHeight: 1.7,
             marginBottom: '48px',
@@ -196,7 +197,7 @@ export function LoginPage() {
                 }}
               >
                 <feature.icon size={24} color="#FEC00F" />
-                <span style={{ color: '#E0E0E0', fontSize: '14px', fontWeight: 500 }}>
+                <span style={{ color: isDark ? '#E0E0E0' : '#444444', fontSize: '14px', fontWeight: 500 }}>
                   {feature.text}
                 </span>
               </div>
@@ -218,13 +219,13 @@ export function LoginPage() {
       {/* Right Side - Login Form */}
       <div style={{
         width: isMobile ? '100%' : '500px',
-        backgroundColor: '#121212',
+        backgroundColor: isDark ? '#121212' : '#ffffff',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
         padding: isSmallMobile ? '32px 24px' : '60px',
-        borderLeft: isMobile ? 'none' : '1px solid #2A2A2A',
-        borderTop: isMobile ? '1px solid #2A2A2A' : 'none',
+        borderLeft: isMobile ? 'none' : `1px solid ${isDark ? '#2A2A2A' : '#e0e0e0'}`,
+        borderTop: isMobile ? `1px solid ${isDark ? '#2A2A2A' : '#e0e0e0'}` : 'none',
         minHeight: isMobile ? 'auto' : '100dvh',
         paddingBottom: isSmallMobile ? 'max(32px, env(safe-area-inset-bottom))' : '60px',
       }}>
@@ -233,14 +234,14 @@ export function LoginPage() {
             fontFamily: "'Rajdhani', sans-serif",
             fontSize: '28px',
             fontWeight: 700,
-            color: '#FFFFFF',
+            color: isDark ? '#FFFFFF' : '#1a1a1a',
             letterSpacing: '2px',
             marginBottom: '8px',
           }}>
             WELCOME BACK
           </h2>
           <p style={{
-            color: '#757575',
+            color: isDark ? '#757575' : '#666666',
             fontSize: '14px',
             marginBottom: '40px',
           }}>
@@ -272,7 +273,7 @@ export function LoginPage() {
                 fontFamily: "'Rajdhani', sans-serif",
                 fontSize: '12px',
                 fontWeight: 600,
-                color: '#FFFFFF',
+                color: isDark ? '#FFFFFF' : '#1a1a1a',
                 letterSpacing: '1px',
                 marginBottom: '8px',
               }}>
@@ -287,10 +288,10 @@ export function LoginPage() {
                   width: '100%',
                   height: '52px',
                   padding: '0 16px',
-                  backgroundColor: '#1E1E1E',
-                  border: '1px solid #2A2A2A',
+                  backgroundColor: isDark ? '#1E1E1E' : '#f5f5f5',
+                  border: `1px solid ${isDark ? '#2A2A2A' : '#d0d0d0'}`,
                   borderRadius: '10px',
-                  color: '#FFFFFF',
+                  color: isDark ? '#FFFFFF' : '#1a1a1a',
                   fontSize: '16px',
                   fontFamily: "'Quicksand', sans-serif",
                   outline: 'none',
@@ -322,7 +323,7 @@ export function LoginPage() {
                   fontFamily: "'Rajdhani', sans-serif",
                   fontSize: '12px',
                   fontWeight: 600,
-                  color: '#FFFFFF',
+                  color: isDark ? '#FFFFFF' : '#1a1a1a',
                   letterSpacing: '1px',
                 }}>
                   PASSWORD
@@ -353,10 +354,10 @@ export function LoginPage() {
                     width: '100%',
                     height: '52px',
                     padding: '0 48px 0 16px',
-                    backgroundColor: '#1E1E1E',
-                    border: '1px solid #2A2A2A',
+                    backgroundColor: isDark ? '#1E1E1E' : '#f5f5f5',
+                    border: `1px solid ${isDark ? '#2A2A2A' : '#d0d0d0'}`,
                     borderRadius: '10px',
-                    color: '#FFFFFF',
+                    color: isDark ? '#FFFFFF' : '#1a1a1a',
                     fontSize: '16px',
                     fontFamily: "'Quicksand', sans-serif",
                     outline: 'none',
@@ -370,7 +371,7 @@ export function LoginPage() {
                     e.target.style.boxShadow = '0 0 0 3px rgba(254, 192, 15, 0.1)';
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = '#2A2A2A';
+                    e.target.style.borderColor = isDark ? '#2A2A2A' : '#d0d0d0';
                     e.target.style.boxShadow = 'none';
                   }}
                 />
@@ -441,9 +442,9 @@ export function LoginPage() {
             alignItems: 'center',
             margin: '32px 0',
           }}>
-            <div style={{ flex: 1, height: '1px', backgroundColor: '#2A2A2A' }} />
+            <div style={{ flex: 1, height: '1px', backgroundColor: isDark ? '#2A2A2A' : '#e0e0e0' }} />
             <span style={{ padding: '0 16px', color: '#757575', fontSize: '12px' }}>OR</span>
-            <div style={{ flex: 1, height: '1px', backgroundColor: '#2A2A2A' }} />
+            <div style={{ flex: 1, height: '1px', backgroundColor: isDark ? '#2A2A2A' : '#e0e0e0' }} />
           </div>
 
           {/* Sign Up Link */}

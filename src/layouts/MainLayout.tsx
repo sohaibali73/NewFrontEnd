@@ -33,12 +33,11 @@ const navItems = [
   { name: 'KNOWLEDGE BASE', href: '/knowledge', icon: Database },
   { name: 'BACKTEST', href: '/backtest', icon: TrendingUp },
   { name: 'REVERSE ENGINEER', href: '/reverse-engineer', icon: Zap },
-  { name: 'DEVELOPER', href: '/developer', icon: Smartphone },
-  { name: 'NON APPLE DEV', href: '/non-apple-developer', icon: Monitor },
-  { name: 'AUTOPILOT DEMO', href: '/autopilot', icon: Rocket },
-  { name: 'PRESENTATIONS', href: '/deck-generator', icon: Presentation },
   { name: 'SETTINGS', href: '/settings', icon: Settings },
 ];
+
+// Hidden pages - accessible via URL but not shown in navigation
+// developer, non-apple-developer, autopilot, deck-generator
 
 interface MainLayoutProps {
   children: React.ReactNode;

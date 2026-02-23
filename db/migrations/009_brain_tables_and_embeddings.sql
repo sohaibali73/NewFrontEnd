@@ -13,7 +13,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS brain_documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    uploaded_by UUID REFERENCES users(id) ON DELETE CASCADE,
+    uploaded_by UUID,
     title VARCHAR(500) NOT NULL,
     filename VARCHAR(500),
     file_type VARCHAR(100),
@@ -93,7 +93,7 @@ GRANT ALL ON brain_chunks TO authenticated;
 CREATE TABLE IF NOT EXISTS learnings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id UUID REFERENCES brain_documents(id) ON DELETE CASCADE,
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID,
     title VARCHAR(500),
     content TEXT,
     category VARCHAR(100) DEFAULT 'general',

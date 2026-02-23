@@ -1,17 +1,19 @@
 -- Migration 008: Create missing tables for content, backtest, and writing styles
 -- Required by: api/routes/content.py, api/routes/backtest.py
 -- Date: 2026-02-23
+-- NOTE: Uses auth.users(id) for foreign keys (Supabase auth schema)
+-- Run migration 009 AFTER this one for brain tables.
 
 -- ============================================================================
 -- content_items — stores articles, documents, slides, dashboards
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS content_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL,
     title VARCHAR(500) NOT NULL,
     content TEXT DEFAULT '',
-    content_type VARCHAR(50) NOT NULL CHECK (content_type IN ('article', 'document', 'slide', 'dashboard')),
-    status VARCHAR(50) DEFAULT 'draft' CHECK (status IN ('draft', 'complete', 'published', 'archived')),
+    content_type VARCHAR(50) NOT NULL,
+    status VARCHAR(50) DEFAULT 'draft',
     tags JSONB DEFAULT '[]'::jsonb,
     metadata JSONB DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -41,7 +43,7 @@ GRANT ALL ON content_items TO authenticated;
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS writing_styles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL,
     name VARCHAR(255) NOT NULL,
     tone VARCHAR(100) DEFAULT 'professional',
     formality VARCHAR(50) DEFAULT 'medium',
@@ -70,7 +72,7 @@ GRANT ALL ON writing_styles TO authenticated;
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS backtest_results (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL,
     strategy_id UUID,
     filename VARCHAR(500),
     raw_results TEXT,
@@ -95,52 +97,3 @@ CREATE POLICY "Users can manage own backtests" ON backtest_results
 
 GRANT ALL ON backtest_results TO service_role;
 GRANT ALL ON backtest_results TO authenticated;
-
--- ============================================================================
--- Ensure brain tables have correct schema (from migration 003, but verify)
--- ============================================================================
-DO $$
-BEGIN
-    -- Add content_hash column to brain_documents if not exists
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                   WHERE table_name = 'brain_documents' AND column_name = 'content_hash') THEN
-        ALTER TABLE brain_documents ADD COLUMN content_hash VARCHAR(64);
-        CREATE INDEX IF NOT EXISTS idx_brain_documents_content_hash ON brain_documents(content_hash);
-    END IF;
-    
-    -- Add source_type column if not exists
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                   WHERE table_name = 'brain_documents' AND column_name = 'source_type') THEN
-        ALTER TABLE brain_documents ADD COLUMN source_type VARCHAR(50) DEFAULT 'upload';
-    END IF;
-    
-    -- Add subcategories column if not exists
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                   WHERE table_name = 'brain_documents' AND column_name = 'subcategories') THEN
-        ALTER TABLE brain_documents ADD COLUMN subcategories JSONB DEFAULT '[]'::jsonb;
-    END IF;
-
-    -- Add file_size column if not exists
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                   WHERE table_name = 'brain_documents' AND column_name = 'file_size') THEN
-        ALTER TABLE brain_documents ADD COLUMN file_size BIGINT DEFAULT 0;
-    END IF;
-
-    -- Add chunk_count column if not exists
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                   WHERE table_name = 'brain_documents' AND column_name = 'chunk_count') THEN
-        ALTER TABLE brain_documents ADD COLUMN chunk_count INTEGER DEFAULT 0;
-    END IF;
-
-    -- Add processed_at column if not exists
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                   WHERE table_name = 'brain_documents' AND column_name = 'processed_at') THEN
-        ALTER TABLE brain_documents ADD COLUMN processed_at TIMESTAMPTZ;
-    END IF;
-
-    -- Add is_processed column if not exists
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                   WHERE table_name = 'brain_documents' AND column_name = 'is_processed') THEN
-        ALTER TABLE brain_documents ADD COLUMN is_processed BOOLEAN DEFAULT FALSE;
-    END IF;
-END $$;

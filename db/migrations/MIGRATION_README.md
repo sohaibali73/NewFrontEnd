@@ -189,9 +189,40 @@ If you need to rollback:
 -- DROP TABLE IF EXISTS users CASCADE;
 ```
 
+## Migration 014: Secure Rebuild (LATEST — Run This)
+
+**`db/migrations/014_secure_rebuild.sql`** is the single source of truth for database security. It supersedes and fixes the contradictory security states in migrations 012 and 013.
+
+### What It Fixes
+- **Removes `USING (true)` catch-all policies** that granted all roles (including `anon`) full access
+- **Revokes `GRANT ALL ... TO anon`** on all sensitive tables (anon key is public!)
+- **Properly enables RLS** on all tables as defense-in-depth
+- **Creates correctly scoped policies** using `TO authenticated` clause
+- **Ensures `service_role` bypasses RLS** automatically (no policy needed)
+
+### How to Run
+1. Open **Supabase Dashboard → SQL Editor**
+2. Paste and run `db/migrations/014_secure_rebuild.sql`
+3. Verify the output shows `rls_enabled = true` for all tables
+4. Verify policies show `roles = {authenticated}` (not `{}`/all roles)
+
+### Security Model After Migration 014
+| Role | Access |
+|------|--------|
+| `anon` | ❌ No access to any user data tables |
+| `authenticated` | ✅ Own data only (via RLS policies with `auth.uid()`) |
+| `service_role` | ✅ Full access (bypasses RLS automatically) |
+
+### Prerequisites
+- `SUPABASE_SERVICE_KEY` must be set in Railway env vars
+- Migrations 001-012 must have been run first
+
+---
+
 ## Files Changed
 
-- `db/migrations/010_supabase_auth_migration.sql` - New migration
+- `db/migrations/014_secure_rebuild.sql` - **Security rebuild (run this)**
+- `db/migrations/010_supabase_auth_migration.sql` - Supabase Auth migration
 - `api/routes/auth.py` - Rewritten for Supabase Auth
 - `api/dependencies.py` - Updated token validation
 - `api/routes/admin.py` - Updated to use `user_profiles`

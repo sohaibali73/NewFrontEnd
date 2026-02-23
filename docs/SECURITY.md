@@ -1,7 +1,7 @@
 # 🔒 Analyst by Potomac — Security Architecture
 
-**Last Updated:** February 2026  
-**Version:** 1.2.0
+**Last Updated:** February 23, 2026  
+**Version:** 1.3.0 — Migration 014 Secure Rebuild
 
 ---
 
@@ -115,10 +115,12 @@ User makes request → read from DB → decrypt_value("enc:gAAAAABm...") → pla
 ### Row Level Security
 Supabase RLS (Row Level Security) ensures that even if someone obtains the database URL + anon key, they can only access their own data.
 
-**Policy Design:**
-- `service_role` key → bypasses all RLS (used by the backend)
-- `authenticated` users → can only access their own rows (via `auth.uid() = user_id`)
-- `anon` users → minimal read access (needed for auth triggers)
+**Policy Design (Migration 014):**
+- `service_role` key → **automatically bypasses all RLS** (used by the backend — no policies needed)
+- `authenticated` users → can only access their own rows (via `auth.uid() = user_id` policies with `TO authenticated` clause)
+- `anon` role → **❌ DENIED all access** to user data tables (anon key is public in Supabase)
+
+> ⚠️ **Critical:** Never create `USING (true)` catch-all policies — they open access to ALL roles including `anon`. Migration 014 fixes this from earlier migrations.
 
 ### Table Policies
 
@@ -276,8 +278,9 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"
 
 ### 🔶 Recommended Next Steps
 - [ ] **Set SUPABASE_SERVICE_KEY** in Railway env vars
-- [ ] **Run migration 013** in Supabase SQL Editor to enable RLS
-- [ ] **Rotate API keys** (Anthropic, Supabase, Tavily) — they may be in git history
+- [ ] **Run migration 014** in Supabase SQL Editor (the secure rebuild — single source of truth)
+- [ ] **🚨 Rotate Claude API key** — hardcoded key was exposed in git history via `update_user_api_key.py`
+- [ ] **Rotate all API keys** (Anthropic, Supabase, Tavily) — they may be in git history
 - [ ] **Add vector embeddings** to knowledge base for semantic search
 - [ ] **Implement token refresh** flow on the frontend
 - [ ] **Add Docker non-root user** in Dockerfile

@@ -569,10 +569,10 @@ async def get_user(
         raise HTTPException(status_code=404, detail="User not found")
     
     user = result.data[0]
-    # Remove encrypted API keys from response (they're encrypted blobs)
-    user.pop("claude_api_key_encrypted", None)
-    user.pop("tavily_api_key_encrypted", None)
-    
+    # Remove plain-text API keys from admin response for security
+    user.pop("claude_api_key", None)
+    user.pop("tavily_api_key", None)
+
     return user
 
 

@@ -859,7 +859,7 @@ class APIClient {
   }
 
   // ==================== RESEARCHER ENDPOINTS ====================
-  // FIXED: Added missing researcher endpoints with correct /api prefix
+  // FIXED: Use /researcher prefix (not /api/researcher — backend uses prefix="/researcher")
 
   async getCompanyResearch(symbol: string) {
     return this.request<{
@@ -870,14 +870,14 @@ class APIClient {
       market_cap: number;
       price: number;
       data: any;
-    }>(`/api/researcher/company/${symbol}`);
+    }>(`/researcher/company/${symbol}`);
   }
 
   async getCompanyNews(symbol: string) {
     return this.request<{
       symbol: string;
       news: any[];
-    }>(`/api/researcher/news/${symbol}`);
+    }>(`/researcher/news/${symbol}`);
   }
 
   async analyzeStrategyFit(
@@ -892,7 +892,7 @@ class APIClient {
       timeframe: string;
       analysis: string;
       recommendations: any[];
-    }>('/api/researcher/strategy-analysis', 'POST', {
+    }>('/researcher/strategy-analysis', 'POST', {
       symbol,
       strategy_type,
       timeframe,
@@ -906,7 +906,7 @@ class APIClient {
       peers: string[];
       comparison: any;
       analysis: string;
-    }>('/api/researcher/comparison', 'POST', {
+    }>('/researcher/comparison', 'POST', {
       symbol,
       peers,
       sector,
@@ -919,14 +919,14 @@ class APIClient {
       economic_indicators: any;
       sector_performance: any;
       analysis: string;
-    }>('/api/researcher/macro-context');
+    }>('/researcher/macro-context');
   }
 
   async getSecFilings(symbol: string) {
     return this.request<{
       symbol: string;
       filings: any[];
-    }>(`/api/researcher/sec-filings/${symbol}`);
+    }>(`/researcher/sec-filings/${symbol}`);
   }
 
   async generateResearchReport(
@@ -939,7 +939,7 @@ class APIClient {
       symbol: string;
       report: string;
       sections: any;
-    }>('/api/researcher/generate-report', 'POST', {
+    }>('/researcher/generate-report', 'POST', {
       symbol,
       include_peers,
       include_technicals,
@@ -952,7 +952,7 @@ class APIClient {
       trending_stocks: any[];
       sector_trends: any[];
       market_movers: any[];
-    }>('/api/researcher/trending');
+    }>('/researcher/trending');
   }
 
   // ==================== REVERSE ENGINEER ENDPOINTS ====================
@@ -1140,9 +1140,9 @@ class APIClient {
     return this.request<{ success: boolean }>(`/content/dashboards/${id}`, 'DELETE');
   }
 
-  // Content Chat
-  async sendContentChat(message: string, context?: string) {
-    return this.request<{ response: string; suggestions?: string[] }>('/content/chat', 'POST', { message, context });
+  // Content Chat — backend expects { text: string, contentType: string }
+  async sendContentChat(message: string, contentType: string = 'article') {
+    return this.request<{ response: string; suggestions?: string[] }>('/content/chat', 'POST', { text: message, contentType });
   }
 
   // Writing Styles

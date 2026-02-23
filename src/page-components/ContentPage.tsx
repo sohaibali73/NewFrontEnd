@@ -125,6 +125,37 @@ export function ContentPage() {
         </button>
       </header>
 
+      {/* Coming Soon Banner */}
+      <div style={{
+        padding: '12px 24px',
+        backgroundColor: isDark ? 'rgba(254, 192, 15, 0.08)' : 'rgba(254, 192, 15, 0.12)',
+        borderBottom: `1px solid ${isDark ? 'rgba(254, 192, 15, 0.2)' : 'rgba(254, 192, 15, 0.3)'}`,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        flexShrink: 0,
+      }}>
+        <div style={{
+          padding: '3px 10px',
+          borderRadius: '6px',
+          backgroundColor: colors.primaryYellow,
+          fontFamily: "'Rajdhani', sans-serif",
+          fontWeight: 700,
+          fontSize: '11px',
+          color: colors.darkGray,
+          letterSpacing: '1px',
+        }}>
+          COMING SOON
+        </div>
+        <span style={{
+          fontSize: '13px',
+          color: colors.textMuted,
+          fontFamily: "'Quicksand', sans-serif",
+        }}>
+          Content Studio is under active development. AI-powered article, slide, and document generation coming shortly.
+        </span>
+      </div>
+
       {/* Main Content Area */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Tabs Navigation */}

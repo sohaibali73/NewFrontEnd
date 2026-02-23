@@ -10,15 +10,22 @@ import {
   Zap,
   ArrowRight,
   Sparkles,
+  Clock,
+  MessageSquare,
+  FileText,
+  Plus,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import apiClient from '@/lib/api';
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { resolvedTheme } = useTheme();
   const [isMobile, setIsMobile] = useState(false);
+  const [recentChats, setRecentChats] = useState<any[]>([]);
+  const [stats, setStats] = useState({ conversations: 0, documents: 0 });
 
   const isDark = resolvedTheme === 'dark';
 
@@ -39,6 +46,22 @@ export default function DashboardPage() {
     handleResize(); // Run on mount
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Load recent conversations and stats
+  useEffect(() => {
+    (async () => {
+      try {
+        const convs = await apiClient.getConversations();
+        const agentChats = (convs || []).filter((c: any) => !c.conversation_type || c.conversation_type === 'agent');
+        setRecentChats(agentChats.slice(0, 5));
+        setStats(prev => ({ ...prev, conversations: agentChats.length }));
+      } catch {}
+      try {
+        const docs = await apiClient.getDocuments();
+        setStats(prev => ({ ...prev, documents: (docs || []).length }));
+      } catch {}
+    })();
   }, []);
 
   const features = [
@@ -162,6 +185,162 @@ export default function DashboardPage() {
         maxWidth: '1400px',
         margin: '0 auto',
       }}>
+        {/* Quick Actions + Stats Row */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)',
+          gap: '16px',
+          marginBottom: '40px',
+        }}>
+          <div
+            onClick={() => router.push('/chat')}
+            style={{
+              backgroundColor: colors.cardBg,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '14px',
+              padding: '20px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '14px',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.accent; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = colors.border; e.currentTarget.style.transform = 'translateY(0)'; }}
+          >
+            <div style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'rgba(139, 92, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Plus size={22} color="#8B5CF6" />
+            </div>
+            <div>
+              <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: '14px', fontWeight: 600, color: colors.text, letterSpacing: '0.5px' }}>NEW CHAT</div>
+              <div style={{ fontSize: '12px', color: colors.textMuted }}>Start a conversation</div>
+            </div>
+          </div>
+
+          <div style={{
+            backgroundColor: colors.cardBg,
+            border: `1px solid ${colors.border}`,
+            borderRadius: '14px',
+            padding: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+          }}>
+            <div style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'rgba(254, 192, 15, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <MessageSquare size={22} color="#FEC00F" />
+            </div>
+            <div>
+              <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: '22px', fontWeight: 700, color: colors.text }}>{stats.conversations}</div>
+              <div style={{ fontSize: '12px', color: colors.textMuted }}>Conversations</div>
+            </div>
+          </div>
+
+          <div style={{
+            backgroundColor: colors.cardBg,
+            border: `1px solid ${colors.border}`,
+            borderRadius: '14px',
+            padding: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+          }}>
+            <div style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'rgba(34, 197, 94, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <FileText size={22} color="#22C55E" />
+            </div>
+            <div>
+              <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: '22px', fontWeight: 700, color: colors.text }}>{stats.documents}</div>
+              <div style={{ fontSize: '12px', color: colors.textMuted }}>Documents</div>
+            </div>
+          </div>
+
+          <div
+            onClick={() => router.push('/afl')}
+            style={{
+              backgroundColor: colors.cardBg,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '14px',
+              padding: '20px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '14px',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.accent; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = colors.border; e.currentTarget.style.transform = 'translateY(0)'; }}
+          >
+            <div style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Code2 size={22} color="#3B82F6" />
+            </div>
+            <div>
+              <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: '14px', fontWeight: 600, color: colors.text, letterSpacing: '0.5px' }}>GENERATE AFL</div>
+              <div style={{ fontSize: '12px', color: colors.textMuted }}>Create strategy code</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Conversations */}
+        {recentChats.length > 0 && (
+          <div style={{ marginBottom: '40px' }}>
+            <h2 style={{
+              fontFamily: "'Rajdhani', sans-serif",
+              fontSize: isMobile ? '20px' : '24px',
+              fontWeight: 600,
+              color: colors.text,
+              marginBottom: '20px',
+              letterSpacing: '1px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+            }}>
+              <Clock size={22} style={{ color: colors.accent }} />
+              RECENT CONVERSATIONS
+            </h2>
+            <div style={{
+              backgroundColor: colors.cardBg,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '14px',
+              overflow: 'hidden',
+            }}>
+              {recentChats.map((chat, idx) => (
+                <div
+                  key={chat.id}
+                  onClick={() => router.push('/chat')}
+                  style={{
+                    padding: '16px 24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '14px',
+                    cursor: 'pointer',
+                    borderBottom: idx < recentChats.length - 1 ? `1px solid ${colors.border}` : 'none',
+                    transition: 'background-color 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = isDark ? '#262626' : '#f0f0f0'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                >
+                  <MessageSquare size={18} color={colors.accent} style={{ flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: colors.text,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {chat.title || 'Untitled Chat'}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '12px', color: colors.textMuted, flexShrink: 0 }}>
+                    {chat.updated_at ? new Date(chat.updated_at).toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''}
+                  </div>
+                  <ArrowRight size={14} color={colors.textMuted} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Features Section */}
         <div style={{ marginBottom: '48px' }}>
           <h2 style={{

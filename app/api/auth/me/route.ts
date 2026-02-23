@@ -29,3 +29,30 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
+export async function PUT(req: NextRequest) {
+  try {
+    const authHeader = req.headers.get('authorization') || '';
+    const body = await req.json();
+
+    const response = await fetch(`${BACKEND_URL}/auth/me`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': authHeader,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json().catch(() => ({
+      detail: `Backend error: ${response.status}`,
+    }));
+
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    return NextResponse.json(
+      { detail: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

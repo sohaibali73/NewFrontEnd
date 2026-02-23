@@ -11,7 +11,10 @@ interface User {
   email: string;
   name?: string;
   nickname?: string;
+  claude_api_key?: string;
+  tavily_api_key?: string;
   created_at?: string;
+  last_active?: string;
 }
 
 interface AuthContextType {

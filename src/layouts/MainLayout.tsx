@@ -29,7 +29,7 @@ const navItems = [
   { name: 'DASHBOARD', href: '/dashboard', icon: LayoutDashboard },
   { name: 'AFL GENERATOR', href: '/afl', icon: Code2 },
   { name: 'CHAT', href: '/chat', icon: MessageCircle },
-  { name: 'CONTENT', href: '/content', icon: Sparkles },
+  { name: 'CONTENT', href: '/content', icon: Sparkles, badge: 'SOON' },
   { name: 'KNOWLEDGE BASE', href: '/knowledge', icon: Database },
   { name: 'BACKTEST', href: '/backtest', icon: TrendingUp },
   { name: 'REVERSE ENGINEER', href: '/reverse-engineer', icon: Zap },
@@ -360,7 +360,27 @@ export function MainLayout({ children }: MainLayoutProps) {
                 title={collapsed && !isMobile ? item.name : undefined}
               >
                 <Icon size={isMobile ? 22 : 20} style={{ flexShrink: 0 }} />
-                {(!collapsed || isMobile) && <span>{item.name}</span>}
+                {(!collapsed || isMobile) && (
+                  <>
+                    <span>{item.name}</span>
+                    {'badge' in item && item.badge && (
+                      <span style={{
+                        marginLeft: 'auto',
+                        fontSize: '9px',
+                        fontWeight: 700,
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        backgroundColor: isDark ? 'rgba(254, 192, 15, 0.2)' : 'rgba(254, 192, 15, 0.3)',
+                        color: isDark ? '#FEC00F' : '#996600',
+                        letterSpacing: '0.5px',
+                        lineHeight: 1.4,
+                        flexShrink: 0,
+                      }}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </>
+                )}
               </button>
             );
           })}

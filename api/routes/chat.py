@@ -853,8 +853,16 @@ Be direct and helpful. ALWAYS use sanity_check_afl before presenting any AFL cod
                 
         except Exception as e:
             import traceback
-            error_msg = f"{str(e)}\n{traceback.format_exc()[:500]}"
-            yield encoder.encode_text(f"\n\nError: {str(e)}")
+            error_str = str(e)
+            
+            # Check for authentication errors
+            if "401" in error_str or "authentication_error" in error_str or "invalid x-api-key" in error_str:
+                user_friendly_error = "Your Claude API key is invalid or expired. Please update your API key in Profile Settings."
+            else:
+                user_friendly_error = str(e)
+            
+            error_msg = f"{error_str}\n{traceback.format_exc()[:500]}"
+            yield encoder.encode_text(f"\n\nError: {user_friendly_error}")
             yield encoder.encode_error(error_msg)
             yield encoder.encode_finish_message("error")
 

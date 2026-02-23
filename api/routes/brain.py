@@ -294,21 +294,107 @@ async def search_knowledge(
         data: SearchRequest,
         user_id: str = Depends(get_current_user_id),
 ):
-    """Search the knowledge base."""
+    """Search the knowledge base using text search (with vector search when embeddings available)."""
     db = get_supabase()
 
-    # Simple text search for now (vector search requires embeddings)
-    query = db.table("brain_documents").select("id, title, category, summary, created_at")
+    try:
+        # Try vector search first if embeddings exist
+        try:
+            # Check if any chunks have embeddings
+            embedding_check = db.table("brain_chunks").select("id").not_.is_("embedding", "null").limit(1).execute()
+            has_embeddings = bool(embedding_check.data)
+        except Exception:
+            has_embeddings = False
 
-    if data.category:
-        query = query.eq("category", data.category)
+        if has_embeddings:
+            # Try to generate query embedding for vector search
+            try:
+                query_embedding = _generate_embedding(data.query)
+                if query_embedding:
+                    # Use Supabase RPC for vector similarity search
+                    vector_result = db.rpc("match_brain_chunks", {
+                        "query_embedding": query_embedding,
+                        "match_threshold": 0.5,
+                        "match_count": data.limit,
+                    }).execute()
+                    
+                    if vector_result.data:
+                        # Enrich with document metadata
+                        doc_ids = list(set(r["document_id"] for r in vector_result.data))
+                        docs = db.table("brain_documents").select("id, title, category, summary").in_("id", doc_ids).execute()
+                        doc_map = {d["id"]: d for d in docs.data}
+                        
+                        results = []
+                        for chunk in vector_result.data:
+                            doc = doc_map.get(chunk["document_id"], {})
+                            results.append({
+                                "id": chunk["document_id"],
+                                "title": doc.get("title", "Unknown"),
+                                "category": doc.get("category", "general"),
+                                "summary": doc.get("summary", ""),
+                                "content_snippet": chunk["content"][:300],
+                                "similarity": round(chunk["similarity"], 3),
+                                "search_type": "vector",
+                            })
+                        return {"results": results, "count": len(results), "search_type": "vector"}
+            except Exception as vec_err:
+                import logging
+                logging.getLogger(__name__).debug(f"Vector search failed, falling back to text: {vec_err}")
 
-    # Search in title and summary
-    query = query.or_(f"title.ilike.%{data.query}%,summary.ilike.%{data.query}%")
+        # Fallback: text-based search
+        query = db.table("brain_documents").select("id, title, category, summary, created_at")
 
-    result = query.limit(data.limit).execute()
+        if data.category:
+            query = query.eq("category", data.category)
 
-    return {"results": result.data, "count": len(result.data)}
+        # Search in title, summary, and raw_content
+        search_term = data.query.replace("'", "''")  # Escape single quotes
+        query = query.or_(f"title.ilike.%{search_term}%,summary.ilike.%{search_term}%,raw_content.ilike.%{search_term}%")
+
+        result = query.limit(data.limit).execute()
+
+        return {"results": result.data, "count": len(result.data), "search_type": "text"}
+    
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Knowledge base search error: {e}")
+        return {"results": [], "count": 0, "error": str(e)}
+
+
+def _generate_embedding(text: str) -> list:
+    """Generate embedding vector for text using Voyage AI or fallback.
+    
+    Returns a list of floats (1536 dimensions) or None if unavailable.
+    Set VOYAGE_API_KEY environment variable for proper embeddings.
+    """
+    import os
+    
+    voyage_key = os.getenv("VOYAGE_API_KEY")
+    if voyage_key:
+        try:
+            import urllib.request
+            import json
+            
+            payload = json.dumps({
+                "input": [text[:8000]],  # Voyage has 8k token limit
+                "model": "voyage-2",
+            })
+            req = urllib.request.Request(
+                "https://api.voyageai.com/v1/embeddings",
+                data=payload.encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {voyage_key}",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                result = json.loads(resp.read().decode())
+            return result["data"][0]["embedding"]
+        except Exception:
+            pass
+    
+    # No embedding API available
+    return None
 
 @router.get("/documents")
 async def list_documents(

@@ -36,6 +36,50 @@ app.add_middleware(
 )
 
 
+# Simple in-memory rate limiting middleware
+from collections import defaultdict
+import time as _time
+
+_rate_limit_store: dict = defaultdict(list)
+_RATE_LIMIT_WINDOW = 60  # seconds
+_RATE_LIMIT_MAX_REQUESTS = 120  # max requests per window per IP
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """Simple rate limiting — 120 requests/minute per IP. Skips health/docs."""
+    path = request.url.path
+    # Skip rate limiting for health checks and docs
+    if path in ("/health", "/", "/docs", "/openapi.json", "/routes", "/redoc"):
+        return await call_next(request)
+    
+    client_ip = request.client.host if request.client else "unknown"
+    now = _time.time()
+    
+    # Clean old entries
+    _rate_limit_store[client_ip] = [
+        t for t in _rate_limit_store[client_ip] if now - t < _RATE_LIMIT_WINDOW
+    ]
+    
+    if len(_rate_limit_store[client_ip]) >= _RATE_LIMIT_MAX_REQUESTS:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded. Try again in a minute."},
+            headers={"Retry-After": "60", "Access-Control-Allow-Origin": "*"},
+        )
+    
+    _rate_limit_store[client_ip].append(now)
+    
+    # Prune store periodically (every ~1000 requests)
+    if len(_rate_limit_store) > 1000:
+        cutoff = now - _RATE_LIMIT_WINDOW * 2
+        stale_ips = [ip for ip, times in _rate_limit_store.items() if not times or times[-1] < cutoff]
+        for ip in stale_ips:
+            del _rate_limit_store[ip]
+    
+    return await call_next(request)
+
+
 # Global exception handler - ensures CORS headers are always present on errors
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
@@ -186,6 +230,26 @@ try:
 except Exception as e:
     routers_failed.append(("presentations", str(e)))
     logger.error(f"✗ Failed to load presentations router: {e}")
+    logger.debug(traceback.format_exc())
+
+try:
+    from pptx_engine.routes import router as pptx_engine_router
+    app.include_router(pptx_engine_router)
+    routers_loaded.append("pptx_engine")
+    logger.info("✓ Loaded pptx_engine router (PPTX assembly & templates)")
+except Exception as e:
+    routers_failed.append(("pptx_engine", str(e)))
+    logger.error(f"✗ Failed to load pptx_engine router: {e}")
+    logger.debug(traceback.format_exc())
+
+try:
+    from pptx_engine.generate import generate_router
+    app.include_router(generate_router)
+    routers_loaded.append("pptx_generate")
+    logger.info("✓ Loaded pptx_generate router (Claude → PPTX pipeline)")
+except Exception as e:
+    routers_failed.append(("pptx_generate", str(e)))
+    logger.error(f"✗ Failed to load pptx_generate router: {e}")
     logger.debug(traceback.format_exc())
 
 # Log summary

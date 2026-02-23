@@ -119,3 +119,39 @@ in `metadata.parts` — the array the frontend reads to render UI components.
 - Already existed with full python-pptx implementation — now properly wired to the chat tool
 - Widescreen 13.33" × 7.5" slides with dark headers, yellow accents, teal rules
 - Professional layouts: title slides, agenda grids, chart+panel slides, stats panels, etc.
+
+## [Phase 5] — 2026-02-23: Advanced Features & Production Hardening
+
+### Knowledge Base RAG with pgvector
+
+#### Migration 009 (`db/migrations/009_brain_tables_and_embeddings.sql`)
+- **Critical fix:** Created `brain_documents` table (was missing from all migrations!)
+- Created `brain_chunks` table with `embedding vector(1536)` column for pgvector
+- Created `learnings` table for AI-generated insights
+- Created `match_brain_chunks()` SQL function for vector similarity search
+- IVFFlat index on embeddings for fast cosine similarity search
+- Full schema with proper indexes, RLS policies, and grants
+
+#### Vector Search (`api/routes/brain.py`)
+- Enhanced `/brain/search` to try vector search first when embeddings exist
+- Falls back gracefully to text search (ilike) when no embeddings
+- Added `_generate_embedding()` helper using Voyage AI API
+- Added `raw_content` to text search scope (was only searching title+summary)
+- Returns `search_type: "vector"` or `"text"` to indicate which method was used
+
+### Production Hardening
+
+#### Rate Limiting (`main.py`)
+- Added in-memory rate limiting middleware: 120 requests/minute per IP
+- Skips rate limiting for health checks, docs, and root endpoint
+- Returns 429 Too Many Requests with Retry-After header
+- Auto-prunes stale IP entries to prevent memory leaks
+- Simple, zero-dependency implementation (no Redis needed for single instance)
+
+### Remaining Items for Future Sessions
+- Content feed RSS parser implementation
+- Deep research multi-step agent
+- CI/CD pipeline (GitHub Actions)
+- Sentry error tracking integration
+- Redis caching for multi-instance deployments
+- Comprehensive test suite

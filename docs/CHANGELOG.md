@@ -87,3 +87,19 @@ in `metadata.parts` — the array the frontend reads to render UI components.
 - Routes already functional with document upload, classification, chunking
 - Text search implemented (vector search available via pgvector)
 - Stats, batch upload, document management all working
+
+## [Phase 3] — 2026-02-23: Frontend UX Improvements
+
+### Dashboard Overhaul (`DashboardPage.tsx`)
+- Added quick action cards: New Chat, Generate AFL (clickable, with hover effects)
+- Added stats cards showing Conversations count and Documents count (loaded from API)
+- Added Recent Conversations section with clickable list (last 5 chats with dates)
+- Data loads from backend on mount via `apiClient.getConversations()` and `apiClient.getDocuments()`
+
+### Content Page (`ContentPage.tsx`)
+- Added "Coming Soon" banner with Potomac yellow styling
+- Banner informs users Content Studio is under active development
+- Existing tab UI (Chat, Slides, Articles, Documents, Dashboards) remains accessible
+
+### Sidebar Navigation (`MainLayout.tsx`)
+- "SOON" badge on Content nav item (Phase 2, included here for completeness)

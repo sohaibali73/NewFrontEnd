@@ -574,15 +574,36 @@ async def stream_message(
 {file_context}
 {kb_context}
 
+## CRITICAL AFL RULES (ALWAYS FOLLOW WHEN WRITING ANY AFL CODE):
+### Function Signatures (MUST be exact):
+- SINGLE-ARG (NO array): RSI(14), ATR(14), ADX(14), CCI(20), MFI(14), Stoch(14), Williams(14)
+- DOUBLE-ARG (WITH array): MA(Close,20), EMA(Close,12), HHV(High,20), LLV(Low,20), Ref(Close,-1)
+- ❌ WRONG: RSI(Close,14) → ✅ RIGHT: RSI(14)
+- ❌ WRONG: MA(20) → ✅ RIGHT: MA(Close,20)
+- ❌ WRONG: RSI = RSI(14) → ✅ RIGHT: RSI_Val = RSI(14)  (NEVER use function names as variable names)
+
+### Required Patterns:
+- ALWAYS use Param()/Optimize() for adjustable parameters
+- ALWAYS add ExRem(Buy,Sell); ExRem(Sell,Buy); to remove consecutive signals
+- ALWAYS wrap code in _SECTION_BEGIN("Name")/_SECTION_END()
+- STANDALONE: Include ALL sections (Buy/Sell, plotting, exploration, backtest settings)
+- COMPOSITE: Only strategy logic, no plotting, no backtest settings, prefix all variables
+
+### SetTradeDelays:
+- For CLOSE execution: SetTradeDelays(0,0,0,0)
+- For OPEN execution: SetTradeDelays(1,1,1,1)
+
+### Before writing AFL, always ask: STANDALONE or COMPOSITE? OPEN or CLOSE execution?
+
 ## Tools Available (use when helpful):
 - **web_search**: Search the internet for current information
 - **get_stock_data**: Real-time stock prices (cached 5min)
 - **search_knowledge_base**: User's uploaded documents
-- **generate_afl_code**: Create AFL trading systems
-- **validate_afl/sanity_check_afl**: Verify AFL code
-- **execute_python**: Run calculations
+- **generate_afl_code**: Create AFL trading systems (uses these rules automatically)
+- **validate_afl/sanity_check_afl**: ALWAYS validate AFL before presenting to user
+- **execute_python**: Run calculations (csv, pandas, numpy available)
 
-Be direct and helpful. Generate AFL code when asked. After using tools, always provide a helpful response summarizing the results."""
+Be direct and helpful. ALWAYS use sanity_check_afl before presenting any AFL code. After using tools, always provide a helpful response summarizing the results."""
 
             messages = history + [{"role": "user", "content": data.content}]
             tools = get_all_tools()

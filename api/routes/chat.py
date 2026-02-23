@@ -164,7 +164,44 @@ async def get_messages(
         "conversation_id", conversation_id
     ).order("created_at").execute()
 
-    return result.data
+    # === PERSISTENCE FIX: Ensure all messages have proper parts with tool invocations ===
+    # For backward compatibility, reconstruct tool invocation parts from metadata.tools_used
+    # if they weren't included in metadata.parts (messages stored before the fix).
+    messages = []
+    for msg in result.data:
+        metadata = msg.get("metadata") or {}
+        parts = metadata.get("parts", [])
+        tools_used = metadata.get("tools_used", [])
+        
+        # Check if this message has tool results that aren't in the parts array
+        has_tool_parts_in_parts = any(
+            p.get("state") == "output-available" and p.get("type", "").startswith("tool-") and p.get("output") and not p["output"].get("code")
+            for p in parts
+        )
+        
+        if tools_used and not has_tool_parts_in_parts:
+            # Reconstruct tool invocation parts from tools_used
+            tool_parts = []
+            for tool_info in tools_used:
+                tool_name = tool_info.get("tool", "unknown")
+                tool_parts.append({
+                    "type": f"tool-{tool_name}",
+                    "toolCallId": tool_info.get("toolCallId", f"call_{tool_name}_{hash(str(tool_info.get('input', ''))) % 100000}"),
+                    "toolName": tool_name,
+                    "state": "output-available",
+                    "input": tool_info.get("input", {}),
+                    "output": tool_info.get("result", {})
+                })
+            # Prepend tool parts to existing parts
+            parts = tool_parts + parts
+            # Update metadata in response (don't modify DB, just the response)
+            if metadata:
+                metadata = {**metadata, "parts": parts}
+            msg = {**msg, "metadata": metadata}
+        
+        messages.append(msg)
+    
+    return messages
 
 @router.post("/message")
 async def send_message(
@@ -623,6 +660,7 @@ Be direct and helpful. Generate AFL code when asked. After using tools, always p
 
                                         tools_used.append({
                                             "tool": tool_name,
+                                            "toolCallId": tool_call_id,
                                             "input": tool_input,
                                             "result": result_data,
                                         })
@@ -713,6 +751,23 @@ Be direct and helpful. Generate AFL code when asked. After using tools, always p
             if not artifacts and accumulated_content:
                 parts.append({"type": "text", "text": accumulated_content})
             
+            # === PERSISTENCE FIX: Build tool invocation parts for Generative UI rehydration ===
+            # Tool results must be stored as proper AI SDK parts so the frontend can
+            # re-render rich components (WeatherCard, StockCard, etc.) from chat history.
+            tool_parts = []
+            for tool_info in tools_used:
+                tool_parts.append({
+                    "type": f"tool-{tool_info['tool']}",
+                    "toolCallId": tool_info.get("toolCallId", f"call_{tool_info['tool']}_{hash(str(tool_info.get('input', ''))) % 100000}"),
+                    "toolName": tool_info["tool"],
+                    "state": "output-available",
+                    "input": tool_info.get("input", {}),
+                    "output": tool_info.get("result", {})
+                })
+            
+            # Final parts array: tool invocations first, then text/artifact parts
+            all_parts = tool_parts + parts
+            
             # Save assistant message
             if accumulated_content or tools_used:
                 db.table("messages").insert({
@@ -720,7 +775,7 @@ Be direct and helpful. Generate AFL code when asked. After using tools, always p
                     "role": "assistant",
                     "content": accumulated_content or "(Tool results returned)",
                     "metadata": {
-                        "parts": parts,
+                        "parts": all_parts,
                         "artifacts": artifacts,
                         "has_artifacts": len(artifacts) > 0,
                         "tools_used": tools_used
@@ -1187,6 +1242,7 @@ Be direct and helpful. Generate AFL code when asked. After using tools, always p
 
                                     tools_used.append({
                                         "tool": tool_name,
+                                        "toolCallId": tool_call_id,
                                         "input": tool_input,
                                         "result": result_data,
                                     })
@@ -1266,6 +1322,21 @@ Be direct and helpful. Generate AFL code when asked. After using tools, always p
             if not artifacts and accumulated_content:
                 parts.append({"type": "text", "text": accumulated_content})
             
+            # === PERSISTENCE FIX: Build tool invocation parts for Generative UI rehydration ===
+            tool_parts = []
+            for tool_info in tools_used:
+                tool_parts.append({
+                    "type": f"tool-{tool_info['tool']}",
+                    "toolCallId": tool_info.get("toolCallId", f"call_{tool_info['tool']}_{hash(str(tool_info.get('input', ''))) % 100000}"),
+                    "toolName": tool_info["tool"],
+                    "state": "output-available",
+                    "input": tool_info.get("input", {}),
+                    "output": tool_info.get("result", {})
+                })
+            
+            # Final parts array: tool invocations first, then text/artifact parts
+            all_parts = tool_parts + parts
+            
             # Save assistant message
             if accumulated_content or tools_used:
                 db.table("messages").insert({
@@ -1273,7 +1344,7 @@ Be direct and helpful. Generate AFL code when asked. After using tools, always p
                     "role": "assistant",
                     "content": accumulated_content or "(Tool results returned)",
                     "metadata": {
-                        "parts": parts,
+                        "parts": all_parts,
                         "artifacts": artifacts,
                         "has_artifacts": len(artifacts) > 0,
                         "tools_used": tools_used

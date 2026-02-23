@@ -92,31 +92,31 @@ GRANT ALL ON user_profiles TO authenticated;
 GRANT ALL ON user_profiles TO service_role;
 
 -- Create helper functions for API keys
-CREATE OR REPLACE FUNCTION get_user_api_keys(user_id UUID, encryption_key TEXT)
+CREATE OR REPLACE FUNCTION get_user_api_keys(p_user_id UUID, p_encryption_key TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-    claude_key BYTEA;
-    tavily_key BYTEA;
+    v_claude_key BYTEA;
+    v_tavily_key BYTEA;
 BEGIN
     SELECT claude_api_key_encrypted, tavily_api_key_encrypted
-    INTO claude_key, tavily_key
-    FROM user_profiles WHERE id = user_id;
+    INTO v_claude_key, v_tavily_key
+    FROM user_profiles WHERE id = p_user_id;
     
     RETURN jsonb_build_object(
-        'claude', CASE WHEN claude_key IS NOT NULL THEN decrypt_api_key(claude_key, encryption_key) ELSE NULL END,
-        'tavily', CASE WHEN tavily_key IS NOT NULL THEN decrypt_api_key(tavily_key, encryption_key) ELSE NULL END
+        'claude', CASE WHEN v_claude_key IS NOT NULL THEN decrypt_api_key(v_claude_key, p_encryption_key) ELSE NULL END,
+        'tavily', CASE WHEN v_tavily_key IS NOT NULL THEN decrypt_api_key(v_tavily_key, p_encryption_key) ELSE NULL END
     );
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION set_user_api_keys(
-    user_id UUID,
-    claude_key TEXT,
-    tavily_key TEXT,
-    encryption_key TEXT
+    p_user_id UUID,
+    p_claude_key TEXT,
+    p_tavily_key TEXT,
+    p_encryption_key TEXT
 )
 RETURNS VOID
 LANGUAGE plpgsql
@@ -124,10 +124,10 @@ SECURITY DEFINER
 AS $$
 BEGIN
     UPDATE user_profiles SET
-        claude_api_key_encrypted = CASE WHEN claude_key IS NOT NULL AND claude_key != '' THEN encrypt_api_key(claude_key, encryption_key) ELSE NULL END,
-        tavily_api_key_encrypted = CASE WHEN tavily_key IS NOT NULL AND tavily_key != '' THEN encrypt_api_key(tavily_key, encryption_key) ELSE NULL END,
+        claude_api_key_encrypted = CASE WHEN p_claude_key IS NOT NULL AND p_claude_key != '' THEN encrypt_api_key(p_claude_key, p_encryption_key) ELSE NULL END,
+        tavily_api_key_encrypted = CASE WHEN p_tavily_key IS NOT NULL AND p_tavily_key != '' THEN encrypt_api_key(p_tavily_key, p_encryption_key) ELSE NULL END,
         updated_at = NOW()
-    WHERE id = user_id;
+    WHERE id = p_user_id;
 END;
 $$;
 
@@ -136,28 +136,28 @@ $$;
 -- ============================================================================
 
 -- Function to safely update foreign key
-CREATE OR REPLACE FUNCTION fix_foreign_key(table_name TEXT, column_name TEXT, constraint_name TEXT)
+CREATE OR REPLACE FUNCTION fix_foreign_key(p_table_name TEXT, p_column_name TEXT, p_constraint_name TEXT)
 RETURNS VOID
 LANGUAGE plpgsql
 AS $$
 BEGIN
     -- Check if table exists
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = table_name) THEN
+    IF EXISTS (SELECT 1 FROM information_schema.tables t WHERE t.table_name = p_table_name) THEN
         -- Check if column exists
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = table_name AND column_name = column_name) THEN
+        IF EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_name = p_table_name AND c.column_name = p_column_name) THEN
             -- Drop old constraint if exists
-            EXECUTE format('ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I', table_name, constraint_name);
+            EXECUTE format('ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I', p_table_name, p_constraint_name);
             
             -- Add new constraint pointing to auth.users
             EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I FOREIGN KEY (%I) REFERENCES auth.users(id) ON DELETE CASCADE',
-                table_name, constraint_name, column_name);
+                p_table_name, p_constraint_name, p_column_name);
             
-            RAISE NOTICE 'Fixed foreign key for %.%', table_name, column_name;
+            RAISE NOTICE 'Fixed foreign key for %.%', p_table_name, p_column_name;
         ELSE
-            RAISE NOTICE 'Column %.% does not exist, skipping', table_name, column_name;
+            RAISE NOTICE 'Column %.% does not exist, skipping', p_table_name, p_column_name;
         END IF;
     ELSE
-        RAISE NOTICE 'Table % does not exist, skipping', table_name;
+        RAISE NOTICE 'Table % does not exist, skipping', p_table_name;
     END IF;
 END;
 $$;

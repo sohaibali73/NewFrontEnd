@@ -608,6 +608,13 @@ Be direct and helpful. ALWAYS use sanity_check_afl before presenting any AFL cod
             messages = history + [{"role": "user", "content": data.content}]
             tools = get_all_tools()
             
+            # Add Claude Skills (beta API) for enhanced AFL and finance capabilities
+            skills = [
+                {"type": "skill", "id": "skill_016P1TD56w12BF27PnhDeM1T", "name": "amibroker-afl-suite"},
+                {"type": "skill", "id": "skill_01X5yKJy6cJPRgpFW5C8C1i8", "name": "quant-analyst"},
+            ]
+            all_tools = tools + skills
+            
             max_iterations = 3
             iteration = 0
             
@@ -616,13 +623,14 @@ Be direct and helpful. ALWAYS use sanity_check_afl before presenting any AFL cod
                 tool_results_for_next_call = []
                 assistant_content_blocks = []
                 
-                # Stream the response
-                with client.messages.stream(
+                # Stream using beta API with Skills support
+                with client.beta.messages.stream(
                     model="claude-sonnet-4-20250514",
                     max_tokens=3000,
                     system=system_prompt,
                     messages=messages,
-                    tools=tools,
+                    tools=all_tools,
+                    betas=["skills-2025-05-14"],
                 ) as stream:
                     pending_tool_calls = []
                     

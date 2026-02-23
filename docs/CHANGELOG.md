@@ -103,3 +103,19 @@ in `metadata.parts` — the array the frontend reads to render UI components.
 
 ### Sidebar Navigation (`MainLayout.tsx`)
 - "SOON" badge on Content nav item (Phase 2, included here for completeness)
+
+## [Phase 4] — 2026-02-23: Presentation Engine Integration
+
+### create_presentation Tool Fix (`core/tools.py`)
+- **Before:** Called Claude and stored TEXT response as bytes (not a real .pptx file)
+- **After:** Uses PotomacPPTXGenerator to create real branded .pptx files
+- Flow: User request → Claude generates JSON outline → PotomacPPTXGenerator builds .pptx → stored in memory → downloadable
+- 8 slide types supported: title, agenda, chart, stats, two_charts, content, summary, closing
+- Brand compliance: Potomac Yellow #FEC00F, Dark #212121, Teal #00DED1, Rajdhani/Quicksand fonts
+- Fallback: If Claude JSON parsing fails, builds outline directly from user input
+- File stored in `_presentation_store` dict, downloadable via `GET /chat/presentation/{id}`
+
+### PotomacPPTXGenerator (`core/pptx_generator.py`)
+- Already existed with full python-pptx implementation — now properly wired to the chat tool
+- Widescreen 13.33" × 7.5" slides with dark headers, yellow accents, teal rules
+- Professional layouts: title slides, agenda grids, chart+panel slides, stats panels, etc.

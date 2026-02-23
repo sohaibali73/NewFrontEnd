@@ -4,24 +4,6 @@
 -- Run this in Supabase SQL Editor to fix the foreign key constraints
 -- ============================================================================
 
--- First, drop the existing foreign key constraints that point to old users table
-ALTER TABLE conversations DROP CONSTRAINT IF EXISTS conversations_user_id_fkey;
-ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_user_id_fkey;
-ALTER TABLE afl_codes DROP CONSTRAINT IF EXISTS afl_codes_user_id_fkey;
-ALTER TABLE afl_history DROP CONSTRAINT IF EXISTS fk_afl_history_user;
-ALTER TABLE afl_uploaded_files DROP CONSTRAINT IF EXISTS fk_afl_uploaded_files_user;
-ALTER TABLE afl_settings_presets DROP CONSTRAINT IF EXISTS afl_settings_presets_user_id_fkey;
-ALTER TABLE reverse_engineer_history DROP CONSTRAINT IF EXISTS fk_reverse_engineer_history_user;
-ALTER TABLE user_feedback DROP CONSTRAINT IF EXISTS user_feedback_user_id_fkey;
-ALTER TABLE training_suggestions DROP CONSTRAINT IF EXISTS training_suggestions_user_id_fkey;
-ALTER TABLE analytics_events DROP CONSTRAINT IF EXISTS analytics_events_user_id_fkey;
-ALTER TABLE content_items DROP CONSTRAINT IF EXISTS content_items_user_id_fkey;
-ALTER TABLE writing_styles DROP CONSTRAINT IF EXISTS writing_styles_user_id_fkey;
-ALTER TABLE backtest_results DROP CONSTRAINT IF EXISTS backtest_results_user_id_fkey;
-ALTER TABLE brain_documents DROP CONSTRAINT IF EXISTS brain_documents_uploaded_by_fkey;
-ALTER TABLE learnings DROP CONSTRAINT IF EXISTS learnings_user_id_fkey;
-ALTER TABLE training_data DROP CONSTRAINT IF EXISTS training_data_created_by_fkey;
-
 -- Create user_profiles table if it doesn't exist
 CREATE TABLE IF NOT EXISTS user_profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -93,75 +75,14 @@ CREATE TRIGGER on_auth_user_created
     FOR EACH ROW
     EXECUTE FUNCTION public.handle_new_user();
 
--- Add new foreign key constraints pointing to auth.users
-ALTER TABLE conversations
-    ADD CONSTRAINT conversations_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-ALTER TABLE messages
-    ADD CONSTRAINT messages_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-ALTER TABLE afl_codes
-    ADD CONSTRAINT afl_codes_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-ALTER TABLE afl_history
-    ADD CONSTRAINT fk_afl_history_user
-    FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-ALTER TABLE afl_uploaded_files
-    ADD CONSTRAINT fk_afl_uploaded_files_user
-    FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-ALTER TABLE afl_settings_presets
-    ADD CONSTRAINT afl_settings_presets_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-ALTER TABLE reverse_engineer_history
-    ADD CONSTRAINT fk_reverse_engineer_history_user
-    FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-ALTER TABLE user_feedback
-    ADD CONSTRAINT user_feedback_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-ALTER TABLE training_suggestions
-    ADD CONSTRAINT training_suggestions_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-ALTER TABLE analytics_events
-    ADD CONSTRAINT analytics_events_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-ALTER TABLE content_items
-    ADD CONSTRAINT content_items_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-ALTER TABLE writing_styles
-    ADD CONSTRAINT writing_styles_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-ALTER TABLE backtest_results
-    ADD CONSTRAINT backtest_results_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-ALTER TABLE brain_documents
-    ADD CONSTRAINT brain_documents_uploaded_by_fkey
-    FOREIGN KEY (uploaded_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-ALTER TABLE learnings
-    ADD CONSTRAINT learnings_user_id_fkey
-    FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
-
-ALTER TABLE training_data
-    ADD CONSTRAINT training_data_created_by_fkey
-    FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
-
 -- Enable RLS on user_profiles
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policies
+-- Create RLS policies (drop if exists first)
+DROP POLICY IF EXISTS "Users can read own profile" ON user_profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON user_profiles;
+DROP POLICY IF EXISTS "Service role full access" ON user_profiles;
+
 CREATE POLICY "Users can read own profile" ON user_profiles FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Users can update own profile" ON user_profiles FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "Service role full access" ON user_profiles FOR ALL USING (auth.role() = 'service_role');
@@ -177,7 +98,6 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-    result JSONB;
     claude_key BYTEA;
     tavily_key BYTEA;
 BEGIN
@@ -211,5 +131,58 @@ BEGIN
 END;
 $$;
 
+-- ============================================================================
+-- Fix foreign keys - only for tables that exist
+-- ============================================================================
+
+-- Function to safely update foreign key
+CREATE OR REPLACE FUNCTION fix_foreign_key(table_name TEXT, column_name TEXT, constraint_name TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    -- Check if table exists
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = table_name) THEN
+        -- Check if column exists
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = table_name AND column_name = column_name) THEN
+            -- Drop old constraint if exists
+            EXECUTE format('ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I', table_name, constraint_name);
+            
+            -- Add new constraint pointing to auth.users
+            EXECUTE format('ALTER TABLE %I ADD CONSTRAINT %I FOREIGN KEY (%I) REFERENCES auth.users(id) ON DELETE CASCADE',
+                table_name, constraint_name, column_name);
+            
+            RAISE NOTICE 'Fixed foreign key for %.%', table_name, column_name;
+        ELSE
+            RAISE NOTICE 'Column %.% does not exist, skipping', table_name, column_name;
+        END IF;
+    ELSE
+        RAISE NOTICE 'Table % does not exist, skipping', table_name;
+    END IF;
+END;
+$$;
+
+-- Fix all known tables
+SELECT fix_foreign_key('conversations', 'user_id', 'conversations_user_id_fkey');
+SELECT fix_foreign_key('messages', 'user_id', 'messages_user_id_fkey');
+SELECT fix_foreign_key('afl_codes', 'user_id', 'afl_codes_user_id_fkey');
+SELECT fix_foreign_key('afl_history', 'user_id', 'fk_afl_history_user');
+SELECT fix_foreign_key('afl_uploaded_files', 'user_id', 'fk_afl_uploaded_files_user');
+SELECT fix_foreign_key('afl_settings_presets', 'user_id', 'afl_settings_presets_user_id_fkey');
+SELECT fix_foreign_key('reverse_engineer_history', 'user_id', 'fk_reverse_engineer_history_user');
+SELECT fix_foreign_key('user_feedback', 'user_id', 'user_feedback_user_id_fkey');
+SELECT fix_foreign_key('training_suggestions', 'user_id', 'training_suggestions_user_id_fkey');
+SELECT fix_foreign_key('analytics_events', 'user_id', 'analytics_events_user_id_fkey');
+SELECT fix_foreign_key('content_items', 'user_id', 'content_items_user_id_fkey');
+SELECT fix_foreign_key('writing_styles', 'user_id', 'writing_styles_user_id_fkey');
+SELECT fix_foreign_key('backtest_results', 'user_id', 'backtest_results_user_id_fkey');
+SELECT fix_foreign_key('brain_documents', 'uploaded_by', 'brain_documents_uploaded_by_fkey');
+SELECT fix_foreign_key('learnings', 'user_id', 'learnings_user_id_fkey');
+SELECT fix_foreign_key('training_data', 'created_by', 'training_data_created_by_fkey');
+SELECT fix_foreign_key('strategies', 'user_id', 'strategies_user_id_fkey');
+
+-- Drop the helper function
+DROP FUNCTION fix_foreign_key(TEXT, TEXT, TEXT);
+
 -- Done!
-SELECT 'Migration completed successfully! Foreign keys now point to auth.users' as status;
+SELECT 'Migration completed successfully!' as status;

@@ -10,6 +10,7 @@ import logging
 from config import get_settings
 from db.supabase_client import get_supabase
 from api.dependencies import get_current_user, get_current_user_id, verify_admin
+from core.encryption import encrypt_value
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 security = HTTPBearer()
@@ -223,17 +224,23 @@ async def update_api_keys(
 ):
     """
     Update user's API keys.
-    Keys are stored as plain text in user_profiles table.
+    Keys are encrypted with AES-256 before storage in user_profiles table.
     """
     db = get_supabase()
 
     update_data = {"updated_at": datetime.utcnow().isoformat()}
 
     if data.claude_api_key is not None:
-        update_data["claude_api_key"] = data.claude_api_key if data.claude_api_key.strip() else None
+        if data.claude_api_key.strip():
+            update_data["claude_api_key"] = encrypt_value(data.claude_api_key.strip())
+        else:
+            update_data["claude_api_key"] = None
 
     if data.tavily_api_key is not None:
-        update_data["tavily_api_key"] = data.tavily_api_key if data.tavily_api_key.strip() else None
+        if data.tavily_api_key.strip():
+            update_data["tavily_api_key"] = encrypt_value(data.tavily_api_key.strip())
+        else:
+            update_data["tavily_api_key"] = None
 
     try:
         result = db.table("user_profiles").update(update_data).eq("id", user["id"]).execute()

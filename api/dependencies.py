@@ -6,6 +6,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import logging
 
 from db.supabase_client import get_supabase
+from core.encryption import decrypt_value
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +39,9 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> Dict[str, Any]:
     """
-    Get current user with full profile data from user_profiles table.
-    Does NOT include API keys.
+    Get current user with profile data from user_profiles table.
+    Does NOT include API keys — only presence flags.
+    Enforces is_active check.
     """
     token = credentials.credentials
     db = get_supabase()
@@ -52,7 +54,7 @@ async def get_current_user(
         user_id = auth_user.user.id
         email = auth_user.user.email or ""
 
-        # Get profile from user_profiles
+        # Get profile from user_profiles — only fetch non-sensitive columns
         profile_result = db.table("user_profiles").select(
             "id, name, nickname, is_admin, is_active, created_at, last_active_at, claude_api_key, tavily_api_key"
         ).eq("id", user_id).execute()
@@ -68,6 +70,13 @@ async def get_current_user(
             profile = profile_data
         else:
             profile = profile_result.data[0]
+
+        # Enforce is_active check — deactivated users cannot authenticate
+        if not profile.get("is_active", True):
+            raise HTTPException(
+                status_code=403,
+                detail="Account has been deactivated. Contact support."
+            )
 
         return {
             "id": user_id,
@@ -91,8 +100,9 @@ async def get_current_user(
 
 async def get_user_api_keys(user_id: str) -> Dict[str, str]:
     """
-    Get user's API keys directly from user_profiles table.
-    Keys are stored as plain text - no encryption needed.
+    Get user's API keys from user_profiles table.
+    Keys are stored encrypted (AES-256) and decrypted here for use.
+    Also handles legacy plain text keys for backward compatibility.
     """
     db = get_supabase()
 
@@ -103,9 +113,13 @@ async def get_user_api_keys(user_id: str) -> Dict[str, str]:
 
         if result.data:
             row = result.data[0]
+            raw_claude = row.get("claude_api_key") or ""
+            raw_tavily = row.get("tavily_api_key") or ""
+
+            # Decrypt (handles both encrypted 'enc:...' and legacy plain text)
             return {
-                "claude": row.get("claude_api_key") or "",
-                "tavily": row.get("tavily_api_key") or "",
+                "claude": decrypt_value(raw_claude) if raw_claude else "",
+                "tavily": decrypt_value(raw_tavily) if raw_tavily else "",
             }
     except Exception as e:
         logger.error(f"Failed to get user API keys: {e}")
@@ -117,7 +131,7 @@ async def get_user_with_api_keys(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> Dict[str, Any]:
     """
-    Get current user with API keys.
+    Get current user with decrypted API keys.
     Use this dependency when you need the actual API keys.
     """
     user = await get_current_user(credentials)

@@ -26,10 +26,22 @@ app = FastAPI(
     version="1.2.0",
 )
 
-# CORS middleware
+# CORS middleware — locked down to allowed origins only
+_ALLOWED_ORIGINS = [
+    "https://analystbypotomac.vercel.app",
+    "https://www.analystbypotomac.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000",
+]
+# Allow additional origins from FRONTEND_URL env var
+_frontend_url = os.getenv("FRONTEND_URL", "")
+if _frontend_url and _frontend_url not in _ALLOWED_ORIGINS:
+    _ALLOWED_ORIGINS.append(_frontend_url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure for production
+    allow_origins=_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -83,13 +95,20 @@ async def rate_limit_middleware(request: Request, call_next):
 # Global exception handler - ensures CORS headers are always present on errors
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """Catch unhandled exceptions and return JSON with CORS headers."""
+    """Catch unhandled exceptions and return safe JSON with CORS headers."""
     logger.error(f"Unhandled exception on {request.method} {request.url.path}: {exc}", exc_info=True)
+    # Don't leak internal error details to clients in production
+    is_production = os.getenv("ENVIRONMENT") == "production" or os.getenv("RAILWAY_ENVIRONMENT")
+    origin = request.headers.get("origin", "")
+    cors_origin = origin if origin in _ALLOWED_ORIGINS else _ALLOWED_ORIGINS[0]
     return JSONResponse(
         status_code=500,
-        content={"detail": str(exc), "type": type(exc).__name__},
+        content={
+            "detail": "Internal server error" if is_production else str(exc),
+            "type": "ServerError" if is_production else type(exc).__name__,
+        },
         headers={
-            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Origin": cors_origin,
             "Access-Control-Allow-Credentials": "true",
         },
     )
@@ -277,82 +296,8 @@ async def health():
         "routers_failed": len(routers_failed),
     }
 
-@app.get("/routes")
-async def list_routes():
-    """List all available routes."""
-    routes = []
-    for route in app.routes:
-        if hasattr(route, "path") and hasattr(route, "methods"):
-            routes.append({
-                "path": route.path,
-                "methods": list(route.methods) if route.methods else [],
-                "name": route.name,
-            })
-    return {"routes": routes, "total": len(routes)}
-
-@app.get("/debug/routers")
-async def debug_routers():
-    """Debug endpoint to check router loading status."""
-    results = {}
-
-    # Show loaded routers
-    for router_name in routers_loaded:
-        results[router_name] = {
-            "status": "loaded",
-            "message": "Router successfully loaded and registered"
-        }
-
-    # Show failed routers with error details
-    for router_name, error in routers_failed:
-        results[router_name] = {
-            "status": "failed",
-            "error": error,
-            "message": "Router failed to load - check logs for details"
-        }
-
-    return {
-        "router_status": results,
-        "summary": {
-            "total_routers": len(routers_loaded) + len(routers_failed),
-            "loaded": len(routers_loaded),
-            "failed": len(routers_failed),
-        }
-    }
-
-@app.get("/debug/missing-modules")
-async def debug_missing_modules():
-    """Check which router modules exist in the file system."""
-    import os
-
-    routes_dir = "api/routes"
-    expected_modules = [
-        "auth", "chat", "ai", "afl", "reverse_engineer",
-        "brain", "backtest", "admin", "train", "researcher"
-    ]
-
-    module_status = {}
-
-    for module_name in expected_modules:
-        module_file = f"{routes_dir}/{module_name}.py"
-        exists = os.path.exists(module_file)
-        module_status[module_name] = {
-            "file_path": module_file,
-            "exists": exists,
-            "loaded": module_name in routers_loaded,
-            "failed": module_name in [name for name, _ in routers_failed],
-        }
-
-    # Check for __init__.py files
-    init_files = {
-        "api/__init__.py": os.path.exists("api/__init__.py"),
-        "api/routes/__init__.py": os.path.exists("api/routes/__init__.py"),
-    }
-
-    return {
-        "module_status": module_status,
-        "init_files": init_files,
-        "warning": "Missing __init__.py files will cause import errors!" if not all(init_files.values()) else None
-    }
+# Debug/diagnostic endpoints removed from production for security.
+# Use /admin/health/system for diagnostics (requires admin auth).
 
 if __name__ == "__main__":
     import uvicorn

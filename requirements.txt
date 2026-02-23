@@ -13,9 +13,10 @@ supabase
 tavily-python
 yfinance
 requests
-# Auth
+# Auth & Encryption
 python-jose[cryptography]
 passlib[bcrypt]
+cryptography>=41.0
 
 # Document Processing
 PyPDF2
@@ -28,6 +29,7 @@ python-dotenv
 pydantic
 pydantic-settings
 python-multipart
+aiofiles
 email-validator
 
 # Data Analysis (for code execution tool)

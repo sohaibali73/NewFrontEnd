@@ -14,3 +14,10 @@ package-lock.json
 *.dll
 *.node
 *.exe
+
+# PPTX Engine (templates, uploads, outputs are large/generated)
+pptx_engine/templates/
+pptx_engine/uploads/
+pptx_engine/outputs/
+node_modules/  
+frontend-extracted/  

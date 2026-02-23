@@ -12,7 +12,12 @@ class Settings(BaseSettings):
     supabase_key: str = ""  # anon/public key
     supabase_service_key: str = ""  # service_role key (required for backend operations with RLS)
 
+    # Data Encryption at Rest - MUST be set via environment variable
+    # Generate a secure 32-byte key: python -c "import secrets; print(secrets.token_urlsafe(32))"
+    encryption_key: str = ""  # Used for encrypting sensitive data like API keys
+
     # Security - MUST be changed in production via environment variables
+    # Note: These are DEPRECATED - Supabase Auth handles JWT tokens
     secret_key: str = "change-this-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7
@@ -39,7 +44,7 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     
     # Frontend URL for password reset links
-    frontend_url: str = "https://potomac-analyst-workbench.vercel.app"
+    frontend_url: str = "https://analystbypotomac.vercel.app"
 
     # Admin configuration
     # Comma-separated list of admin emails

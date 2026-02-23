@@ -45,10 +45,9 @@ async def database_health() -> Dict[str, Any]:
     
     # List of critical tables to check
     critical_tables = [
-        "users",
+        "user_profiles",
         "conversations",
         "messages",
-        "strategies",
         "afl_codes",
         "afl_history",
         "reverse_engineer_history",

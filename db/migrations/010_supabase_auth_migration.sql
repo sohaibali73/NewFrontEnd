@@ -53,7 +53,6 @@ CREATE TABLE user_profiles (
 );
 
 -- Create indexes
-CREATE INDEX idx_user_profiles_email ON user_profiles(lower((auth.users.email)));
 CREATE INDEX idx_user_profiles_is_admin ON user_profiles(is_admin) WHERE is_admin = TRUE;
 CREATE INDEX idx_user_profiles_created_at ON user_profiles(created_at DESC);
 

@@ -2697,15 +2697,17 @@ def list_templates() -> List[Dict[str, Any]]:
 def create_presentation(title: str, slides: list, subtitle: str = "", theme: str = "potomac",
                         author: str = "Analyst by Potomac", template_id: str = None, api_key: str = None) -> Dict[str, Any]:
     """
-    Create a PowerPoint (.pptx) presentation using Claude's potomac-pptx skill.
+    Create a real PowerPoint (.pptx) presentation using PotomacPPTXGenerator.
     
-    This tool now uses Claude's specialized PowerPoint creation skill for better quality
-    presentations with professional layouts and design.
+    Uses Claude to generate a structured JSON outline, then passes it to the
+    Potomac PPTX engine which creates a branded .pptx file using python-pptx.
+    The file is stored in memory and available for download.
     """
     import uuid
+    import tempfile
 
     start_time = time.time()
-    
+
     if not api_key:
         return {
             "success": False,
@@ -2714,61 +2716,94 @@ def create_presentation(title: str, slides: list, subtitle: str = "", theme: str
 
     try:
         import anthropic
-        
-        # Build slide content for Claude
-        slide_content = []
+        from core.pptx_generator import PotomacPPTXGenerator
+
+        # Build slide descriptions for Claude to structure
+        slide_descriptions = []
         for i, slide in enumerate(slides):
             slide_title = slide.get("title", f"Slide {i + 2}")
             bullets = slide.get("bullets", [])
+            layout = slide.get("layout", "content")
             notes = slide.get("notes", "")
-            
-            slide_content.append({
-                "title": slide_title,
-                "content": bullets,
-                "speaker_notes": notes
-            })
+            desc = f"Slide {i + 2}: '{slide_title}'"
+            if bullets:
+                desc += f" — Bullets: {', '.join(bullets[:5])}"
+            if layout:
+                desc += f" — Layout: {layout}"
+            slide_descriptions.append(desc)
 
-        # Build prompt for Claude with potomac-pptx skill
-        prompt = f"""Please use the potomac-pptx skill to create a PowerPoint presentation with the following specifications:
+        # Ask Claude to generate a structured outline JSON for PotomacPPTXGenerator
+        outline_prompt = f"""Generate a JSON outline for a Potomac-branded PowerPoint presentation.
 
 Title: {title}
-Subtitle: {subtitle}
+Subtitle: {subtitle or ""}
 Author: {author}
-Theme: {theme}
-Template ID: {template_id if template_id else "none"}
 
-Slides:
-"""
-        
-        for i, slide in enumerate(slide_content):
-            prompt += f"\nSlide {i + 2}: {slide['title']}\n"
-            for bullet in slide['content']:
-                prompt += f"• {bullet}\n"
-            if slide['speaker_notes']:
-                prompt += f"Notes: {slide['speaker_notes']}\n"
+User's requested slides:
+{chr(10).join(slide_descriptions)}
 
-        prompt += f"\nPlease create a professional PowerPoint presentation and return the presentation ID for download."
+You MUST return ONLY valid JSON (no markdown, no code fences) in this exact format:
+{{
+  "title": "{title}",
+  "slides": [
+    {{"type": "title", "title": "{title}", "subtitle": "{subtitle or ''}", "date": "2025", "presenter": "{author}"}},
+    {{"type": "agenda", "topics": [{{"num": "01", "title": "TOPIC", "sub": "Description"}}]}},
+    {{"type": "content", "title": "SLIDE TITLE", "bullets": ["Point 1", "Point 2", "Point 3"]}},
+    {{"type": "chart", "title": "ANALYSIS", "panel_title": "KEY POINTS", "bullets": ["Point 1"]}},
+    {{"type": "stats", "title": "STATISTICS", "panel_title": "SNAPSHOT", "stats": [{{"val": "25%", "label": "METRIC"}}]}},
+    {{"type": "summary", "title": "SUMMARY", "columns": [{{"title": "CATEGORY", "color": "green", "items": ["Item 1"]}}]}},
+    {{"type": "closing"}}
+  ]
+}}
 
-        # Call Claude with potomac-pptx skill
+Available slide types: title, agenda, chart, stats, content, summary, two_charts, closing.
+Create {len(slides) + 2} slides total (title + user slides + closing).
+Return ONLY the JSON object, nothing else."""
+
         client = anthropic.Anthropic(api_key=api_key)
-        
+
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=4000,
-            messages=[{
-                "role": "user", 
-                "content": prompt
-            }]
+            messages=[{"role": "user", "content": outline_prompt}]
         )
-        
-        result_text = response.content[0].text
-        
-        # Generate a unique presentation ID for tracking
+
+        result_text = response.content[0].text.strip()
+
+        # Parse JSON from Claude's response (handle markdown code fences)
+        if "```" in result_text:
+            result_text = result_text.split("```")[1]
+            if result_text.startswith("json"):
+                result_text = result_text[4:]
+            result_text = result_text.strip()
+
+        outline = json.loads(result_text)
+
+        # Generate unique ID and temp file path
         presentation_id = str(uuid.uuid4())
-        
-        # Create mock response structure that matches frontend expectations
-        # The actual .pptx file would be generated by Claude's potomac-pptx skill
-        response_data = {
+        temp_dir = tempfile.mkdtemp()
+        output_path = os.path.join(temp_dir, f"{presentation_id}.pptx")
+
+        # Generate actual .pptx using PotomacPPTXGenerator
+        generator = PotomacPPTXGenerator()
+        generator.generate_from_outline(outline, output_path)
+
+        # Read the .pptx bytes and store in memory
+        with open(output_path, "rb") as f:
+            pptx_bytes = f.read()
+
+        _presentation_store[presentation_id] = pptx_bytes
+
+        # Clean up temp file
+        try:
+            os.remove(output_path)
+            os.rmdir(temp_dir)
+        except Exception:
+            pass
+
+        slide_count = len(outline.get("slides", []))
+
+        return {
             "success": True,
             "tool": "create_presentation",
             "presentation_id": presentation_id,
@@ -2779,23 +2814,67 @@ Slides:
             "template_used": template_id if template_id else None,
             "template_id": template_id,
             "author": author,
-            "slide_count": len(slides) + 1,
-            "claude_response": result_text,
-            "download_url": f"/api/presentation/{presentation_id}",
-            "method": "claude_potomac_pptx_skill",
+            "slide_count": slide_count,
+            "file_size_kb": round(len(pptx_bytes) / 1024, 1),
+            "download_url": f"/chat/presentation/{presentation_id}",
+            "method": "potomac_pptx_generator",
             "fetch_time_ms": round((time.time() - start_time) * 1000, 2)
         }
-        
-        # Store the Claude response for download (would normally be .pptx bytes from skill)
-        _presentation_store[presentation_id] = result_text.encode('utf-8')
-        
-        return response_data
 
-    except ImportError:
-        return {"success": False, "error": "anthropic library not available. Run: pip install anthropic"}
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse Claude outline JSON: {e}")
+        # Fallback: generate a basic presentation directly from user slides
+        try:
+            from core.pptx_generator import PotomacPPTXGenerator
+            import tempfile
+
+            presentation_id = str(uuid.uuid4())
+            temp_dir = tempfile.mkdtemp()
+            output_path = os.path.join(temp_dir, f"{presentation_id}.pptx")
+
+            # Build outline directly from user input
+            outline_slides = [{"type": "title", "title": title, "subtitle": subtitle, "date": "2025"}]
+            for slide in slides:
+                outline_slides.append({
+                    "type": slide.get("layout", "content"),
+                    "title": slide.get("title", ""),
+                    "bullets": slide.get("bullets", [])
+                })
+            outline_slides.append({"type": "closing"})
+
+            generator = PotomacPPTXGenerator()
+            generator.generate_from_outline({"title": title, "slides": outline_slides}, output_path)
+
+            with open(output_path, "rb") as f:
+                pptx_bytes = f.read()
+
+            _presentation_store[presentation_id] = pptx_bytes
+
+            try:
+                os.remove(output_path)
+                os.rmdir(temp_dir)
+            except Exception:
+                pass
+
+            return {
+                "success": True,
+                "tool": "create_presentation",
+                "presentation_id": presentation_id,
+                "filename": f"{title.replace(' ', '_')}.pptx",
+                "title": title,
+                "slide_count": len(outline_slides),
+                "file_size_kb": round(len(pptx_bytes) / 1024, 1),
+                "download_url": f"/chat/presentation/{presentation_id}",
+                "method": "potomac_pptx_generator_fallback",
+                "fetch_time_ms": round((time.time() - start_time) * 1000, 2)
+            }
+        except Exception as fallback_err:
+            return {"success": False, "error": f"Presentation generation failed: {str(fallback_err)}"}
+    except ImportError as e:
+        return {"success": False, "error": f"Missing dependency: {str(e)}. Ensure python-pptx and anthropic are installed."}
     except Exception as e:
-        logger.error(f"Claude presentation creation error: {e}", exc_info=True)
-        return {"success": False, "error": f"Claude presentation creation failed: {str(e)}"}
+        logger.error(f"Presentation creation error: {e}", exc_info=True)
+        return {"success": False, "error": f"Presentation creation failed: {str(e)}"}
 
 
 def get_presentation_bytes(presentation_id: str) -> Optional[bytes]:

@@ -523,8 +523,8 @@ async def stream_message(
                 fd = f.get("file_data", {})
                 filename = fd.get("filename", f.get("filename", "unknown"))
                 if fd.get("text_content"):
-                    # Include text file content (truncated)
-                    content_preview = fd["text_content"][:2000]
+                    # Include full text file content (up to 10K chars for good context)
+                    content_preview = fd["text_content"][:10000]
                     file_snippets.append(f"### File: {filename}\n```\n{content_preview}\n```")
                 elif fd.get("base64_content") and f.get("content_type", "").startswith("image/"):
                     file_snippets.append(f"### File: {filename} (image uploaded — available for analysis)")
@@ -532,7 +532,7 @@ async def stream_message(
                     file_snippets.append(f"### File: {filename} ({f.get('content_type', 'unknown type')})")
             
             if file_snippets:
-                file_context = "\n\n## Uploaded Files in This Conversation:\n" + "\n\n".join(file_snippets)
+                file_context = "\n\n## Uploaded Files in This Conversation:\nIMPORTANT: The file contents are provided below. Analyze them DIRECTLY from this text. Do NOT use Python open() or file I/O — the data is already here.\n\n" + "\n\n".join(file_snippets)
     except Exception:
         pass  # conversation_files table may not exist
 

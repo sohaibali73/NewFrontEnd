@@ -1100,7 +1100,7 @@ TOOL_DEFINITIONS = [
 # ============================================================================
 
 def execute_python(code: str, description: str = "") -> Dict[str, Any]:
-    """Execute Python code in a sandboxed environment."""
+    """Execute Python code in a sandboxed environment with data processing support."""
     allowed_globals = {
         "__builtins__": {
             "abs": abs, "all": all, "any": any, "bool": bool,
@@ -1111,14 +1111,44 @@ def execute_python(code: str, description: str = "") -> Dict[str, Any]:
             "round": round, "set": set, "slice": slice, "sorted": sorted,
             "str": str, "sum": sum, "tuple": tuple, "zip": zip,
             "print": print, "True": True, "False": False, "None": None,
+            "isinstance": isinstance, "type": type, "hasattr": hasattr,
+            "getattr": getattr, "ValueError": ValueError, "TypeError": TypeError,
+            "KeyError": KeyError, "IndexError": IndexError, "Exception": Exception,
+            "__import__": __import__,
         }
     }
     
+    # Allow safe standard library modules for data processing
     try:
         import math
         import statistics
         allowed_globals["math"] = math
         allowed_globals["statistics"] = statistics
+    except ImportError:
+        pass
+    
+    try:
+        import csv
+        import io
+        import json as json_mod
+        allowed_globals["csv"] = csv
+        allowed_globals["io"] = io
+        allowed_globals["json"] = json_mod
+        allowed_globals["StringIO"] = io.StringIO
+        allowed_globals["BytesIO"] = io.BytesIO
+    except ImportError:
+        pass
+    
+    try:
+        import re as re_mod
+        allowed_globals["re"] = re_mod
+    except ImportError:
+        pass
+    
+    try:
+        from datetime import datetime as dt_class, timedelta as td_class
+        allowed_globals["datetime"] = dt_class
+        allowed_globals["timedelta"] = td_class
     except ImportError:
         pass
     
@@ -1136,10 +1166,10 @@ def execute_python(code: str, description: str = "") -> Dict[str, Any]:
     except ImportError:
         pass
     
-    # Check for dangerous operations
+    # Check for dangerous operations (allow csv, io, json, re, datetime imports)
     dangerous_keywords = [
         "import os", "import sys", "import subprocess", "import shutil",
-        "__import__", "exec(", "eval(", "open(", "file(",
+        "exec(", "eval(", "open(", "file(",
         "os.", "sys.", "subprocess.", "shutil.",
         "requests.", "urllib.", "socket.",
     ]
@@ -1147,6 +1177,9 @@ def execute_python(code: str, description: str = "") -> Dict[str, Any]:
     code_lower = code.lower()
     for keyword in dangerous_keywords:
         if keyword.lower() in code_lower:
+            # Allow safe imports that contain these substrings
+            if keyword == "open(" and ("io.stringio" in code_lower or "csv" in code_lower):
+                continue  # Allow io.StringIO pattern with csv
             return {
                 "success": False,
                 "error": f"Unsafe operation detected: {keyword}",

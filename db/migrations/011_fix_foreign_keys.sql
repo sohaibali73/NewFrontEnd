@@ -132,88 +132,101 @@ END;
 $$;
 
 -- ============================================================================
+-- Helper function to check if table AND column exist
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION _table_column_exists(p_table TEXT, p_column TEXT) RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = p_table AND column_name = p_column
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================================
 -- STEP 1: Drop ALL old foreign key constraints (with existence checks)
 -- ============================================================================
 
 DO $$
 BEGIN
     -- conversations
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'conversations') THEN
+    IF _table_column_exists('conversations', 'user_id') THEN
         ALTER TABLE conversations DROP CONSTRAINT IF EXISTS conversations_user_id_fkey;
     END IF;
     
     -- messages
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'messages') THEN
+    IF _table_column_exists('messages', 'user_id') THEN
         ALTER TABLE messages DROP CONSTRAINT IF EXISTS messages_user_id_fkey;
     END IF;
     
     -- afl_codes
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'afl_codes') THEN
+    IF _table_column_exists('afl_codes', 'user_id') THEN
         ALTER TABLE afl_codes DROP CONSTRAINT IF EXISTS afl_codes_user_id_fkey;
     END IF;
     
     -- afl_history
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'afl_history') THEN
+    IF _table_column_exists('afl_history', 'user_id') THEN
         ALTER TABLE afl_history DROP CONSTRAINT IF EXISTS fk_afl_history_user;
     END IF;
     
     -- afl_uploaded_files
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'afl_uploaded_files') THEN
+    IF _table_column_exists('afl_uploaded_files', 'user_id') THEN
         ALTER TABLE afl_uploaded_files DROP CONSTRAINT IF EXISTS fk_afl_uploaded_files_user;
     END IF;
     
     -- afl_settings_presets
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'afl_settings_presets') THEN
+    IF _table_column_exists('afl_settings_presets', 'user_id') THEN
         ALTER TABLE afl_settings_presets DROP CONSTRAINT IF EXISTS afl_settings_presets_user_id_fkey;
     END IF;
     
     -- reverse_engineer_history
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'reverse_engineer_history') THEN
+    IF _table_column_exists('reverse_engineer_history', 'user_id') THEN
         ALTER TABLE reverse_engineer_history DROP CONSTRAINT IF EXISTS fk_reverse_engineer_history_user;
     END IF;
     
     -- user_feedback
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_feedback') THEN
+    IF _table_column_exists('user_feedback', 'user_id') THEN
         ALTER TABLE user_feedback DROP CONSTRAINT IF EXISTS user_feedback_user_id_fkey;
     END IF;
     
     -- training_suggestions
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'training_suggestions') THEN
+    IF _table_column_exists('training_suggestions', 'user_id') THEN
         ALTER TABLE training_suggestions DROP CONSTRAINT IF EXISTS training_suggestions_user_id_fkey;
     END IF;
     
     -- analytics_events
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'analytics_events') THEN
+    IF _table_column_exists('analytics_events', 'user_id') THEN
         ALTER TABLE analytics_events DROP CONSTRAINT IF EXISTS analytics_events_user_id_fkey;
     END IF;
     
     -- content_items
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'content_items') THEN
+    IF _table_column_exists('content_items', 'user_id') THEN
         ALTER TABLE content_items DROP CONSTRAINT IF EXISTS content_items_user_id_fkey;
     END IF;
     
     -- writing_styles
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'writing_styles') THEN
+    IF _table_column_exists('writing_styles', 'user_id') THEN
         ALTER TABLE writing_styles DROP CONSTRAINT IF EXISTS writing_styles_user_id_fkey;
     END IF;
     
     -- backtest_results
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'backtest_results') THEN
+    IF _table_column_exists('backtest_results', 'user_id') THEN
         ALTER TABLE backtest_results DROP CONSTRAINT IF EXISTS backtest_results_user_id_fkey;
     END IF;
     
     -- brain_documents
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'brain_documents') THEN
+    IF _table_column_exists('brain_documents', 'uploaded_by') THEN
         ALTER TABLE brain_documents DROP CONSTRAINT IF EXISTS brain_documents_uploaded_by_fkey;
     END IF;
     
     -- learnings
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'learnings') THEN
+    IF _table_column_exists('learnings', 'user_id') THEN
         ALTER TABLE learnings DROP CONSTRAINT IF EXISTS learnings_user_id_fkey;
     END IF;
     
     -- training_data
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'training_data') THEN
+    IF _table_column_exists('training_data', 'created_by') THEN
         ALTER TABLE training_data DROP CONSTRAINT IF EXISTS training_data_created_by_fkey;
     END IF;
 END $$;
@@ -225,82 +238,82 @@ END $$;
 DO $$
 BEGIN
     -- conversations
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'conversations') THEN
+    IF _table_column_exists('conversations', 'user_id') THEN
         DELETE FROM conversations WHERE user_id NOT IN (SELECT id FROM auth.users);
     END IF;
     
     -- messages
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'messages') THEN
+    IF _table_column_exists('messages', 'user_id') THEN
         DELETE FROM messages WHERE user_id NOT IN (SELECT id FROM auth.users);
     END IF;
     
     -- afl_codes
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'afl_codes') THEN
+    IF _table_column_exists('afl_codes', 'user_id') THEN
         DELETE FROM afl_codes WHERE user_id NOT IN (SELECT id FROM auth.users);
     END IF;
     
     -- afl_history
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'afl_history') THEN
+    IF _table_column_exists('afl_history', 'user_id') THEN
         DELETE FROM afl_history WHERE user_id NOT IN (SELECT id FROM auth.users);
     END IF;
     
     -- afl_uploaded_files
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'afl_uploaded_files') THEN
+    IF _table_column_exists('afl_uploaded_files', 'user_id') THEN
         DELETE FROM afl_uploaded_files WHERE user_id NOT IN (SELECT id FROM auth.users);
     END IF;
     
     -- afl_settings_presets
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'afl_settings_presets') THEN
+    IF _table_column_exists('afl_settings_presets', 'user_id') THEN
         DELETE FROM afl_settings_presets WHERE user_id NOT IN (SELECT id FROM auth.users);
     END IF;
     
     -- reverse_engineer_history
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'reverse_engineer_history') THEN
+    IF _table_column_exists('reverse_engineer_history', 'user_id') THEN
         DELETE FROM reverse_engineer_history WHERE user_id NOT IN (SELECT id FROM auth.users);
     END IF;
     
     -- user_feedback
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_feedback') THEN
+    IF _table_column_exists('user_feedback', 'user_id') THEN
         DELETE FROM user_feedback WHERE user_id NOT IN (SELECT id FROM auth.users);
     END IF;
     
     -- training_suggestions
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'training_suggestions') THEN
+    IF _table_column_exists('training_suggestions', 'user_id') THEN
         DELETE FROM training_suggestions WHERE user_id NOT IN (SELECT id FROM auth.users);
     END IF;
     
     -- analytics_events
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'analytics_events') THEN
+    IF _table_column_exists('analytics_events', 'user_id') THEN
         DELETE FROM analytics_events WHERE user_id NOT IN (SELECT id FROM auth.users);
     END IF;
     
     -- content_items
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'content_items') THEN
+    IF _table_column_exists('content_items', 'user_id') THEN
         DELETE FROM content_items WHERE user_id NOT IN (SELECT id FROM auth.users);
     END IF;
     
     -- writing_styles
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'writing_styles') THEN
+    IF _table_column_exists('writing_styles', 'user_id') THEN
         DELETE FROM writing_styles WHERE user_id NOT IN (SELECT id FROM auth.users);
     END IF;
     
     -- backtest_results
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'backtest_results') THEN
+    IF _table_column_exists('backtest_results', 'user_id') THEN
         DELETE FROM backtest_results WHERE user_id NOT IN (SELECT id FROM auth.users);
     END IF;
     
     -- brain_documents
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'brain_documents') THEN
+    IF _table_column_exists('brain_documents', 'uploaded_by') THEN
         UPDATE brain_documents SET uploaded_by = NULL WHERE uploaded_by NOT IN (SELECT id FROM auth.users);
     END IF;
     
     -- learnings
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'learnings') THEN
+    IF _table_column_exists('learnings', 'user_id') THEN
         UPDATE learnings SET user_id = NULL WHERE user_id NOT IN (SELECT id FROM auth.users);
     END IF;
     
     -- training_data
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'training_data') THEN
+    IF _table_column_exists('training_data', 'created_by') THEN
         UPDATE training_data SET created_by = NULL WHERE created_by NOT IN (SELECT id FROM auth.users);
     END IF;
 END $$;
@@ -312,101 +325,104 @@ END $$;
 DO $$
 BEGIN
     -- conversations
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'conversations') THEN
+    IF _table_column_exists('conversations', 'user_id') THEN
         ALTER TABLE conversations ADD CONSTRAINT conversations_user_id_fkey
             FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
     END IF;
     
     -- messages
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'messages') THEN
+    IF _table_column_exists('messages', 'user_id') THEN
         ALTER TABLE messages ADD CONSTRAINT messages_user_id_fkey
             FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
     END IF;
     
     -- afl_codes
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'afl_codes') THEN
+    IF _table_column_exists('afl_codes', 'user_id') THEN
         ALTER TABLE afl_codes ADD CONSTRAINT afl_codes_user_id_fkey
             FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
     END IF;
     
     -- afl_history
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'afl_history') THEN
+    IF _table_column_exists('afl_history', 'user_id') THEN
         ALTER TABLE afl_history ADD CONSTRAINT fk_afl_history_user
             FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
     END IF;
     
     -- afl_uploaded_files
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'afl_uploaded_files') THEN
+    IF _table_column_exists('afl_uploaded_files', 'user_id') THEN
         ALTER TABLE afl_uploaded_files ADD CONSTRAINT fk_afl_uploaded_files_user
             FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
     END IF;
     
     -- afl_settings_presets
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'afl_settings_presets') THEN
+    IF _table_column_exists('afl_settings_presets', 'user_id') THEN
         ALTER TABLE afl_settings_presets ADD CONSTRAINT afl_settings_presets_user_id_fkey
             FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
     END IF;
     
     -- reverse_engineer_history
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'reverse_engineer_history') THEN
+    IF _table_column_exists('reverse_engineer_history', 'user_id') THEN
         ALTER TABLE reverse_engineer_history ADD CONSTRAINT fk_reverse_engineer_history_user
             FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
     END IF;
     
     -- user_feedback
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_feedback') THEN
+    IF _table_column_exists('user_feedback', 'user_id') THEN
         ALTER TABLE user_feedback ADD CONSTRAINT user_feedback_user_id_fkey
             FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
     END IF;
     
     -- training_suggestions
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'training_suggestions') THEN
+    IF _table_column_exists('training_suggestions', 'user_id') THEN
         ALTER TABLE training_suggestions ADD CONSTRAINT training_suggestions_user_id_fkey
             FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
     END IF;
     
     -- analytics_events
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'analytics_events') THEN
+    IF _table_column_exists('analytics_events', 'user_id') THEN
         ALTER TABLE analytics_events ADD CONSTRAINT analytics_events_user_id_fkey
             FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
     END IF;
     
     -- content_items
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'content_items') THEN
+    IF _table_column_exists('content_items', 'user_id') THEN
         ALTER TABLE content_items ADD CONSTRAINT content_items_user_id_fkey
             FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
     END IF;
     
     -- writing_styles
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'writing_styles') THEN
+    IF _table_column_exists('writing_styles', 'user_id') THEN
         ALTER TABLE writing_styles ADD CONSTRAINT writing_styles_user_id_fkey
             FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
     END IF;
     
     -- backtest_results
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'backtest_results') THEN
+    IF _table_column_exists('backtest_results', 'user_id') THEN
         ALTER TABLE backtest_results ADD CONSTRAINT backtest_results_user_id_fkey
             FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
     END IF;
     
     -- brain_documents
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'brain_documents') THEN
+    IF _table_column_exists('brain_documents', 'uploaded_by') THEN
         ALTER TABLE brain_documents ADD CONSTRAINT brain_documents_uploaded_by_fkey
             FOREIGN KEY (uploaded_by) REFERENCES auth.users(id) ON DELETE SET NULL;
     END IF;
     
     -- learnings
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'learnings') THEN
+    IF _table_column_exists('learnings', 'user_id') THEN
         ALTER TABLE learnings ADD CONSTRAINT learnings_user_id_fkey
             FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
     END IF;
     
     -- training_data
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'training_data') THEN
+    IF _table_column_exists('training_data', 'created_by') THEN
         ALTER TABLE training_data ADD CONSTRAINT training_data_created_by_fkey
             FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
     END IF;
 END $$;
+
+-- Drop the helper function
+DROP FUNCTION IF EXISTS _table_column_exists(TEXT, TEXT);
 
 -- Done!
 SELECT 'Migration completed successfully! All foreign keys now point to auth.users' as status;

@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 router = APIRouter(
-    prefix="/api/researcher",
-    tags=["researcher"],
+    prefix="/researcher",
+    tags=["Researcher"],
     dependencies=[],
     responses={404: {"description": "Not found"}},
 )

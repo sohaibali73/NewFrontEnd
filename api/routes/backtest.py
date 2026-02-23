@@ -131,6 +131,22 @@ async def get_backtest(
 
     return result.data[0]
 
+@router.get("/history")
+async def list_backtests(
+        user_id: str = Depends(get_current_user_id),
+):
+    """List all backtests for the current user."""
+    db = get_supabase()
+
+    try:
+        result = db.table("backtest_results").select(
+            "id, filename, metrics, created_at"
+        ).eq("user_id", user_id).order("created_at", desc=True).limit(50).execute()
+        return result.data
+    except Exception:
+        return []
+
+
 @router.get("/strategy/{strategy_id}")
 async def get_strategy_backtests(
         strategy_id: str,

@@ -54,3 +54,36 @@ in `metadata.parts` — the array the frontend reads to render UI components.
 - [ ] Old messages get backward-compatible tool reconstruction
 - [ ] All 30+ Generative UI components render from history
 - [ ] No regression in live streaming behavior
+
+## [Phase 2] — 2026-02-23: Backend API Repair & Database Alignment
+
+### Changes
+
+#### Database Migration 008 (`db/migrations/008_missing_tables.sql`)
+- Created `content_items` table (articles, documents, slides, dashboards)
+- Created `writing_styles` table (user writing preferences)
+- Created `backtest_results` table (CSV uploads + AI analysis)
+- Added missing columns to `brain_documents` (content_hash, source_type, subcategories, file_size, chunk_count, is_processed, processed_at)
+
+#### Researcher Route Fix (`api/routes/researcher.py`)
+- Fixed prefix from `/api/researcher` to `/researcher` (was double-prefixed when mounted in FastAPI)
+- Routes now correctly accessible at `/researcher/company/{symbol}`, `/researcher/news/{symbol}`, etc.
+
+#### Backtest Route Enhancement (`api/routes/backtest.py`)
+- Added `GET /backtest/history` endpoint to list user's previous backtests
+- Upload + AI analysis flow already complete (Claude interprets CSV data)
+
+#### Frontend Navigation (`src/layouts/MainLayout.tsx`)
+- Added "SOON" badge to Content page in sidebar navigation
+- Badge renders as a small yellow pill with "SOON" text
+
+#### Content Routes (`api/routes/content.py`)
+- Routes already fully implemented (CRUD for articles, documents, slides, dashboards)
+- Will work once migration 008 creates the `content_items` table in Supabase
+- Background slide generation with job polling system
+- AI-powered content chat streaming
+
+#### Brain/Knowledge Base Routes (`api/routes/brain.py`)
+- Routes already functional with document upload, classification, chunking
+- Text search implemented (vector search available via pgvector)
+- Stats, batch upload, document management all working

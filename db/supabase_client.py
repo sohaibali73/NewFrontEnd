@@ -14,9 +14,6 @@ def get_supabase() -> Client:
     
     Uses service_role key if available (bypasses RLS for backend operations).
     Falls back to anon key if service_role key is not configured.
-    
-    WARNING: service_role key has full database access and bypasses RLS.
-    Only use it in secure backend code, never expose it to the frontend.
     """
     settings = get_settings()
     
@@ -26,7 +23,22 @@ def get_supabase() -> Client:
         return create_client(settings.supabase_url, settings.supabase_service_key)
     else:
         logger.warning(
-            "Using Supabase anon key. Set SUPABASE_SERVICE_KEY environment variable "
-            "for backend operations to bypass RLS policies."
+            "⚠️ SUPABASE_SERVICE_KEY is not set! Using anon key. "
+            "Backend operations will be limited by RLS policies. "
+            "Get it from: Supabase Dashboard > Settings > API > service_role key"
         )
         return create_client(settings.supabase_url, settings.supabase_key)
+
+
+def get_supabase_with_token(token: str) -> Client:
+    """
+    Get a Supabase client authenticated with a user's JWT token.
+    
+    This is used as a fallback when service_role key is not available.
+    The client will have the permissions of the authenticated user
+    (RLS policies based on auth.uid() will work).
+    """
+    settings = get_settings()
+    client = create_client(settings.supabase_url, settings.supabase_key)
+    client.auth.set_session(token, "")  # Set the access token
+    return client

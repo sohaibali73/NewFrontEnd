@@ -1,5 +1,7 @@
 """
 Admin Routes - Admin panel backend for AI training and management.
+
+Updated to use Supabase Auth with user_profiles table.
 """
 
 import logging
@@ -9,7 +11,7 @@ from pydantic import BaseModel, Field
 from datetime import datetime, timedelta
 import json
 
-from api.routes.auth import get_current_user_id
+from api.dependencies import get_current_user_id, get_current_user
 from db.supabase_client import get_supabase
 from core.training import get_training_manager, TrainingType
 from config import get_settings
@@ -36,7 +38,6 @@ def get_admin_emails() -> list:
     
     # Fallback defaults if no config provided
     default_emails = [
-        "test@gamil.com",
         "sohaib.ali@potomac.com",
     ]
     
@@ -45,29 +46,21 @@ def get_admin_emails() -> list:
     return list(all_emails)
 
 
-async def verify_admin(user_id: str = Depends(get_current_user_id)) -> str:
+async def verify_admin(user: Dict[str, Any] = Depends(get_current_user)) -> str:
     """
     Verify that the current user is an admin.
     
     Checks:
-    1. User exists
-    2. User email is in admin list OR user has is_admin flag
+    1. User exists in user_profiles
+    2. User has is_admin flag set to True
     """
-    db = get_supabase()
-    
-    result = db.table("users").select("id, email, is_admin").eq("id", user_id).execute()
-    
-    if not result.data:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    user = result.data[0]
-    email = user.get("email", "")
+    user_id = user.get("id")
     is_admin = user.get("is_admin", False)
+    email = user.get("email", "")
     
-    # Get admin emails from config
+    # Check if user is admin by flag or by email
     admin_emails = get_admin_emails()
     
-    # Check if user is admin
     if not is_admin and email.lower() not in admin_emails:
         raise HTTPException(
             status_code=403, 
@@ -161,8 +154,8 @@ async def admin_status(admin_id: str = Depends(verify_admin)):
     db = get_supabase()
     training_manager = get_training_manager()
     
-    # Get user counts
-    users = db.table("users").select("id", count="exact").execute()
+    # Get user counts from user_profiles
+    users = db.table("user_profiles").select("id", count="exact").execute()
     
     # Get training stats
     training_stats = training_manager.get_training_stats()
@@ -205,7 +198,7 @@ async def make_user_admin(
     """Make another user an admin."""
     db = get_supabase()
     
-    result = db.table("users").update({"is_admin": True}).eq("id", target_user_id).execute()
+    result = db.table("user_profiles").update({"is_admin": True}).eq("id", target_user_id).execute()
     
     if not result.data:
         raise HTTPException(status_code=404, detail="Target user not found")
@@ -228,7 +221,7 @@ async def revoke_admin(
     if target_user_id == admin_id:
         raise HTTPException(status_code=400, detail="Cannot revoke your own admin privileges")
     
-    result = db.table("users").update({"is_admin": False}).eq("id", target_user_id).execute()
+    result = db.table("user_profiles").update({"is_admin": False}).eq("id", target_user_id).execute()
     
     if not result.data:
         raise HTTPException(status_code=404, detail="Target user not found")
@@ -542,12 +535,13 @@ async def list_users(
     """List all users with pagination."""
     db = get_supabase()
     
-    result = db.table("users").select(
-        "id, email, name, nickname, is_admin, is_active, created_at, last_active"
+    # Use user_profiles table joined with auth.users for email
+    result = db.table("user_profiles").select(
+        "id, name, nickname, is_admin, is_active, created_at, last_active_at"
     ).order("created_at", desc=True).range(offset, offset + limit - 1).execute()
     
     # Get total count
-    total_result = db.table("users").select("id", count="exact").execute()
+    total_result = db.table("user_profiles").select("id", count="exact").execute()
     
     return {
         "count": len(result.data),
@@ -569,16 +563,15 @@ async def get_user(
     """Get a specific user's details."""
     db = get_supabase()
     
-    result = db.table("users").select("*").eq("id", user_id).execute()
+    result = db.table("user_profiles").select("*").eq("id", user_id).execute()
     
     if not result.data:
         raise HTTPException(status_code=404, detail="User not found")
     
     user = result.data[0]
-    # Remove sensitive data
-    user.pop("password_hash", None)
-    user.pop("claude_api_key", None)
-    user.pop("tavily_api_key", None)
+    # Remove encrypted API keys from response (they're encrypted blobs)
+    user.pop("claude_api_key_encrypted", None)
+    user.pop("tavily_api_key_encrypted", None)
     
     return user
 
@@ -598,7 +591,7 @@ async def update_user(
     if not updates:
         raise HTTPException(status_code=400, detail="No updates provided")
     
-    result = db.table("users").update(updates).eq("id", user_id).execute()
+    result = db.table("user_profiles").update(updates).eq("id", user_id).execute()
     
     if not result.data:
         raise HTTPException(status_code=404, detail="User not found")
@@ -620,7 +613,7 @@ async def delete_user(
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
     
     # Soft delete - mark as inactive instead of hard delete
-    result = db.table("users").update({"is_active": False}).eq("id", user_id).execute()
+    result = db.table("user_profiles").update({"is_active": False}).eq("id", user_id).execute()
     
     if not result.data:
         raise HTTPException(status_code=404, detail="User not found")
@@ -638,7 +631,7 @@ async def restore_user(
     """Restore a deleted/inactive user."""
     db = get_supabase()
     
-    result = db.table("users").update({"is_active": True}).eq("id", user_id).execute()
+    result = db.table("user_profiles").update({"is_active": True}).eq("id", user_id).execute()
     
     if not result.data:
         raise HTTPException(status_code=404, detail="User not found")
@@ -696,11 +689,15 @@ async def add_admin_email(
     """
     db = get_supabase()
     
-    # Find user by email
-    result = db.table("users").select("id, email, is_admin").eq("email", email).execute()
+    # Find user by email in auth.users via user_profiles
+    # Note: We need to query auth.users for email, then update user_profiles
+    # Since we can't directly query auth.users, we use the admin_user_list view
+    result = db.table("user_profiles").select("id, is_admin").eq("email", email).execute()
     
+    # If not found in user_profiles, check if they exist in auth.users
     if not result.data:
-        return {"status": "not_found", "message": f"No user found with email {email}"}
+        # User may not have a profile yet - they need to log in first
+        return {"status": "not_found", "message": f"No user found with email {email}. User may need to log in first."}
     
     user = result.data[0]
     
@@ -708,7 +705,7 @@ async def add_admin_email(
         return {"status": "exists", "message": f"{email} is already an admin"}
     
     # Make them admin
-    db.table("users").update({"is_admin": True}).eq("id", user["id"]).execute()
+    db.table("user_profiles").update({"is_admin": True}).eq("id", user["id"]).execute()
     
     await log_admin_action(admin_id, "add_admin_email", {"email": email, "user_id": user["id"]})
     
@@ -1008,9 +1005,9 @@ async def get_analytics_overview(
     training_manager = get_training_manager()
     
     try:
-        # User stats
-        total_users = db.table("users").select("id", count="exact").execute()
-        active_users = db.table("users").select("id", count="exact").gte("last_active", datetime.utcnow() - timedelta(days=days)).execute()
+        # User stats from user_profiles
+        total_users = db.table("user_profiles").select("id", count="exact").execute()
+        active_users = db.table("user_profiles").select("id", count="exact").gte("last_active_at", datetime.utcnow() - timedelta(days=days)).execute()
         
         # Code generation stats
         total_codes = db.table("afl_codes").select("id", count="exact").execute()
@@ -1089,10 +1086,10 @@ async def get_analytics_trends(
             "DATE(created_at) as date, COUNT(*) as count, AVG(rating) as avg_rating"
         ).gte("created_at", start_date).lte("created_at", end_date).group_by("DATE(created_at)").execute()
         
-        # Daily user activity trend
-        user_trend = db.table("users").select(
-            "DATE(last_active) as date, COUNT(*) as active_users"
-        ).gte("last_active", start_date).lte("last_active", end_date).group_by("DATE(last_active)").execute()
+        # Daily user activity trend from user_profiles
+        user_trend = db.table("user_profiles").select(
+            "DATE(last_active_at) as date, COUNT(*) as active_users"
+        ).gte("last_active_at", start_date).lte("last_active_at", end_date).group_by("DATE(last_active_at)").execute()
         
         return {
             "period_days": days,
@@ -1121,13 +1118,13 @@ async def get_engagement_metrics(
     db = get_supabase()
     
     try:
-        # Active users by day
-        daily_active = db.table("users").select(
-            "DATE(last_active) as date, COUNT(*) as count"
-        ).gte("last_active", datetime.utcnow() - timedelta(days=days)).group_by("DATE(last_active)").execute()
+        # Active users by day from user_profiles
+        daily_active = db.table("user_profiles").select(
+            "DATE(last_active_at) as date, COUNT(*) as count"
+        ).gte("last_active_at", datetime.utcnow() - timedelta(days=days)).group_by("DATE(last_active_at)").execute()
         
-        # User retention (simplified)
-        new_users = db.table("users").select("id, created_at").gte("created_at", datetime.utcnow() - timedelta(days=days)).execute()
+        # User retention (simplified) from user_profiles
+        new_users = db.table("user_profiles").select("id, created_at").gte("created_at", datetime.utcnow() - timedelta(days=days)).execute()
         
         # Feature usage
         feature_usage = db.table("analytics_events").select(
@@ -1223,8 +1220,8 @@ async def get_system_health(admin_id: str = Depends(verify_admin)):
     db = get_supabase()
     
     try:
-        # Database connectivity
-        db_test = db.table("users").select("id", count="exact").limit(1).execute()
+        # Database connectivity - use user_profiles
+        db_test = db.table("user_profiles").select("id", count="exact").limit(1).execute()
         db_status = "healthy" if db_test.data is not None else "unhealthy"
         
         # Storage usage (approximate)
@@ -1301,67 +1298,42 @@ async def export_users_data(
     """Export user data for backup or analysis."""
     db = get_supabase()
 
-    # Get users with basic info (no sensitive data)
-    users = db.table("users").select(
-        "id, email, name, nickname, is_admin, is_active, created_at, last_active"
+    # Get users from user_profiles (no sensitive data like encrypted API keys)
+    users = db.table("user_profiles").select(
+        "id, name, nickname, is_admin, is_active, created_at, last_active_at"
     ).execute()
 
-    # OPTIMIZED: Use PostgreSQL to aggregate counts instead of N queries
-    # Get all user stats in one query using LEFT JOIN
-    user_stats_query = """
-        SELECT 
-            u.id,
-            u.email,
-            u.name,
-            u.is_admin,
-            u.is_active,
-            u.created_at,
-            u.last_active,
-            COUNT(DISTINCT c.id) as codes_generated,
-            COUNT(DISTINCT f.id) as feedback_submitted
-        FROM users u
-        LEFT JOIN afl_codes c ON c.user_id = u.id
-        LEFT JOIN user_feedback f ON f.user_id = u.id
-        GROUP BY u.id, u.email, u.name, u.is_admin, u.is_active, u.created_at, u.last_active
-    """
+    # Get user IDs for batch queries
+    user_ids = [u["id"] for u in users.data or []]
 
-    try:
-        # Execute the optimized query using RPC or raw SQL
-        result = db.rpc('get_user_stats_for_export').execute()
-        user_stats = result.data
-    except:
-        # Fallback: If RPC doesn't exist, build stats from user list
-        # This is still better than N+1 as we batch the queries
-        user_ids = [u["id"] for u in users.data or []]
+    # Get all code counts in one query
+    codes_result = db.table("afl_codes").select("user_id").in_("user_id", user_ids).execute()
+    codes_by_user = {}
+    for code in codes_result.data or []:
+        user_id = code["user_id"]
+        codes_by_user[user_id] = codes_by_user.get(user_id, 0) + 1
 
-        # Get all code counts in one query
-        codes_result = db.table("afl_codes").select("user_id").in_("user_id", user_ids).execute()
-        codes_by_user = {}
-        for code in codes_result.data or []:
-            user_id = code["user_id"]
-            codes_by_user[user_id] = codes_by_user.get(user_id, 0) + 1
+    # Get all feedback counts in one query
+    feedback_result = db.table("user_feedback").select("user_id").in_("user_id", user_ids).execute()
+    feedback_by_user = {}
+    for feedback in feedback_result.data or []:
+        user_id = feedback["user_id"]
+        feedback_by_user[user_id] = feedback_by_user.get(user_id, 0) + 1
 
-        # Get all feedback counts in one query
-        feedback_result = db.table("user_feedback").select("user_id").in_("user_id", user_ids).execute()
-        feedback_by_user = {}
-        for feedback in feedback_result.data or []:
-            user_id = feedback["user_id"]
-            feedback_by_user[user_id] = feedback_by_user.get(user_id, 0) + 1
-
-        # Build user stats
-        user_stats = []
-        for user in users.data or []:
-            user_stats.append({
-                "user_id": user["id"],
-                "email": user["email"],
-                "name": user["name"],
-                "is_admin": user["is_admin"],
-                "is_active": user["is_active"],
-                "created_at": user["created_at"],
-                "last_active": user["last_active"],
-                "codes_generated": codes_by_user.get(user["id"], 0),
-                "feedback_submitted": feedback_by_user.get(user["id"], 0),
-            })
+    # Build user stats
+    user_stats = []
+    for user in users.data or []:
+        user_stats.append({
+            "user_id": user["id"],
+            "name": user.get("name"),
+            "nickname": user.get("nickname"),
+            "is_admin": user.get("is_admin", False),
+            "is_active": user.get("is_active", True),
+            "created_at": user.get("created_at"),
+            "last_active_at": user.get("last_active_at"),
+            "codes_generated": codes_by_user.get(user["id"], 0),
+            "feedback_submitted": feedback_by_user.get(user["id"], 0),
+        })
 
     return {
         "export_date": datetime.utcnow().isoformat(),

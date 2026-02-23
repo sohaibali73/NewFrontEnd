@@ -8,6 +8,7 @@ __pycache__/
 node_modules/
 .next/
 package-lock.json
+pnpm-lock.yaml
 
 # Large/binary files
 *.zip
@@ -19,5 +20,10 @@ package-lock.json
 pptx_engine/templates/
 pptx_engine/uploads/
 pptx_engine/outputs/
-node_modules/  
-frontend-extracted/  
+
+# Test output
+indesign_mcp/test_output/
+
+# Previously tracked (now ignored)
+node_modules/
+frontend-extracted/

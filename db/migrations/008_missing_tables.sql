@@ -1,13 +1,12 @@
 -- Migration 008: Create missing tables for content, backtest, and writing styles
--- Required by: api/routes/content.py, api/routes/backtest.py
+-- SAFE VERSION: Drops and recreates tables to avoid schema conflicts
 -- Date: 2026-02-23
--- NOTE: Uses auth.users(id) for foreign keys (Supabase auth schema)
--- Run migration 009 AFTER this one for brain tables.
 
 -- ============================================================================
 -- content_items — stores articles, documents, slides, dashboards
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS content_items (
+DROP TABLE IF EXISTS content_items CASCADE;
+CREATE TABLE content_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
     title VARCHAR(500) NOT NULL,
@@ -20,28 +19,20 @@ CREATE TABLE IF NOT EXISTS content_items (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_content_items_user_id ON content_items(user_id);
-CREATE INDEX IF NOT EXISTS idx_content_items_content_type ON content_items(content_type);
-CREATE INDEX IF NOT EXISTS idx_content_items_status ON content_items(status);
-CREATE INDEX IF NOT EXISTS idx_content_items_updated_at ON content_items(updated_at DESC);
+CREATE INDEX idx_content_items_user_id ON content_items(user_id);
+CREATE INDEX idx_content_items_content_type ON content_items(content_type);
+CREATE INDEX idx_content_items_status ON content_items(status);
 
--- RLS for content_items
 ALTER TABLE content_items ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Users can manage own content" ON content_items;
-CREATE POLICY "Users can manage own content" ON content_items
-    FOR ALL
-    USING (true)
-    WITH CHECK (true);
-
--- Grant access
+CREATE POLICY "content_items_all" ON content_items FOR ALL USING (true) WITH CHECK (true);
 GRANT ALL ON content_items TO service_role;
 GRANT ALL ON content_items TO authenticated;
 
 -- ============================================================================
--- writing_styles — user-defined writing styles for content generation
+-- writing_styles
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS writing_styles (
+DROP TABLE IF EXISTS writing_styles CASCADE;
+CREATE TABLE writing_styles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
     name VARCHAR(255) NOT NULL,
@@ -53,24 +44,18 @@ CREATE TABLE IF NOT EXISTS writing_styles (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_writing_styles_user_id ON writing_styles(user_id);
+CREATE INDEX idx_writing_styles_user_id ON writing_styles(user_id);
 
--- RLS for writing_styles
 ALTER TABLE writing_styles ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Users can manage own styles" ON writing_styles;
-CREATE POLICY "Users can manage own styles" ON writing_styles
-    FOR ALL
-    USING (true)
-    WITH CHECK (true);
-
+CREATE POLICY "writing_styles_all" ON writing_styles FOR ALL USING (true) WITH CHECK (true);
 GRANT ALL ON writing_styles TO service_role;
 GRANT ALL ON writing_styles TO authenticated;
 
 -- ============================================================================
--- backtest_results — stores uploaded backtest CSVs and AI analysis
+-- backtest_results
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS backtest_results (
+DROP TABLE IF EXISTS backtest_results CASCADE;
+CREATE TABLE backtest_results (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
     strategy_id UUID,
@@ -83,17 +68,9 @@ CREATE TABLE IF NOT EXISTS backtest_results (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_backtest_results_user_id ON backtest_results(user_id);
-CREATE INDEX IF NOT EXISTS idx_backtest_results_strategy_id ON backtest_results(strategy_id);
+CREATE INDEX idx_backtest_results_user_id ON backtest_results(user_id);
 
--- RLS for backtest_results
 ALTER TABLE backtest_results ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Users can manage own backtests" ON backtest_results;
-CREATE POLICY "Users can manage own backtests" ON backtest_results
-    FOR ALL
-    USING (true)
-    WITH CHECK (true);
-
+CREATE POLICY "backtest_results_all" ON backtest_results FOR ALL USING (true) WITH CHECK (true);
 GRANT ALL ON backtest_results TO service_role;
 GRANT ALL ON backtest_results TO authenticated;

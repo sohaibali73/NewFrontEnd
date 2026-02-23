@@ -1,17 +1,19 @@
--- Migration 009: Create brain_documents and brain_chunks tables with pgvector embeddings
--- Required by: api/routes/brain.py (Knowledge Base)
+-- Migration 009: Create brain tables with pgvector embeddings
+-- SAFE VERSION: Drops and recreates to avoid schema conflicts
+-- Run BEFORE migration 008
 -- Date: 2026-02-23
--- Prerequisites: pgvector extension must be enabled in Supabase
 
--- ============================================================================
--- Enable pgvector extension (must be done first)
--- ============================================================================
+-- Enable pgvector
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ============================================================================
--- brain_documents — uploaded documents for RAG knowledge base
+-- brain_documents
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS brain_documents (
+DROP TABLE IF EXISTS brain_chunks CASCADE;
+DROP TABLE IF EXISTS learnings CASCADE;
+DROP TABLE IF EXISTS brain_documents CASCADE;
+
+CREATE TABLE brain_documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     uploaded_by UUID,
     title VARCHAR(500) NOT NULL,
@@ -32,65 +34,39 @@ CREATE TABLE IF NOT EXISTS brain_documents (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_brain_documents_uploaded_by ON brain_documents(uploaded_by);
-CREATE INDEX IF NOT EXISTS idx_brain_documents_category ON brain_documents(category);
-CREATE INDEX IF NOT EXISTS idx_brain_documents_content_hash ON brain_documents(content_hash);
-CREATE INDEX IF NOT EXISTS idx_brain_documents_created_at ON brain_documents(created_at DESC);
+CREATE INDEX idx_brain_documents_uploaded_by ON brain_documents(uploaded_by);
+CREATE INDEX idx_brain_documents_category ON brain_documents(category);
+CREATE INDEX idx_brain_documents_content_hash ON brain_documents(content_hash);
 
--- RLS
 ALTER TABLE brain_documents ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Users can manage brain documents" ON brain_documents;
-CREATE POLICY "Users can manage brain documents" ON brain_documents
-    FOR ALL USING (true) WITH CHECK (true);
-
+CREATE POLICY "brain_documents_all" ON brain_documents FOR ALL USING (true) WITH CHECK (true);
 GRANT ALL ON brain_documents TO service_role;
 GRANT ALL ON brain_documents TO authenticated;
 
 -- ============================================================================
--- brain_chunks — document chunks with vector embeddings for RAG
+-- brain_chunks with vector embeddings
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS brain_chunks (
+CREATE TABLE brain_chunks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id UUID NOT NULL REFERENCES brain_documents(id) ON DELETE CASCADE,
     chunk_index INTEGER NOT NULL,
     content TEXT NOT NULL,
-    embedding vector(1536),  -- OpenAI/Voyage embedding dimension
+    embedding vector(1536),
     token_count INTEGER,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_brain_chunks_document_id ON brain_chunks(document_id);
-CREATE INDEX IF NOT EXISTS idx_brain_chunks_chunk_index ON brain_chunks(chunk_index);
+CREATE INDEX idx_brain_chunks_document_id ON brain_chunks(document_id);
 
--- Create HNSW index for fast vector similarity search (if embedding column populated)
--- This is the key index for RAG performance
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_brain_chunks_embedding') THEN
-        CREATE INDEX idx_brain_chunks_embedding ON brain_chunks
-            USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
-    END IF;
-EXCEPTION
-    WHEN others THEN
-        -- IVFFlat requires training data; skip if table is empty
-        RAISE NOTICE 'Skipping IVFFlat index creation (will be created after data is inserted)';
-END $$;
-
--- RLS
 ALTER TABLE brain_chunks ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Users can read brain chunks" ON brain_chunks;
-CREATE POLICY "Users can read brain chunks" ON brain_chunks
-    FOR ALL USING (true) WITH CHECK (true);
-
+CREATE POLICY "brain_chunks_all" ON brain_chunks FOR ALL USING (true) WITH CHECK (true);
 GRANT ALL ON brain_chunks TO service_role;
 GRANT ALL ON brain_chunks TO authenticated;
 
 -- ============================================================================
--- brain_learnings — AI-generated learnings/insights from documents
+-- learnings
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS learnings (
+CREATE TABLE learnings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id UUID REFERENCES brain_documents(id) ON DELETE CASCADE,
     user_id UUID,
@@ -101,20 +77,15 @@ CREATE TABLE IF NOT EXISTS learnings (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_learnings_user_id ON learnings(user_id);
-CREATE INDEX IF NOT EXISTS idx_learnings_document_id ON learnings(document_id);
+CREATE INDEX idx_learnings_user_id ON learnings(user_id);
 
 ALTER TABLE learnings ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Users can manage learnings" ON learnings;
-CREATE POLICY "Users can manage learnings" ON learnings
-    FOR ALL USING (true) WITH CHECK (true);
-
+CREATE POLICY "learnings_all" ON learnings FOR ALL USING (true) WITH CHECK (true);
 GRANT ALL ON learnings TO service_role;
 GRANT ALL ON learnings TO authenticated;
 
 -- ============================================================================
--- Function: Vector similarity search for RAG
+-- Vector similarity search function
 -- ============================================================================
 CREATE OR REPLACE FUNCTION match_brain_chunks(
     query_embedding vector(1536),

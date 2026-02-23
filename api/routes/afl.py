@@ -96,7 +96,10 @@ async def generate_afl(
     """Generate AFL code with optional mandatory question flow."""
 
     if not api_keys.get("claude"):
-        raise HTTPException(status_code=400, detail="Claude API key not configured")
+        raise HTTPException(
+            status_code=400, 
+            detail="Claude API key not configured. Please add your API key in Profile Settings."
+        )
 
     db = get_supabase()
 

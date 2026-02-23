@@ -213,7 +213,10 @@ async def send_message(
     db = get_supabase()
 
     if not api_keys.get("claude"):
-        raise HTTPException(status_code=400, detail="Claude API key not configured")
+        raise HTTPException(
+            status_code=400, 
+            detail="Claude API key not configured. Please add your API key in Profile Settings."
+        )
 
     # Get or create conversation
     conversation_id = data.conversation_id
@@ -608,10 +611,26 @@ Be direct and helpful. ALWAYS use sanity_check_afl before presenting any AFL cod
             messages = history + [{"role": "user", "content": data.content}]
             tools = get_all_tools()
             
-            # Add Claude Skills (beta API) for enhanced AFL and finance capabilities
+            # Add ALL Claude Skills (beta API) for comprehensive capabilities
             skills = [
-                {"type": "skill", "id": "skill_016P1TD56w12BF27PnhDeM1T", "name": "amibroker-afl-suite"},
+                # Custom Skills — Finance & Trading
+                {"type": "skill", "id": "skill_016PiTD56w12BF27PnhDeM1T", "name": "amibroker-afl-suite"},
                 {"type": "skill", "id": "skill_01X5yKJy6cJPRgpFW5C8C1i8", "name": "quant-analyst"},
+                {"type": "skill", "id": "skill_01PdnyT3jcLshnCQJmdPqTR6", "name": "financial-deep-research"},
+                {"type": "skill", "id": "skill_01A2s1Q8zBjfMQC87KTWHavp", "name": "backtesting-frameworks"},
+                {"type": "skill", "id": "skill_01HKFBybai8sm3gKrxuZbZP3", "name": "backtest-expert"},
+                {"type": "skill", "id": "skill_01UWobdcmuwz1VTYQBTpb6fA", "name": "us-market-bubble-detector"},
+                # Custom Skills — Artifacts & UI
+                {"type": "skill", "id": "skill_01XonCKm9QM3jUbtxt96tm9Q", "name": "artifacts-builder"},
+                {"type": "skill", "id": "skill_01ACJvCz8aYdVA916Aqaq2Wx", "name": "ai-elements"},
+                # Custom Skills — Presentations
+                {"type": "skill", "id": "skill_012iRe5U8DLcwckXomhFLEFm", "name": "pptxpotomac"},
+                {"type": "skill", "id": "skill_01Aa2Us1EDWXRkrxg1PgqbaC", "name": "potomac-pptx"},
+                # Anthropic Built-in Skills — File Processing
+                {"type": "skill", "name": "xlsx"},
+                {"type": "skill", "name": "pptx"},
+                {"type": "skill", "name": "pdf"},
+                {"type": "skill", "name": "docx"},
             ]
             all_tools = tools + skills
             

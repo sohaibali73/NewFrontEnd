@@ -123,7 +123,10 @@ async def chat(
     db = get_supabase()
     
     if not api_keys.get("claude"):
-        raise HTTPException(status_code=400, detail="Claude API key not configured")
+        raise HTTPException(
+            status_code=400, 
+            detail="Claude API key not configured. Please add your API key in Profile Settings."
+        )
     
     # Handle conversation persistence
     conversation_id = request.conversation_id

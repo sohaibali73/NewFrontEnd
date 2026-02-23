@@ -21,7 +21,10 @@ async def upload_backtest(
     db = get_supabase()
 
     if not api_keys.get("claude"):
-        raise HTTPException(status_code=400, detail="Claude API key not configured")
+        raise HTTPException(
+            status_code=400, 
+            detail="Claude API key not configured. Please add your API key in Profile Settings."
+        )
 
     # Read content
     content = (await file.read()).decode("utf-8", errors="ignore")

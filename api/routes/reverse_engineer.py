@@ -81,7 +81,10 @@ async def start_reverse_engineer(
     db = get_supabase()
 
     if not api_keys.get("claude"):
-        raise HTTPException(status_code=400, detail="Claude API key not configured")
+        raise HTTPException(
+            status_code=400, 
+            detail="Claude API key not configured. Please add your API key in Profile Settings."
+        )
 
     try:
         query = data.get_query()

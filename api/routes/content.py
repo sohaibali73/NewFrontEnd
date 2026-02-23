@@ -468,7 +468,10 @@ async def generate_presentation(
     """
     claude_key = api_keys.get("claude")
     if not claude_key:
-        raise HTTPException(status_code=400, detail="Claude API key not configured")
+        raise HTTPException(
+            status_code=400, 
+            detail="Claude API key not configured. Please add your API key in Profile Settings."
+        )
 
     _prune_old_jobs()
 

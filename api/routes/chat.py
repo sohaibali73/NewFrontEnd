@@ -38,7 +38,10 @@ class ConversationCreate(BaseModel):
     conversation_type: str = "agent"
 
 @router.get("/conversations")
-async def get_conversations(user_id: str = Depends(get_current_user_id)):
+async def get_conversations(
+    request: Request,
+    user_id: str = Depends(get_current_user_id)
+):
     """Get all conversations for user."""
     db = get_supabase()
 

@@ -1,29 +1,6 @@
-.env
-__pycache__/
-*.pyc
-.venv/
-.idea/
-
-# Node
 node_modules/
-.next/
-package-lock.json
-pnpm-lock.yaml
-
-# Large/binary files
-*.zip
-*.dll
-*.node
-*.exe
-
-# PPTX Engine (templates, uploads, outputs are large/generated)
-pptx_engine/templates/
-pptx_engine/uploads/
-pptx_engine/outputs/
-
-# Test output
-indesign_mcp/test_output/
-
-# Previously tracked (now ignored)
-node_modules/
-frontend-extracted/
+dist/
+.branches/
+.temp/
+.DS_Store
+.env*

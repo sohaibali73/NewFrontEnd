@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     # Data Encryption at Rest - MUST be set via environment variable
     # Generate a secure 32-byte key: python -c "import secrets; print(secrets.token_urlsafe(32))"
     encryption_key: str = ""  # Used for encrypting sensitive data like API keys
+    
+    # Admin configuration (comma-separated list of admin emails)
+    admin_emails: str = ""
 
     # Security - Note: These are DEPRECATED - Supabase Auth handles JWT tokens
     secret_key: str = "change-this-in-production"
@@ -42,9 +45,6 @@ class Settings(BaseSettings):
     
     # Frontend URL for password reset links
     frontend_url: str = "https://analystbypotomac.vercel.app"
-
-    # Admin configuration (comma-separated list of admin emails)
-    admin_emails: str = ""
 
     # Storage settings
     max_upload_size_mb: int = 50

@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 import logging
 import json
 
-from api.dependencies import get_current_user_id, get_user_api_keys
+from api.dependencies import get_current_user_id, get_user_with_api_keys
 from core.claude_engine import ClaudeAFLEngine, StrategyType
 from core.researcher import StrategyResearcher
 from core.context_manager import truncate_context, get_recent_messages, CONDENSED_CONTEXT_LIMITS
@@ -75,12 +75,12 @@ class ContinueRequest(BaseModel):
 async def start_reverse_engineer(
         data: StartRequest,
         user_id: str = Depends(get_current_user_id),
-        api_keys: dict = Depends(get_user_api_keys),
+        user_with_keys: dict = Depends(get_user_with_api_keys),
 ):
     """Start a new reverse engineering session."""
     db = get_supabase()
 
-    if not api_keys.get("claude"):
+    if not user_with_keys.get("claude_api_key"):
         raise HTTPException(
             status_code=400, 
             detail="Claude API key not configured. Please add your API key in Profile Settings."
@@ -109,7 +109,7 @@ async def start_reverse_engineer(
 
     try:
         import anthropic
-        client = anthropic.Anthropic(api_key=api_keys["claude"])
+        client = anthropic.Anthropic(api_key=user_with_keys["claude_api_key"])
 
         prompt = get_condensed_clarification_prompt(query)
 
@@ -148,7 +148,7 @@ async def start_reverse_engineer(
 async def continue_conversation(
         data: ContinueRequest,
         user_id: str = Depends(get_current_user_id),
-        api_keys: dict = Depends(get_user_api_keys),
+        user_with_keys: dict = Depends(get_user_with_api_keys),
 ):
     """Continue reverse engineering conversation."""
     db = get_supabase()
@@ -185,10 +185,10 @@ async def continue_conversation(
 
         import anthropic
         
-        if not api_keys.get("claude"):
+        if not user_with_keys.get("claude_api_key"):
             raise HTTPException(status_code=400, detail="Claude API key not configured")
             
-        client = anthropic.Anthropic(api_key=api_keys["claude"])
+        client = anthropic.Anthropic(api_key=user_with_keys["claude_api_key"])
 
         phase = strategy_data.get("status", "clarification")
         research_data = strategy_data.get("research_data") or {}
@@ -198,7 +198,7 @@ async def continue_conversation(
         if phase == "clarification" and not synthesis:
             logger.info("Conducting live web research...")
             try:
-                researcher = StrategyResearcher(tavily_api_key=api_keys.get("tavily"))
+                researcher = StrategyResearcher(tavily_api_key=user_with_keys.get("tavily_api_key"))
                 research_context = researcher.research_strategy(strategy_data.get("source_query", ""))
                 logger.info(f"Research completed: {len(research_context)} chars")
                 research_context = truncate_context(research_context, max_tokens=CONDENSED_CONTEXT_LIMITS["research_context_max_tokens"])
@@ -263,7 +263,7 @@ Context: {full_context[:2000] if full_context else "No context yet"}'''
 async def conduct_research(
         strategy_id: str,
         user_id: str = Depends(get_current_user_id),
-        api_keys: dict = Depends(get_user_api_keys),
+        user_with_keys: dict = Depends(get_user_with_api_keys),
 ):
     """Conduct web research on the strategy."""
     db = get_supabase()
@@ -275,10 +275,10 @@ async def conduct_research(
     strategy_data = strategy.data[0]
 
     research_context = ""
-    if api_keys.get("tavily"):
+    if user_with_keys.get("tavily_api_key"):
         try:
             researcher = StrategyResearcher()
-            researcher.client.api_key = api_keys["tavily"]
+            researcher.client.api_key = user_with_keys["tavily_api_key"]
             research_context = researcher.research_strategy(strategy_data["source_query"])
             research_context = truncate_context(research_context, max_tokens=CONDENSED_CONTEXT_LIMITS["research_context_max_tokens"])
         except Exception as e:
@@ -286,7 +286,7 @@ async def conduct_research(
 
     try:
         import anthropic
-        client = anthropic.Anthropic(api_key=api_keys["claude"])
+        client = anthropic.Anthropic(api_key=user_with_keys["claude_api_key"])
 
         synthesis_prompt = f"""Synthesize research for: {strategy_data['source_query']}
 
@@ -425,7 +425,7 @@ SIMPLE_FALLBACK_MERMAID = '''flowchart TD
 async def generate_schematic(
         strategy_id: str,
         user_id: str = Depends(get_current_user_id),
-        api_keys: dict = Depends(get_user_api_keys),
+        user_with_keys: dict = Depends(get_user_with_api_keys),
 ):
     """Generate strategy schematic with Mermaid diagram."""
     db = get_supabase()
@@ -443,7 +443,7 @@ async def generate_schematic(
 
     try:
         import anthropic
-        client = anthropic.Anthropic(api_key=api_keys["claude"])
+        client = anthropic.Anthropic(api_key=user_with_keys["claude_api_key"])
 
         strategy_name = strategy_data.get('source_query', 'Trading Strategy')
         prompt = f"""Create a visual schematic for this trading strategy.
@@ -571,7 +571,7 @@ Also provide a brief JSON summary:
 async def generate_code(
         strategy_id: str,
         user_id: str = Depends(get_current_user_id),
-        api_keys: dict = Depends(get_user_api_keys),
+        user_with_keys: dict = Depends(get_user_with_api_keys),
 ):
     """Generate AFL code from strategy."""
     db = get_supabase()
@@ -583,7 +583,7 @@ async def generate_code(
     strategy_data = strategy.data[0]
 
     try:
-        engine = ClaudeAFLEngine(api_key=api_keys["claude"], use_condensed_prompts=True)
+        engine = ClaudeAFLEngine(api_key=user_with_keys["claude_api_key"], use_condensed_prompts=True)
 
         research_data = strategy_data.get("research_data") or {}
         synthesis = research_data.get("synthesis", "") if isinstance(research_data, dict) else ""

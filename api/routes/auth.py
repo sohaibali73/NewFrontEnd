@@ -249,15 +249,15 @@ async def update_api_keys(data: APIKeyUpdate, user: dict = Depends(get_current_u
 
     if data.claude_api_key is not None:
         if data.claude_api_key.strip():
-            update_data["claude_api_key"] = encrypt_value(data.claude_api_key.strip())
+            update_data["claude_api_key_encrypted"] = encrypt_value(data.claude_api_key.strip())
         else:
-            update_data["claude_api_key"] = None
+            update_data["claude_api_key_encrypted"] = None
 
     if data.tavily_api_key is not None:
         if data.tavily_api_key.strip():
-            update_data["tavily_api_key"] = encrypt_value(data.tavily_api_key.strip())
+            update_data["tavily_api_key_encrypted"] = encrypt_value(data.tavily_api_key.strip())
         else:
-            update_data["tavily_api_key"] = None
+            update_data["tavily_api_key_encrypted"] = None
 
     try:
         result = db.table("user_profiles").update(update_data).eq("id", user["id"]).execute()

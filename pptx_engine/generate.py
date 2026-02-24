@@ -94,15 +94,15 @@ def _resolve_api_key(user_id: Optional[str]) -> str:
         try:
             sb = get_supabase()
             result = (
-                sb.table("users")
-                .select("claude_api_key")
+                sb.table("user_profiles")
+                .select("claude_api_key_encrypted")
                 .eq("id", user_id)
                 .limit(1)
                 .execute()
             )
-            if result.data and result.data[0].get("claude_api_key"):
+            if result.data and result.data[0].get("claude_api_key_encrypted"):
                 logger.debug("Using per-user Claude API key for user %s", user_id)
-                return result.data[0]["claude_api_key"]
+                return result.data[0]["claude_api_key_encrypted"]
         except Exception as exc:
             logger.warning(
                 "Failed to fetch claude_api_key for user %s: %s – falling back to env key.",

@@ -56,7 +56,7 @@ async def get_current_user(
 
         # Get profile from user_profiles — only fetch non-sensitive columns
         profile_result = db.table("user_profiles").select(
-            "id, name, nickname, is_admin, is_active, created_at, last_active_at, claude_api_key, tavily_api_key"
+            "id, name, nickname, is_admin, is_active, created_at, last_active_at, claude_api_key_encrypted, tavily_api_key_encrypted"
         ).eq("id", user_id).execute()
 
         if not profile_result.data:
@@ -88,8 +88,8 @@ async def get_current_user(
             "created_at": profile.get("created_at"),
             "last_active_at": profile.get("last_active_at"),
             # Include key presence flags (not the actual keys)
-            "has_claude_key": bool(profile.get("claude_api_key")),
-            "has_tavily_key": bool(profile.get("tavily_api_key")),
+            "has_claude_key": bool(profile.get("claude_api_key_encrypted")),
+            "has_tavily_key": bool(profile.get("tavily_api_key_encrypted")),
         }
     except HTTPException:
         raise
@@ -108,13 +108,13 @@ async def get_user_api_keys(user_id: str) -> Dict[str, str]:
 
     try:
         result = db.table("user_profiles").select(
-            "claude_api_key, tavily_api_key"
+            "claude_api_key_encrypted, tavily_api_key_encrypted"
         ).eq("id", user_id).execute()
 
         if result.data:
             row = result.data[0]
-            raw_claude = row.get("claude_api_key") or ""
-            raw_tavily = row.get("tavily_api_key") or ""
+            raw_claude = row.get("claude_api_key_encrypted") or ""
+            raw_tavily = row.get("tavily_api_key_encrypted") or ""
 
             # Decrypt (handles both encrypted 'enc:...' and legacy plain text)
             return {

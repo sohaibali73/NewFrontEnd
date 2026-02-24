@@ -98,9 +98,9 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
-async def get_user_api_keys(user_id: str) -> Dict[str, str]:
+async def _fetch_api_keys_for_user(user_id: str) -> Dict[str, str]:
     """
-    Get user's API keys from user_profiles table.
+    Internal helper: Get user's API keys from user_profiles table.
     Keys are stored encrypted (AES-256) and decrypted here for use.
     Also handles legacy plain text keys for backward compatibility.
     """
@@ -127,6 +127,17 @@ async def get_user_api_keys(user_id: str) -> Dict[str, str]:
     return {"claude": "", "tavily": ""}
 
 
+async def get_user_api_keys(
+    user_id: str = Depends(get_current_user_id),
+) -> Dict[str, str]:
+    """
+    FastAPI dependency: Get user's decrypted API keys.
+    Chains from get_current_user_id so user_id comes from the JWT token,
+    NOT from query parameters.
+    """
+    return await _fetch_api_keys_for_user(user_id)
+
+
 async def get_user_with_api_keys(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> Dict[str, Any]:
@@ -135,7 +146,7 @@ async def get_user_with_api_keys(
     Use this dependency when you need the actual API keys.
     """
     user = await get_current_user(credentials)
-    api_keys = await get_user_api_keys(user["id"])
+    api_keys = await _fetch_api_keys_for_user(user["id"])
     user["claude_api_key"] = api_keys["claude"]
     user["tavily_api_key"] = api_keys["tavily"]
     return user

@@ -78,18 +78,28 @@ def decrypt_value(stored_value: str) -> str:
     """
     Decrypt an encrypted value back to plaintext.
     
-    Handles both:
+    Handles:
     - Encrypted values (prefixed with 'enc:')
+    - PostgreSQL bytea hex format ('\\x656e633a...' which is hex-encoded 'enc:...')
     - Legacy plain text values (no prefix) - returned as-is for backward compatibility
     
     Args:
-        stored_value: The stored string (may be encrypted or plain text)
+        stored_value: The stored string (may be encrypted, hex-encoded, or plain text)
         
     Returns:
         Decrypted plaintext string
     """
     if not stored_value or not stored_value.strip():
         return ""
+
+    # Handle PostgreSQL bytea hex format: \x656e633a... → enc:...
+    # This happens when the column type is 'bytea' instead of 'text'
+    if stored_value.startswith("\\x"):
+        try:
+            stored_value = bytes.fromhex(stored_value[2:]).decode("utf-8")
+            logger.info(f"Decoded bytea hex to text: starts_with_enc={stored_value.startswith('enc:')}")
+        except (ValueError, UnicodeDecodeError) as e:
+            logger.error(f"Failed to decode bytea hex: {e}")
 
     # If not encrypted (legacy plain text), return as-is
     if not stored_value.startswith("enc:"):

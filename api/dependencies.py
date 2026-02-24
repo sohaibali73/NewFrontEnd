@@ -116,10 +116,23 @@ async def _fetch_api_keys_for_user(user_id: str) -> Dict[str, str]:
             raw_claude = row.get("claude_api_key_encrypted") or ""
             raw_tavily = row.get("tavily_api_key_encrypted") or ""
 
+            # Debug: log raw stored value info
+            if raw_claude:
+                logger.info(f"Raw claude key from DB: len={len(raw_claude)}, starts_with_enc={raw_claude.startswith('enc:')}, first_20={raw_claude[:20]}...")
+
             # Decrypt (handles both encrypted 'enc:...' and legacy plain text)
+            claude_key = decrypt_value(raw_claude) if raw_claude else ""
+            tavily_key = decrypt_value(raw_tavily) if raw_tavily else ""
+
+            # Debug: log decrypted key info (safe - only first 10 chars)
+            if claude_key:
+                logger.info(f"Decrypted claude key: len={len(claude_key)}, first_10='{claude_key[:10]}', last_4='{claude_key[-4:]}'")
+            else:
+                logger.warning(f"Claude key decrypted to empty string!")
+
             return {
-                "claude": decrypt_value(raw_claude) if raw_claude else "",
-                "tavily": decrypt_value(raw_tavily) if raw_tavily else "",
+                "claude": claude_key,
+                "tavily": tavily_key,
             }
     except Exception as e:
         logger.error(f"Failed to get user API keys: {e}")

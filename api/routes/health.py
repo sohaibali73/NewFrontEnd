@@ -7,7 +7,6 @@ from datetime import datetime
 
 from db.supabase_client import get_supabase
 from config import get_settings
-from core.encryption import encrypt_value, decrypt_value
 
 logger = logging.getLogger(__name__)
 
@@ -196,60 +195,3 @@ async def check_migrations() -> Dict[str, Any]:
     return results
 
 
-@router.get("/debug-encryption")
-async def debug_encryption() -> Dict[str, Any]:
-    """
-    TEMPORARY: Debug encryption roundtrip and stored API key format.
-    Remove after diagnosing the 401 issue.
-    """
-    settings = get_settings()
-    db = get_supabase()
-    
-    result = {
-        "encryption_key_set": bool(settings.encryption_key),
-        "encryption_key_length": len(settings.encryption_key) if settings.encryption_key else 0,
-    }
-    
-    # Test encrypt/decrypt roundtrip
-    try:
-        test_value = "sk-ant-test-1234567890"
-        encrypted = encrypt_value(test_value)
-        decrypted = decrypt_value(encrypted)
-        result["roundtrip_test"] = {
-            "original": test_value,
-            "encrypted_prefix": encrypted[:20],
-            "decrypted_matches": decrypted == test_value,
-        }
-    except Exception as e:
-        result["roundtrip_test"] = {"error": str(e)}
-    
-    # Check stored key for user
-    try:
-        user_result = db.table("user_profiles").select(
-            "id, claude_api_key_encrypted"
-        ).eq("id", "f52cd56f-f55a-4029-aa55-56f87da0a632").execute()
-        
-        if user_result.data:
-            row = user_result.data[0]
-            raw = row.get("claude_api_key_encrypted") or ""
-            result["stored_key"] = {
-                "raw_length": len(raw),
-                "starts_with_enc": raw.startswith("enc:") if raw else False,
-                "raw_first_25": raw[:25] if raw else "(empty)",
-            }
-            
-            if raw:
-                try:
-                    decrypted_key = decrypt_value(raw)
-                    result["stored_key"]["decrypted_length"] = len(decrypted_key)
-                    result["stored_key"]["decrypted_first_12"] = decrypted_key[:12] if decrypted_key else "(empty)"
-                    result["stored_key"]["decrypted_last_4"] = decrypted_key[-4:] if decrypted_key else "(empty)"
-                    result["stored_key"]["looks_like_anthropic_key"] = decrypted_key.startswith("sk-ant-")
-                except Exception as e:
-                    result["stored_key"]["decrypt_error"] = str(e)
-        else:
-            result["stored_key"] = "user not found"
-    except Exception as e:
-        result["stored_key_error"] = str(e)
-    
-    return result

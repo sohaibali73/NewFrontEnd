@@ -102,9 +102,14 @@ async def _fetch_api_keys_for_user(user_id: str) -> Dict[str, str]:
     """
     Internal helper: Get user's API keys from user_profiles table.
     Keys are stored encrypted (AES-256) and decrypted here for use.
-    Also handles legacy plain text keys for backward compatibility.
+    Falls back to server-side API keys from environment variables if user hasn't set their own.
     """
+    from config import get_settings
+    settings = get_settings()
     db = get_supabase()
+
+    claude_key = ""
+    tavily_key = ""
 
     try:
         result = db.table("user_profiles").select(
@@ -128,16 +133,20 @@ async def _fetch_api_keys_for_user(user_id: str) -> Dict[str, str]:
             if claude_key:
                 logger.info(f"Decrypted claude key: len={len(claude_key)}, first_10='{claude_key[:10]}', last_4='{claude_key[-4:]}'")
             else:
-                logger.warning(f"Claude key decrypted to empty string!")
+                logger.info(f"No user claude key in DB, will check server-side fallback")
 
-            return {
-                "claude": claude_key,
-                "tavily": tavily_key,
-            }
     except Exception as e:
         logger.error(f"Failed to get user API keys: {e}")
 
-    return {"claude": "", "tavily": ""}
+    # Fallback to server-side keys from environment variables
+    if not claude_key and settings.anthropic_api_key:
+        claude_key = settings.anthropic_api_key
+        logger.info(f"Using server-side ANTHROPIC_API_KEY as fallback (len={len(claude_key)}, first_10='{claude_key[:10]}')")
+    if not tavily_key and settings.tavily_api_key:
+        tavily_key = settings.tavily_api_key
+        logger.info(f"Using server-side TAVILY_API_KEY as fallback")
+
+    return {"claude": claude_key, "tavily": tavily_key}
 
 
 async def get_user_api_keys(

@@ -281,6 +281,16 @@ except Exception as e:
     logger.error(f"✗ Failed to load pptx_generate router: {e}")
     logger.debug(traceback.format_exc())
 
+try:
+    from api.routes import voice_assistant
+    app.include_router(voice_assistant.router)
+    routers_loaded.append("voice_assistant")
+    logger.info("✓ Loaded voice_assistant router (Open source voice assistant)")
+except Exception as e:
+    routers_failed.append(("voice_assistant", str(e)))
+    logger.error(f"✗ Failed to load voice_assistant router: {e}")
+    logger.debug(traceback.format_exc())
+
 # Log summary
 logger.info(f"Router loading complete: {len(routers_loaded)} loaded, {len(routers_failed)} failed")
 if routers_failed:

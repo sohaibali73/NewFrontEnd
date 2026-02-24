@@ -39,5 +39,11 @@ pandas
 # Text-to-Speech (Voice Mode)
 edge-tts
 
+# Speech Recognition
+SpeechRecognition
+
+# Audio Processing
+pydub
+
 # Optional: Embeddings (for vector search)
 sentence-transformers==2.2.2

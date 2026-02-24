@@ -64,6 +64,8 @@ class APIKeyUpdate(BaseModel):
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     nickname: Optional[str] = None
+    claude_api_key: Optional[str] = None
+    tavily_api_key: Optional[str] = None
 
 
 class PasswordResetRequest(BaseModel):
@@ -214,7 +216,7 @@ async def get_me(user: dict = Depends(get_current_user)):
 
 @router.put("/me")
 async def update_user(data: UserUpdate, user: dict = Depends(get_current_user)):
-    """Update current user profile."""
+    """Update current user profile (including API keys)."""
     db = get_supabase()
 
     update_data = {"updated_at": datetime.utcnow().isoformat()}
@@ -222,6 +224,19 @@ async def update_user(data: UserUpdate, user: dict = Depends(get_current_user)):
         update_data["name"] = data.name
     if data.nickname is not None:
         update_data["nickname"] = data.nickname
+
+    # Handle API keys — encrypt before storage
+    if data.claude_api_key is not None:
+        if data.claude_api_key.strip():
+            update_data["claude_api_key_encrypted"] = encrypt_value(data.claude_api_key.strip())
+        else:
+            update_data["claude_api_key_encrypted"] = None
+
+    if data.tavily_api_key is not None:
+        if data.tavily_api_key.strip():
+            update_data["tavily_api_key_encrypted"] = encrypt_value(data.tavily_api_key.strip())
+        else:
+            update_data["tavily_api_key_encrypted"] = None
 
     result = db.table("user_profiles").update(update_data).eq("id", user["id"]).execute()
 

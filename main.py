@@ -221,14 +221,24 @@ except Exception as e:
     logger.error(f"✗ Failed to load researcher router: {e}")
     logger.debug(traceback.format_exc())
 
+ try:
+     from api.routes import health
+     app.include_router(health.router)
+     routers_loaded.append("health")
+     logger.info("✓ Loaded health router (database diagnostics)")
+ except Exception as e:
+     routers_failed.append(("health", str(e)))
+     logger.error(f"✗ Failed to load health router: {e}")
+     logger.debug(traceback.format_exc())
+
 try:
-    from api.routes import health
-    app.include_router(health.router)
-    routers_loaded.append("health")
-    logger.info("✓ Loaded health router (database diagnostics)")
+    from api.routes import upload
+    app.include_router(upload.router)
+    routers_loaded.append("upload")
+    logger.info("✓ Loaded upload router (Supabase Storage file uploads)")
 except Exception as e:
-    routers_failed.append(("health", str(e)))
-    logger.error(f"✗ Failed to load health router: {e}")
+    routers_failed.append(("upload", str(e)))
+    logger.error(f"✗ Failed to load upload router: {e}")
     logger.debug(traceback.format_exc())
 
 try:

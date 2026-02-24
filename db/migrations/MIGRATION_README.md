@@ -1,229 +1,166 @@
-# Database Migration Guide: Supabase Auth Integration
+# Database Migrations
 
-This migration rebuilds the authentication infrastructure to use Supabase's built-in authentication system with proper encryption for sensitive data.
+## Migration Strategy
 
-## What Changed
+This project uses Supabase PostgreSQL with a clean migration strategy.
 
-### Before
-- Custom `users` table with plain text password hashes (SHA256 with hardcoded salt)
-- API keys stored in plain text
-- Custom JWT token generation
-- RLS policies referencing `auth.uid()` but data in custom table
+### ⚠️ IMPORTANT: Clean Slate Migration
 
-### After
-- **Supabase Auth** (`auth.users`) for authentication
-- **AES-256-GCM encryption** for API keys at rest
-- **Supabase JWT tokens** with proper validation
-- **Proper RLS policies** using `auth.uid()`
-- **TLS/SSL encryption** in transit (handled by Supabase)
+**For fresh installations:** Run ONLY `001_initial_schema.sql`.
 
-## Migration Steps
-
-### 1. Generate an Encryption Key
-
-Run this command to generate a secure 32-byte encryption key:
-
-```bash
-python -c "import secrets; print(secrets.token_urlsafe(32))"
-```
-
-### 2. Update Environment Variables
-
-Add these variables to your `.env` file:
-
-```env
-# Supabase Configuration (existing)
-SUPABASE_URL=your-supabase-url
-SUPABASE_KEY=your-anon-key
-SUPABASE_SERVICE_KEY=your-service-role-key
-
-# Data Encryption at Rest (NEW - required)
-ENCRYPTION_KEY=your-generated-encryption-key
-
-# Admin Configuration (existing)
-ADMIN_EMAILS=sohaib.ali@potomac.com,admin@example.com
-```
-
-### 3. Run the Migration
-
-Execute the migration SQL in your Supabase SQL Editor:
-
-1. Open Supabase Dashboard
-2. Go to SQL Editor
-3. Run `db/migrations/010_supabase_auth_migration.sql`
-
-### 4. Configure Supabase Auth
-
-In Supabase Dashboard:
-
-1. Go to Authentication > Providers
-2. Enable Email provider
-3. Configure email templates (optional)
-4. Set up email confirmation settings
-
-### 5. Update Frontend
-
-Update your frontend to use Supabase Auth client:
-
-```typescript
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-
-// Sign up
-const { data, error } = await supabase.auth.signUp({
-  email: 'user@example.com',
-  password: 'secure-password',
-  options: {
-    data: {
-      name: 'User Name',
-    }
-  }
-})
-
-// Sign in
-const { data, error } = await supabase.auth.signInWithPassword({
-  email: 'user@example.com',
-  password: 'secure-password',
-})
-
-// Get session
-const { data: { session } } = await supabase.auth.getSession()
-
-// Sign out
-await supabase.auth.signOut()
-```
-
-## User Migration
-
-**Important:** Passwords cannot be migrated from the old system because:
-1. Old system used weak SHA256 hashing with hardcoded salt
-2. Supabase Auth uses bcrypt which is incompatible
-
-Users will need to:
-1. Use "Forgot Password" to reset their password, OR
-2. Re-register with a new account
-
-The migration script will:
-- Create `user_profiles` entries for existing users in `auth.users`
-- Preserve user metadata (name, nickname, is_admin)
-- NOT migrate passwords
-
-## API Changes
-
-### Authentication Endpoints
-
-| Endpoint | Changes |
-|----------|---------|
-| `POST /auth/register` | Now uses Supabase Auth |
-| `POST /auth/login` | Now uses Supabase Auth |
-| `POST /auth/logout` | Now uses Supabase Auth |
-| `POST /auth/forgot-password` | Now uses Supabase's built-in reset |
-| `POST /auth/reset-password` | Now uses Supabase's recovery flow |
-| `PUT /auth/api-keys` | Now encrypts keys with AES-256-GCM |
-| `GET /auth/me` | Returns user from `user_profiles` |
-
-### Token Validation
-
-All protected routes now validate tokens using Supabase Auth:
-
-```python
-from api.dependencies import get_current_user_id, get_current_user
-
-@router.get("/protected")
-async def protected_route(user_id: str = Depends(get_current_user_id)):
-    # user_id is validated against Supabase Auth
-    return {"user_id": user_id}
-```
-
-## Security Features
-
-### Encryption at Rest
-- API keys are encrypted using AES-256-GCM
-- Encryption key is stored server-side (environment variable)
-- Keys are decrypted on-demand when needed
-
-### Encryption in Transit
-- All Supabase connections use TLS/SSL
-- JWT tokens are transmitted over HTTPS
-
-### Password Security
-- Supabase Auth uses bcrypt for password hashing
-- Passwords are never stored in your database
-- Password policies can be configured in Supabase Dashboard
-
-### Row Level Security
-- All tables have RLS enabled
-- Policies use `auth.uid()` for proper user isolation
-- Service role bypasses RLS for backend operations
-
-## Troubleshooting
-
-### "Encryption key not configured"
-Make sure `ENCRYPTION_KEY` is set in your environment variables.
-
-### "Invalid or expired token"
-- Token may have expired (default: 1 hour)
-- User may need to log in again
-- Check that the correct Supabase URL and keys are configured
-
-### "User not found"
-- User may exist in old `users` table but not in `auth.users`
-- User needs to register or reset password
-
-### RLS Policy Errors
-- Ensure service role key is being used for backend operations
-- Check that `auth.uid()` returns the expected user ID
-
-## Rollback
-
-If you need to rollback:
-
-1. Keep the old `users` table (don't drop it)
-2. Revert auth routes to previous version
-3. Update dependencies to use old token validation
-
-```sql
--- The migration does NOT automatically drop the users table
--- Uncomment this only after verifying the migration is successful:
--- DROP TABLE IF EXISTS users CASCADE;
-```
-
-## Migration 014: Secure Rebuild (LATEST — Run This)
-
-**`db/migrations/014_secure_rebuild.sql`** is the single source of truth for database security. It supersedes and fixes the contradictory security states in migrations 012 and 013.
-
-### What It Fixes
-- **Removes `USING (true)` catch-all policies** that granted all roles (including `anon`) full access
-- **Revokes `GRANT ALL ... TO anon`** on all sensitive tables (anon key is public!)
-- **Properly enables RLS** on all tables as defense-in-depth
-- **Creates correctly scoped policies** using `TO authenticated` clause
-- **Ensures `service_role` bypasses RLS** automatically (no policy needed)
-
-### How to Run
-1. Open **Supabase Dashboard → SQL Editor**
-2. Paste and run `db/migrations/014_secure_rebuild.sql`
-3. Verify the output shows `rls_enabled = true` for all tables
-4. Verify policies show `roles = {authenticated}` (not `{}`/all roles)
-
-### Security Model After Migration 014
-| Role | Access |
-|------|--------|
-| `anon` | ❌ No access to any user data tables |
-| `authenticated` | ✅ Own data only (via RLS policies with `auth.uid()`) |
-| `service_role` | ✅ Full access (bypasses RLS automatically) |
-
-### Prerequisites
-- `SUPABASE_SERVICE_KEY` must be set in Railway env vars
-- Migrations 001-012 must have been run first
+**For existing projects:** Do NOT run `001_initial_schema.sql` on a database with existing user data. Use the incremental migrations (002-014) instead.
 
 ---
 
-## Files Changed
+## Migration Files
 
-- `db/migrations/014_secure_rebuild.sql` - **Security rebuild (run this)**
-- `db/migrations/010_supabase_auth_migration.sql` - Supabase Auth migration
-- `api/routes/auth.py` - Rewritten for Supabase Auth
-- `api/dependencies.py` - Updated token validation
-- `api/routes/admin.py` - Updated to use `user_profiles`
-- `config.py` - Added `encryption_key` setting
+### Primary Migration
+
+| File | Description |
+|------|-------------|
+| `001_initial_schema.sql` | **Complete schema for fresh installations.** Contains all tables, indexes, RLS policies, triggers, and storage bucket definitions. |
+
+### Legacy Migrations (Incremental)
+
+These files are preserved for existing deployments that need to migrate incrementally:
+
+| File | Description |
+|------|-------------|
+| `002_feedback_analytics.sql` | Feedback and analytics tables |
+| `003-008` | (Reserved for future use) |
+| `009_brain_tables_and_embeddings.sql` | Knowledge base tables |
+| `010_supabase_auth_migration.sql` | Auth system migration |
+| `011_fix_foreign_keys.sql` | Foreign key fixes |
+| `012_clean_slate_auth_fix.sql` | Auth fixes |
+| `014_secure_rebuild.sql` | RLS policy rebuild |
+
+---
+
+## Fresh Installation
+
+### Prerequisites
+
+1. A Supabase project (create at https://supabase.com)
+2. Access to the SQL Editor in Supabase Dashboard
+
+### Steps
+
+1. **Open Supabase SQL Editor**
+   - Go to your Supabase project dashboard
+   - Navigate to SQL Editor
+
+2. **Run the Migration**
+   ```sql
+   -- Copy and paste the contents of 001_initial_schema.sql
+   -- Execute the entire script
+   ```
+
+3. **Verify Installation**
+   ```sql
+   -- Check tables exist
+   SELECT table_name FROM information_schema.tables 
+   WHERE table_schema = 'public' 
+   ORDER BY table_name;
+   
+   -- Check RLS is enabled
+   SELECT tablename, rowsecurity FROM pg_tables 
+   WHERE schemaname = 'public';
+   
+   -- Check storage buckets
+   SELECT * FROM storage.buckets;
+   ```
+
+4. **Configure Environment Variables**
+   
+   Update your `.env` file:
+   ```env
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_KEY=your-anon-key
+   SUPABASE_SERVICE_KEY=your-service-role-key
+   ENCRYPTION_KEY=your-32-byte-encryption-key
+   ```
+
+---
+
+## Schema Overview
+
+### Core Tables
+
+| Table | Purpose |
+|-------|---------|
+| `user_profiles` | Extended user data (links to auth.users) |
+| `conversations` | Chat conversations |
+| `messages` | Chat messages |
+| `file_uploads` | File metadata (files stored in Supabase Storage) |
+| `conversation_files` | Links files to conversations |
+| `brain_documents` | Knowledge base documents |
+| `afl_codes` | AFL code storage |
+| `afl_history` | AFL generation history |
+| `presentations` | Generated presentations |
+| `user_feedback` | User feedback |
+| `usage_events` | Usage tracking |
+| `audit_logs` | Audit trail |
+
+### Storage Buckets
+
+| Bucket | Purpose | Max Size |
+|--------|---------|----------|
+| `user-uploads` | User file uploads | 50MB |
+| `presentations` | Generated PPTX files | 100MB |
+| `brain-docs` | Knowledge base documents | 50MB |
+
+### Security
+
+- **Row Level Security (RLS)** enabled on all tables
+- **anon role** denied access to sensitive tables
+- **authenticated users** can only access their own data
+- **service_role** bypasses RLS (used by backend)
+- **Audit logging** on user_profiles table
+
+---
+
+## Troubleshooting
+
+### Common Errors
+
+**"relation already exists"**
+- You're running `001_initial_schema.sql` on an existing database
+- Use incremental migrations instead
+
+**"permission denied"**
+- Ensure you're using the service_role key for migrations
+- Check Supabase project settings
+
+**"RLS policy violation"**
+- Backend must use service_role key
+- Check that policies are correctly scoped to `auth.uid()`
+
+### Reset Database (Development Only)
+
+```sql
+-- ⚠️ WARNING: This deletes all data
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+GRANT ALL ON SCHEMA public TO postgres;
+GRANT ALL ON SCHEMA public TO public;
+
+-- Then run 001_initial_schema.sql
+```
+
+---
+
+## Migration Best Practices
+
+1. **Always backup** before running migrations in production
+2. **Test migrations** in a staging environment first
+3. **Use transactions** when possible (not supported for all DDL)
+4. **Monitor RLS policies** after deployment
+5. **Keep the service_role key secure** - it bypasses all security
+
+---
+
+## Need Help?
+
+- [Supabase Documentation](https://supabase.com/docs)
+- [PostgreSQL Row Security](https://www.postgresql.org/docs/current/ddl-rowsecurity.html)
+- Create an issue in the project repository

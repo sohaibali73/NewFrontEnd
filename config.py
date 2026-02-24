@@ -4,6 +4,7 @@ import os
 from functools import lru_cache
 from pydantic_settings import BaseSettings
 
+
 class Settings(BaseSettings):
     """Application settings loaded from environment."""
 
@@ -16,8 +17,7 @@ class Settings(BaseSettings):
     # Generate a secure 32-byte key: python -c "import secrets; print(secrets.token_urlsafe(32))"
     encryption_key: str = ""  # Used for encrypting sensitive data like API keys
 
-    # Security - MUST be changed in production via environment variables
-    # Note: These are DEPRECATED - Supabase Auth handles JWT tokens
+    # Security - Note: These are DEPRECATED - Supabase Auth handles JWT tokens
     secret_key: str = "change-this-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7
@@ -26,13 +26,10 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     tavily_api_key: str = ""
     
-    # Vercel AI Gateway (optional - falls back to direct Anthropic API)
-    vercel_ai_gateway_url: str = ""  # e.g., "https://gateway.ai.vercel.app/v1"
-    
     # Default AI model
     default_ai_model: str = "claude-sonnet-4-20250514"
     
-    # Researcher tool API keys - set via environment variables
+    # Researcher tool API keys
     finnhub_api_key: str = ""
     fred_api_key: str = ""
     newsapi_key: str = ""
@@ -46,9 +43,17 @@ class Settings(BaseSettings):
     # Frontend URL for password reset links
     frontend_url: str = "https://analystbypotomac.vercel.app"
 
-    # Admin configuration
-    # Comma-separated list of admin emails
-    admin_emails: str = "sohaib.ali@potomac.com"
+    # Admin configuration (comma-separated list of admin emails)
+    admin_emails: str = ""
+
+    # Storage settings
+    max_upload_size_mb: int = 50
+    allowed_upload_types: str = "pdf,txt,csv,json,pptx,xlsx,png,jpg,jpeg,gif,webp"
+
+    # Feature flags
+    enable_brain_documents: bool = True
+    enable_afl_generation: bool = True
+    enable_presentations: bool = True
 
     class Config:
         env_file = ".env"
@@ -59,7 +64,13 @@ class Settings(BaseSettings):
         if not self.admin_emails:
             return []
         return [email.strip().lower() for email in self.admin_emails.split(",") if email.strip()]
+    
+    def get_allowed_upload_types(self) -> list:
+        """Get list of allowed upload file types."""
+        return [t.strip().lower() for t in self.allowed_upload_types.split(",") if t.strip()]
+
 
 @lru_cache()
 def get_settings() -> Settings:
+    """Get cached settings instance."""
     return Settings()

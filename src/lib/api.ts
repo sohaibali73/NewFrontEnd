@@ -36,6 +36,13 @@ import {
   TrainingEffectiveness,
   LearningCurve,
   PopularPattern,
+  Skill,
+  SkillListResponse,
+  SkillCategoryInfo,
+  SkillExecuteRequest,
+  SkillExecuteResponse,
+  MultiSkillRequest,
+  MultiSkillResponse,
 } from '@/types/api';
 import { getApiUrl } from './env';
 import { storage } from './storage';
@@ -1206,6 +1213,146 @@ class APIClient {
     return this.request<{ success: boolean }>(`/presentations/${id}`, 'DELETE');
   }
 
+  // ==================== SKILLS ENDPOINTS ====================
+
+  async getSkills(category?: string) {
+    const qs = category ? `?category=${encodeURIComponent(category)}` : '';
+    return this.request<SkillListResponse>(`/api/skills${qs}`);
+  }
+
+  async getSkillCategories() {
+    return this.request<{ categories: SkillCategoryInfo[] }>('/api/skills/categories');
+  }
+
+  async getSkillDetail(slug: string) {
+    return this.request<{ skill: Skill }>(`/api/skills/${slug}`);
+  }
+
+  async executeSkill(slug: string, request: SkillExecuteRequest) {
+    return this.request<SkillExecuteResponse>(`/api/skills/${slug}/execute`, 'POST', request);
+  }
+
+  /**
+   * Stream a skill response using Vercel AI SDK Data Stream Protocol.
+   * Compatible with useChat() / useCompletion() hooks.
+   */
+  async streamSkill(
+    slug: string,
+    message: string,
+    options?: {
+      signal?: AbortSignal;
+      systemPrompt?: string;
+      conversationHistory?: { role: string; content: string }[];
+      maxTokens?: number;
+      extraContext?: string;
+      onText?: (text: string) => void;
+      onData?: (data: any) => void;
+      onError?: (error: string) => void;
+      onFinish?: (data: any) => void;
+    }
+  ): Promise<string> {
+    const token = this.getToken();
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const url = `${API_BASE_URL}/api/skills/${slug}/stream`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      mode: 'cors',
+      credentials: 'omit',
+      signal: options?.signal,
+      body: JSON.stringify({
+        message,
+        system_prompt: options?.systemPrompt,
+        conversation_history: options?.conversationHistory,
+        max_tokens: options?.maxTokens,
+        extra_context: options?.extraContext,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+
+    if (!response.body) throw new Error('Response body is null');
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let fullText = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const typeCode = line[0];
+        const content = line.substring(2);
+        if (!content) continue;
+
+        try {
+          const parsed = JSON.parse(content);
+          switch (typeCode) {
+            case '0':
+              const text = typeof parsed === 'string' ? parsed : parsed.text || '';
+              fullText += text;
+              options?.onText?.(text);
+              break;
+            case '2':
+              options?.onData?.(parsed);
+              break;
+            case '3':
+              options?.onError?.(typeof parsed === 'string' ? parsed : parsed.message || 'Unknown error');
+              break;
+            case 'd':
+              options?.onFinish?.(parsed);
+              break;
+          }
+        } catch { /* skip unparseable lines */ }
+      }
+    }
+
+    // Process remaining buffer
+    if (buffer.trim()) {
+      try {
+        const typeCode = buffer[0];
+        const content = buffer.substring(2);
+        if (content) {
+          const parsed = JSON.parse(content);
+          if (typeCode === '0') {
+            const text = typeof parsed === 'string' ? parsed : parsed.text || '';
+            fullText += text;
+            options?.onText?.(text);
+          } else if (typeCode === 'd') {
+            options?.onFinish?.(parsed);
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
+    return fullText;
+  }
+
+  async executeMultiSkills(request: MultiSkillRequest) {
+    return this.request<MultiSkillResponse>('/api/skills/multi', 'POST', request);
+  }
+
+  /**
+   * Get the streaming endpoint URL for a specific skill
+   */
+  getSkillStreamEndpoint(slug: string): string {
+    return `${API_BASE_URL}/api/skills/${slug}/stream`;
+  }
+
   // ==================== UTILITY ENDPOINTS ====================
 
   async checkHealth() {
@@ -1351,5 +1498,14 @@ export const api = {
     list: () => apiClient.listPresentations(),
     download: (id: string) => apiClient.downloadPresentation(id),
     delete: (id: string) => apiClient.deletePresentation(id),
+  },
+  skills: {
+    list: (category?: string) => apiClient.getSkills(category),
+    getCategories: () => apiClient.getSkillCategories(),
+    getDetail: (slug: string) => apiClient.getSkillDetail(slug),
+    execute: (slug: string, request: SkillExecuteRequest) => apiClient.executeSkill(slug, request),
+    stream: (slug: string, message: string, options?: any) => apiClient.streamSkill(slug, message, options),
+    executeMulti: (request: MultiSkillRequest) => apiClient.executeMultiSkills(request),
+    getStreamEndpoint: (slug: string) => apiClient.getSkillStreamEndpoint(slug),
   },
 };

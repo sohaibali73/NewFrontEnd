@@ -461,6 +461,71 @@ export type StreamMessage =
   | StreamFinishChunk 
   | StreamErrorChunk;
 
+// ==================== SKILLS TYPES ====================
+
+export type SkillCategory =
+  | 'afl'
+  | 'document'
+  | 'presentation'
+  | 'ui'
+  | 'backtest'
+  | 'market_analysis'
+  | 'quant'
+  | 'research';
+
+export interface Skill {
+  skill_id: string;
+  name: string;
+  slug: string;
+  description: string;
+  category: SkillCategory;
+  max_tokens: number;
+  tags: string[];
+  enabled: boolean;
+  supports_streaming: boolean;
+}
+
+export interface SkillListResponse {
+  skills: Skill[];
+  total: number;
+  category_filter: string | null;
+}
+
+export interface SkillCategoryInfo {
+  category: string;
+  label: string;
+  count: number;
+}
+
+export interface SkillExecuteRequest {
+  message: string;
+  system_prompt?: string;
+  conversation_history?: { role: string; content: string }[];
+  max_tokens?: number;
+  extra_context?: string;
+  stream?: boolean;
+}
+
+export interface SkillExecuteResponse {
+  text: string;
+  skill: string;
+  skill_name: string;
+  usage?: { input_tokens: number; output_tokens: number };
+  model?: string;
+  execution_time?: number;
+  stop_reason?: string;
+}
+
+export interface MultiSkillRequest {
+  requests: { skill_slug: string; message: string; system_prompt?: string; max_tokens?: number; extra_context?: string }[];
+}
+
+export interface MultiSkillResponse {
+  results: SkillExecuteResponse[];
+  total_skills: number;
+  total_execution_time: number;
+}
+
 // ==================== GENERAL API TYPES ====================
 
 export interface ApiError {

@@ -18,6 +18,7 @@ import {
   Monitor,
   Rocket,
   Presentation,
+  BrainCircuit,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -29,6 +30,7 @@ const navItems = [
   { name: 'DASHBOARD', href: '/dashboard', icon: LayoutDashboard },
   { name: 'AFL GENERATOR', href: '/afl', icon: Code2 },
   { name: 'CHAT', href: '/chat', icon: MessageCircle },
+  { name: 'AI SKILLS', href: '/skills', icon: BrainCircuit, badge: 'BETA' },
   { name: 'CONTENT', href: '/content', icon: Sparkles, badge: 'SOON' },
   { name: 'KNOWLEDGE BASE', href: '/knowledge', icon: Database },
   { name: 'BACKTEST', href: '/backtest', icon: TrendingUp },

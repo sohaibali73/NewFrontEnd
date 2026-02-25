@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Search, Plus, Loader2, RefreshCw, Pencil, Trash2, Copy,
-  Download, MoreVertical, X, Save, Eye, EyeOff, Clock,
+  Download, MoreVertical, X, Save, Clock,
   CheckCircle2, AlertCircle, ChevronRight,
 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
@@ -55,7 +55,7 @@ export interface ContentSplitPaneProps {
 /* ------------------------------------------------------------------ */
 
 export function ContentSplitPane({
-  colors, isDark, contentType, icon: Icon, label, items, loading,
+  colors, isDark, icon: Icon, label, items, loading,
   onRefresh, onGenerate, onDelete, onUpdate, onDuplicate,
   extraActions, metaLine,
 }: ContentSplitPaneProps) {
@@ -216,7 +216,6 @@ function LeftPanel({
 }: LeftPanelProps) {
   const border = `1px solid ${colors.border}`;
   const activeJobs = jobs.filter(j => j.status !== 'complete' && j.status !== 'failed');
-  const completedJobs = jobs.filter(j => j.status === 'complete');
 
   return (
     <div style={{
@@ -377,7 +376,7 @@ function LeftPanel({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
             <Loader2 size={22} color={colors.primaryYellow} style={{ animation: 'spin 1s linear infinite' }} />
           </div>
-        ) : items.length === 0 ? (
+        ) : items.length === 0 && !searchQuery ? (
           <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             justifyContent: 'center', height: '100%', gap: '12px', padding: '40px 20px',
@@ -391,16 +390,16 @@ function LeftPanel({
               Click NEW to create your first {label.toLowerCase()} using AI
             </p>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : items.length === 0 && searchQuery ? (
           <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             justifyContent: 'center', height: '100%', gap: '8px', padding: '40px 20px',
           }}>
             <Search size={28} color={colors.textSecondary} style={{ opacity: 0.2 }} />
-            <p style={{ fontSize: '13px', color: colors.textMuted }}>No results for "{searchQuery}"</p>
+            <p style={{ fontSize: '13px', color: colors.textMuted }}>No results for &quot;{searchQuery}&quot;</p>
           </div>
         ) : (
-          filtered.map(item => {
+          items.map(item => {
             const isActive = selectedId === item.id;
             const isMenuOpen = menuOpenId === item.id;
             const isConfirmDel = confirmDeleteId === item.id;
@@ -555,8 +554,7 @@ interface RightPanelProps {
 function RightPanel({
   colors, isDark, label, selected, isEditing, editContent, editTitle, icon: Icon,
   onEditContent, onEditTitle, onStartEdit, onSaveEdit, onCancelEdit, onDownload,
-  onDuplicate, onDelete, extraActions, wordCount, readTime, formatDate,
-  onRefresh, selectedId, setSelectedId,
+  onDuplicate, extraActions, wordCount, readTime, formatDate,
 }: RightPanelProps) {
   const border = `1px solid ${colors.border}`;
 

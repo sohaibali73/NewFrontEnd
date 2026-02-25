@@ -12,7 +12,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ||
     ? 'http://localhost:8000' 
     : 'https://potomac-analyst-workbench-production.up.railway.app');
 
-export const maxDuration = 60;
+// 300s for Vercel Pro (skills/tool calls can take 60-120s)
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   try {

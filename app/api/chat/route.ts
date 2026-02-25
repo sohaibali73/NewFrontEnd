@@ -27,7 +27,9 @@ const UI_MESSAGE_STREAM_HEADERS = {
   'x-vercel-ai-ui-message-stream': 'v1',
 };
 
-export const maxDuration = 60;
+// Increase to 300s for Vercel Pro (skills/tool calls can take 60-120s).
+// On Hobby plan this caps at 60s — upgrade to Pro for full skill support.
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   try {
@@ -72,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     // Forward to backend streaming endpoint with timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 55000); // 55s timeout (under maxDuration)
+    const timeoutId = setTimeout(() => controller.abort(), 290000); // 290s timeout (under maxDuration=300)
 
     let backendResponse: Response;
     try {

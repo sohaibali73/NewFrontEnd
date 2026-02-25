@@ -1,0 +1,113 @@
+{
+  "slide_number": 14,
+  "template_id": "thank-you",
+  "slide_type": "closing",
+  "background": {
+    "color": "FFFFFF"
+  },
+  "objects": [
+    {
+      "image": {
+        "options": {
+          "x": 16.164,
+          "y": 7.902,
+          "w": 5.3367,
+          "h": 5.3367
+        },
+        "linked_file": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Meet Potomac\\Assets\\Potomac Master Presentation DM.png",
+        "exported_png": "",
+        "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Meet Potomac\\Assets\\Potomac Master Presentation DM.png"
+      }
+    },
+    {
+      "image": {
+        "options": {
+          "x": 4.8816,
+          "y": 6.9602,
+          "w": 9.5399,
+          "h": 6.2785
+        },
+        "linked_file": "cloud-asset:\\platform-cs.adobe.io\\assets\\adobe-libraries\\c4cc2cf3-e101-4893-844f-06e54c0b8f04;node=b150e76b-052f-4d45-be76-bded6a5ec190",
+        "exported_png": ""
+      }
+    },
+    {
+      "text": {
+        "text": "potomac.com/contact",
+        "options": {
+          "x": 16.5893,
+          "y": 6.9602,
+          "w": 4.4862,
+          "h": 0.4167,
+          "fontSize": 30,
+          "fontFace": "Quicksand (TT)",
+          "color": "FFFFFF",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "We have a team of regional consultants across the country to support your business.",
+        "options": {
+          "x": 4.8816,
+          "y": 4.5638,
+          "w": 16.9035,
+          "h": 0.4167,
+          "fontSize": 30,
+          "fontFace": "Quicksand (TT)",
+          "color": "FEC00F",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "POTOMAC",
+        "options": {
+          "x": 1.1667,
+          "y": 1.25,
+          "w": 5.8333,
+          "h": 0.6115,
+          "fontSize": 36,
+          "fontFace": "Rajdhani",
+          "color": "FFFFFF",
+          "bold": false,
+          "align": "left",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "THANK YOU!",
+        "options": {
+          "x": 4.2147,
+          "y": 2.7072,
+          "w": 18.2373,
+          "h": 1.775,
+          "fontSize": 60,
+          "fontFace": "Rajdhani",
+          "color": "FFFFFF",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "layer": "Editable_Texts",
+    "item_count": 8,
+    "object_count": 6,
+    "reference_image": null
+  }
+}

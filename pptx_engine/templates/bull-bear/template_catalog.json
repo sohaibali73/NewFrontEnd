@@ -1,0 +1,4130 @@
+{
+  "deck_family": "bull_bear",
+  "document_name": "Bull_Bear",
+  "total_slides": 16,
+  "slide_width_in": 26.6667,
+  "slide_height_in": 15,
+  "aspect_ratio": 1.7778,
+  "layers": [
+    "Editable_Texts",
+    "Graphics",
+    "Elements_All",
+    "Your Image Place",
+    "Others Elements",
+    "Background"
+  ],
+  "brand": {
+    "colors": {
+      "yellow": "FEC00F",
+      "dark_gray": "212121",
+      "turquoise": "00DED1",
+      "pink": "EB2F5C",
+      "white": "FFFFFF",
+      "light_bg": "F2F2F2"
+    },
+    "fonts": {
+      "header": "Rajdhani",
+      "body": "Quicksand",
+      "accent": "Lexend Deca"
+    }
+  },
+  "pptxgenjs_defaults": {
+    "presLayout": "LAYOUT_WIDE",
+    "slideWidth": 26.6667,
+    "slideHeight": 15
+  },
+  "slide_type_guide": {
+    "title": "Full-width title with hero image",
+    "dark_section": "Dark background with white/yellow text",
+    "content": "Light background with body text",
+    "data_chart": "Full-width chart or data visualization",
+    "disclosure": "Dense legal/disclosure text",
+    "closing": "Thank you / contact information"
+  },
+  "templates": {
+    "cover-hero": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\cover-hero.json",
+    "strategy-intro": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\strategy-intro.json",
+    "data-flow-diagram-light": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\data-flow-diagram-light.json",
+    "three-step-circles-dark": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\three-step-circles-dark.json",
+    "chart-full-light": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\chart-full-light.json",
+    "three-col-equation-dark": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\three-col-equation-dark.json",
+    "four-col-equation-dark": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\four-col-equation-dark.json",
+    "split-dark-light": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\split-dark-light.json",
+    "data-table-light": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\data-table-light.json",
+    "comparison-table": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\comparison-table.json",
+    "three-circles-dark": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\three-circles-dark.json",
+    "thank-you": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\thank-you.json",
+    "text-dark": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\text-dark.json"
+  },
+  "slide_map": {
+    "1": "cover-hero",
+    "2": "strategy-intro",
+    "3": "data-flow-diagram-light",
+    "4": "three-step-circles-dark",
+    "5": "chart-full-light",
+    "6": "chart-full-light",
+    "7": "chart-full-light",
+    "8": "three-col-equation-dark",
+    "9": "four-col-equation-dark",
+    "10": "split-dark-light",
+    "11": "data-table-light",
+    "12": "comparison-table",
+    "13": "three-circles-dark",
+    "14": "thank-you",
+    "15": "text-dark",
+    "16": "text-dark"
+  },
+  "slides": [
+    {
+      "slide_number": 1,
+      "template_id": "cover-hero",
+      "slide_type": "title",
+      "background": {
+        "color": "FFFFFF"
+      },
+      "objects": [
+        {
+          "text": {
+            "text": "BULL BEAR STRATEGY",
+            "options": {
+              "x": 1.8388,
+              "y": 6.4444,
+              "w": 11.4946,
+              "h": 3.8889,
+              "fontSize": 130,
+              "fontFace": "Rajdhani",
+              "color": "000000",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "image": {
+            "options": {
+              "x": 9.9941,
+              "y": 1.9686,
+              "w": 16.6726,
+              "h": 12.3321
+            },
+            "linked_file": "\\Users\\soophiahussain\\Documents\\InDesign PDF Assets\\Potomac Presentation copy 2\\fig_image_1_152926893.png",
+            "exported_png": ""
+          }
+        },
+        {
+          "image": {
+            "options": {
+              "x": 1.144,
+              "y": 0.9212,
+              "w": 6.2801,
+              "h": 1.2881
+            },
+            "linked_file": "\\Users\\soophiahussain\\Documents\\InDesign PDF Assets\\Potomac Presentation copy 2\\fig_image_7_28026649.png",
+            "exported_png": ""
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 0,
+              "y": 1.796,
+              "w": 26.6667,
+              "h": 1.6723,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FFFFFF"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 0,
+              "y": 1.8353,
+              "w": 26.6667,
+              "h": 13.1647,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "layer": "Your Image Place",
+        "item_count": 7,
+        "object_count": 5,
+        "reference_image": null
+      }
+    },
+    {
+      "slide_number": 2,
+      "template_id": "strategy-intro",
+      "slide_type": "title",
+      "background": {
+        "color": "212121"
+      },
+      "objects": [
+        {
+          "rect": {
+            "options": {
+              "x": -0.0903,
+              "y": -0.0903,
+              "w": 26.8473,
+              "h": 15.1807,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "212121",
+                "transparency": 95
+              },
+              "line": {
+                "color": "D6E0DE",
+                "width": 4
+              }
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "BULL BEAR STRATEGY",
+            "options": {
+              "x": 1.1667,
+              "y": 1.25,
+              "w": 5.8333,
+              "h": 0.6115,
+              "fontSize": 36,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "image": {
+            "options": {
+              "x": 7.0093,
+              "y": 4.5971,
+              "w": 12.6482,
+              "h": 2.6899
+            },
+            "linked_file": "\\Users\\soophiahussain\\Documents\\InDesign PDF Assets\\Bull Bear\\fig_image_5_573155303.png",
+            "exported_png": ""
+          }
+        },
+        {
+          "text": {
+            "text": [
+              {
+                "text": "A tactical ‘moderate growth’ strategy with the goal of systematically pursuing growth ",
+                "options": {
+                  "fontSize": 30,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "212121",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "in the equity markets, while avoiding catastrophic bear market losses.",
+                "options": {
+                  "fontSize": 30,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "212121",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              }
+            ],
+            "options": {
+              "x": 4.2147,
+              "y": 8.6804,
+              "w": 18.2373,
+              "h": 1.0556,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "layer": "Background",
+        "item_count": 5,
+        "object_count": 4,
+        "reference_image": null
+      }
+    },
+    {
+      "slide_number": 3,
+      "template_id": "data-flow-diagram-light",
+      "slide_type": "data_chart",
+      "background": {
+        "color": "212121"
+      },
+      "objects": [
+        {
+          "rect": {
+            "options": {
+              "x": -0.0903,
+              "y": -0.0903,
+              "w": 26.8473,
+              "h": 15.1807,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "212121",
+                "transparency": 95
+              },
+              "line": {
+                "color": "D6E0DE",
+                "width": 4
+              }
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "TRADING SYSTEMS BUILT WITH REAL MARKET DATA",
+            "options": {
+              "x": 4.883,
+              "y": 2.7072,
+              "w": 16.9006,
+              "h": 0.775,
+              "fontSize": 60,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "PROCESS",
+            "options": {
+              "x": 1.1667,
+              "y": 1.25,
+              "w": 5.8333,
+              "h": 0.6115,
+              "fontSize": 36,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s03_e01.png",
+            "options": {
+              "x": 2.2157,
+              "y": 5.3139,
+              "w": 6.25,
+              "h": 9.6861
+            },
+            "source": "group_export",
+            "exported_png": "s03_e01.png"
+          }
+        },
+        {
+          "text": {
+            "text": [
+              {
+                "text": "S&P 500 ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "DJIA ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Russell 2000 ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Dow Utilities ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Dow Transports ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Dow Corporate Bonds",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              }
+            ],
+            "options": {
+              "x": 2.5976,
+              "y": 10.9875,
+              "w": 5.4861,
+              "h": 2.5139,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Index Data",
+            "options": {
+              "x": 4.1927,
+              "y": 9.5765,
+              "w": 2.296,
+              "h": 0.4444,
+              "fontSize": 32,
+              "fontFace": "Quicksand (TT)",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 2.2157,
+              "y": 10.2714,
+              "w": 6.25,
+              "h": 4.7286,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "212121"
+              }
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Market Internals Data",
+            "options": {
+              "x": 3.0187,
+              "y": 5.3139,
+              "w": 4.6439,
+              "h": 0.4444,
+              "fontSize": 32,
+              "fontFace": "Quicksand (TT)",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": [
+              {
+                "text": "Index Advances and Declines Trading Volume ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Index New Highs and New Lows Volatility Measures (VIX)",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              }
+            ],
+            "options": {
+              "x": 2.5975,
+              "y": 6.5209,
+              "w": 5.4863,
+              "h": 1.6528,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 2.2157,
+              "y": 5.9496,
+              "w": 6.25,
+              "h": 2.7815,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "212121"
+              }
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s03_e02.png",
+            "options": {
+              "x": 10.2083,
+              "y": 5.2547,
+              "w": 6.25,
+              "h": 9.7453
+            },
+            "source": "group_export",
+            "exported_png": "s03_e02.png"
+          }
+        },
+        {
+          "text": {
+            "text": [
+              {
+                "text": "Trend Following ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "000000",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Momentum ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "000000",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Relative Strength ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "000000",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Bollinger Bands ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "000000",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Stochastics ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "000000",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Oscillators ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "000000",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Intermarket Analysis ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "000000",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Mean Reversion ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "000000",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Overbought/Oversold Analysis",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "000000",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              }
+            ],
+            "options": {
+              "x": 10.7097,
+              "y": 6.5209,
+              "w": 5.2473,
+              "h": 3.8056,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Technical Indicators",
+            "options": {
+              "x": 11.2411,
+              "y": 5.2547,
+              "w": 4.1844,
+              "h": 0.4444,
+              "fontSize": 32,
+              "fontFace": "Quicksand (TT)",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 10.2083,
+              "y": 5.9496,
+              "w": 6.25,
+              "h": 9.0504,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FDC012"
+              }
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s03_e03.png",
+            "options": {
+              "x": 18.201,
+              "y": 5.2547,
+              "w": 6.25,
+              "h": 9.7453
+            },
+            "source": "group_export",
+            "exported_png": "s03_e03.png"
+          }
+        },
+        {
+          "text": {
+            "text": "Sentiment Data",
+            "options": {
+              "x": 19.6658,
+              "y": 9.5765,
+              "w": 3.3204,
+              "h": 0.4444,
+              "fontSize": 32,
+              "fontFace": "Quicksand (TT)",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": [
+              {
+                "text": "Commercial Longs and Shorts AAII Bullish and Bearish % ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Put-Call Ratio",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              }
+            ],
+            "options": {
+              "x": 18.5829,
+              "y": 10.9875,
+              "w": 5.4861,
+              "h": 1.2222,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 18.201,
+              "y": 10.2714,
+              "w": 6.25,
+              "h": 4.7286,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "212121"
+              }
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Economic Data",
+            "options": {
+              "x": 19.7264,
+              "y": 5.2547,
+              "w": 3.1991,
+              "h": 0.4444,
+              "fontSize": 32,
+              "fontFace": "Quicksand (TT)",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": [
+              {
+                "text": "Fed Funds Rate ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Prime Rate ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Discount Rate ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Treasury Bill Rate",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              }
+            ],
+            "options": {
+              "x": 18.5829,
+              "y": 6.5209,
+              "w": 5.4861,
+              "h": 1.6528,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 18.201,
+              "y": 5.9496,
+              "w": 6.25,
+              "h": 2.7815,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "212121"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 17.0059,
+              "y": 7.1511,
+              "w": 0.3992,
+              "h": 0.3784,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "000000"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 17.0059,
+              "y": 11.473,
+              "w": 0.3992,
+              "h": 0.3784,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "000000"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 9.4633,
+              "y": 11.473,
+              "w": 0.3992,
+              "h": 0.3784,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "000000"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 9.4633,
+              "y": 7.1511,
+              "w": 0.3992,
+              "h": 0.3784,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "000000"
+              }
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "layer": "Background",
+        "item_count": 25,
+        "object_count": 25,
+        "reference_image": null
+      }
+    },
+    {
+      "slide_number": 4,
+      "template_id": "three-step-circles-dark",
+      "slide_type": "content",
+      "background": {
+        "color": "FFFFFF"
+      },
+      "objects": [
+        {
+          "text": {
+            "text": "Indicators that use market data to assess the odds of a +/- price trend.",
+            "options": {
+              "x": 6.2466,
+              "y": 4.5638,
+              "w": 14.1735,
+              "h": 0.4167,
+              "fontSize": 30,
+              "fontFace": "Quicksand (TT)",
+              "color": "FEC00F",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "(Intermarket Relationships)",
+            "options": {
+              "x": 19.4375,
+              "y": 10.7274,
+              "w": 3.7243,
+              "h": 0.7917,
+              "fontSize": 26,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "(Breadth and Volume)",
+            "options": {
+              "x": 11.3126,
+              "y": 10.4014,
+              "w": 4.0415,
+              "h": 0.3611,
+              "fontSize": 26,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "(Up, Down or Sideways)",
+            "options": {
+              "x": 3.3462,
+              "y": 10.315,
+              "w": 4.0415,
+              "h": 0.3611,
+              "fontSize": 26,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "3",
+            "options": {
+              "x": 21.0105,
+              "y": 7.6827,
+              "w": 0.5783,
+              "h": 0.775,
+              "fontSize": 60,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Intermarket Confirmation",
+            "options": {
+              "x": 19.5961,
+              "y": 9.5755,
+              "w": 3.407,
+              "h": 0.9167,
+              "fontSize": 30,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 20.2364,
+              "y": 7.1053,
+              "w": 2.1266,
+              "h": 2.1266,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 18.2947,
+              "y": 6.2769,
+              "w": 6.0099,
+              "h": 6.0099,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "2",
+            "options": {
+              "x": 13.0517,
+              "y": 7.6827,
+              "w": 0.5633,
+              "h": 0.775,
+              "fontSize": 60,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Trend Health",
+            "options": {
+              "x": 12.0475,
+              "y": 9.5755,
+              "w": 2.5716,
+              "h": 0.4167,
+              "fontSize": 30,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 12.27,
+              "y": 7.1053,
+              "w": 2.1266,
+              "h": 2.1266,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 10.3284,
+              "y": 6.2769,
+              "w": 6.0099,
+              "h": 6.0099,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "1",
+            "options": {
+              "x": 5.152,
+              "y": 7.6827,
+              "w": 0.43,
+              "h": 0.775,
+              "fontSize": 60,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Trend Direction",
+            "options": {
+              "x": 3.6635,
+              "y": 9.5755,
+              "w": 3.407,
+              "h": 0.4167,
+              "fontSize": 30,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 4.3037,
+              "y": 7.1053,
+              "w": 2.1266,
+              "h": 2.1266,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 2.3621,
+              "y": 6.2769,
+              "w": 6.0099,
+              "h": 6.0099,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 17.0794,
+              "y": 9.0078,
+              "w": 0.4741,
+              "h": 0.5481,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 9.1131,
+              "y": 9.0078,
+              "w": 0.4741,
+              "h": 0.5481,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "MARKET ANALYSIS: THREE LEGS TO THE STOOL",
+            "options": {
+              "x": 4.2147,
+              "y": 2.7072,
+              "w": 18.2373,
+              "h": 1.775,
+              "fontSize": 60,
+              "fontFace": "Rajdhani",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "PROCESS",
+            "options": {
+              "x": 1.1667,
+              "y": 1.25,
+              "w": 5.8333,
+              "h": 0.6115,
+              "fontSize": 36,
+              "fontFace": "Rajdhani",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "layer": "Editable_Texts",
+        "item_count": 20,
+        "object_count": 20,
+        "reference_image": null
+      }
+    },
+    {
+      "slide_number": 5,
+      "template_id": "chart-full-light",
+      "slide_type": "dark_section",
+      "background": {
+        "color": "212121"
+      },
+      "objects": [
+        {
+          "text": {
+            "text": "PROCESS",
+            "options": {
+              "x": 1.1667,
+              "y": 1.25,
+              "w": 5.8333,
+              "h": 0.6115,
+              "fontSize": 36,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "For illustrative purposes only.",
+            "options": {
+              "x": 10.9587,
+              "y": 14.1102,
+              "w": 4.7493,
+              "h": 0.3331,
+              "fontSize": 20,
+              "fontFace": "Quicksand (TT)",
+              "color": "000000",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "TREND DIRECTION",
+            "options": {
+              "x": 4.2147,
+              "y": 1.1417,
+              "w": 18.2373,
+              "h": 1.775,
+              "fontSize": 60,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": -0.0903,
+              "y": -0.0903,
+              "w": 26.8473,
+              "h": 15.1807,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "212121",
+                "transparency": 95
+              },
+              "line": {
+                "color": "D6E0DE",
+                "width": 4
+              }
+            }
+          }
+        },
+        {
+          "image": {
+            "options": {
+              "x": 3.4281,
+              "y": 2.5081,
+              "w": 19.8105,
+              "h": 11.2377
+            },
+            "linked_file": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Secondary\\Composite Details\\Assets\\Composite Details Charts 1.22.26\\1 - SPX.png",
+            "exported_png": "",
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Secondary\\Composite Details\\Assets\\Composite Details Charts 1.22.26\\1 - SPX.png"
+          }
+        }
+      ],
+      "metadata": {
+        "layer": "Editable_Texts",
+        "item_count": 6,
+        "object_count": 5,
+        "reference_image": null
+      }
+    },
+    {
+      "slide_number": 6,
+      "template_id": "chart-full-light",
+      "slide_type": "dark_section",
+      "background": {
+        "color": "212121"
+      },
+      "objects": [
+        {
+          "text": {
+            "text": "PROCESS",
+            "options": {
+              "x": 1.1667,
+              "y": 1.25,
+              "w": 5.8333,
+              "h": 0.6115,
+              "fontSize": 36,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "For illustrative purposes only.",
+            "options": {
+              "x": 10.9587,
+              "y": 14.1102,
+              "w": 4.7493,
+              "h": 0.3331,
+              "fontSize": 20,
+              "fontFace": "Quicksand (TT)",
+              "color": "000000",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "TREND HEALTH",
+            "options": {
+              "x": 4.2147,
+              "y": 1.1417,
+              "w": 18.2373,
+              "h": 1.775,
+              "fontSize": 60,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": -0.0903,
+              "y": -0.0903,
+              "w": 26.8473,
+              "h": 15.1807,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "212121",
+                "transparency": 95
+              },
+              "line": {
+                "color": "D6E0DE",
+                "width": 4
+              }
+            }
+          }
+        },
+        {
+          "image": {
+            "options": {
+              "x": 3.4281,
+              "y": 2.5081,
+              "w": 19.8105,
+              "h": 11.2377
+            },
+            "linked_file": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Secondary\\Composite Details\\Assets\\Composite Details Charts 1.22.26\\2 - ADLINENYSE.png",
+            "exported_png": "",
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Secondary\\Composite Details\\Assets\\Composite Details Charts 1.22.26\\2 - ADLINENYSE.png"
+          }
+        }
+      ],
+      "metadata": {
+        "layer": "Editable_Texts",
+        "item_count": 6,
+        "object_count": 5,
+        "reference_image": null
+      }
+    },
+    {
+      "slide_number": 7,
+      "template_id": "chart-full-light",
+      "slide_type": "dark_section",
+      "background": {
+        "color": "212121"
+      },
+      "objects": [
+        {
+          "text": {
+            "text": "PROCESS",
+            "options": {
+              "x": 1.1667,
+              "y": 1.25,
+              "w": 5.8333,
+              "h": 0.6115,
+              "fontSize": 36,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "For illustrative purposes only.",
+            "options": {
+              "x": 10.9587,
+              "y": 14.1102,
+              "w": 4.7493,
+              "h": 0.3331,
+              "fontSize": 20,
+              "fontFace": "Quicksand (TT)",
+              "color": "000000",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "INTERMARKET CONFIRMATION",
+            "options": {
+              "x": 4.2147,
+              "y": 1.1417,
+              "w": 18.2373,
+              "h": 1.775,
+              "fontSize": 60,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": -0.0903,
+              "y": -0.0903,
+              "w": 26.8473,
+              "h": 15.1807,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "212121",
+                "transparency": 95
+              },
+              "line": {
+                "color": "D6E0DE",
+                "width": 4
+              }
+            }
+          }
+        },
+        {
+          "image": {
+            "options": {
+              "x": 3.4281,
+              "y": 2.5081,
+              "w": 19.8105,
+              "h": 11.2377
+            },
+            "linked_file": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Secondary\\Composite Details\\Assets\\Composite Details Charts 1.22.26\\3 - DJT.png",
+            "exported_png": "",
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Secondary\\Composite Details\\Assets\\Composite Details Charts 1.22.26\\3 - DJT.png"
+          }
+        }
+      ],
+      "metadata": {
+        "layer": "Editable_Texts",
+        "item_count": 6,
+        "object_count": 5,
+        "reference_image": null
+      }
+    },
+    {
+      "slide_number": 8,
+      "template_id": "three-col-equation-dark",
+      "slide_type": "content",
+      "background": {
+        "color": "FFFFFF"
+      },
+      "objects": [
+        {
+          "text": {
+            "text": [
+              {
+                "text": "Composite trading result. ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Should we be invested?",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              }
+            ],
+            "options": {
+              "x": 18.3474,
+              "y": 9.1974,
+              "w": 3.6389,
+              "h": 2.0833,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Composites",
+            "options": {
+              "x": 18.7066,
+              "y": 6.9499,
+              "w": 2.9204,
+              "h": 0.4167,
+              "fontSize": 30,
+              "fontFace": "Quicksand (TT)",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 18.0717,
+              "y": 6.6931,
+              "w": 4.1901,
+              "h": 1.0089,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 18.0437,
+              "y": 8.3009,
+              "w": 4.2462,
+              "h": 3.8762,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Capture short-term market inefficiencies that generate high returns while invested.",
+            "options": {
+              "x": 11.5105,
+              "y": 9.1974,
+              "w": 3.6389,
+              "h": 2.0833,
+              "fontSize": 26,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Trigger Systems",
+            "options": {
+              "x": 11.7208,
+              "y": 6.9499,
+              "w": 3.2183,
+              "h": 0.4167,
+              "fontSize": 30,
+              "fontFace": "Quicksand (TT)",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 11.2349,
+              "y": 6.6931,
+              "w": 4.1901,
+              "h": 1.0089,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 11.2068,
+              "y": 8.3009,
+              "w": 4.2462,
+              "h": 3.8762,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Total market systems that trade infrequently to capture long term trend changes.",
+            "options": {
+              "x": 4.6804,
+              "y": 9.1974,
+              "w": 3.6389,
+              "h": 2.0833,
+              "fontSize": 26,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Base Systems",
+            "options": {
+              "x": 5.0397,
+              "y": 6.9499,
+              "w": 2.9204,
+              "h": 0.4167,
+              "fontSize": 30,
+              "fontFace": "Quicksand (TT)",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 4.4048,
+              "y": 6.6931,
+              "w": 4.1901,
+              "h": 1.0089,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 4.3768,
+              "y": 8.3009,
+              "w": 4.2462,
+              "h": 3.8762,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "=",
+            "options": {
+              "x": 16.4849,
+              "y": 9.787,
+              "w": 0.5269,
+              "h": 0.9042,
+              "fontSize": 70,
+              "fontFace": "Rajdhani",
+              "color": "FFCB0A",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "+",
+            "options": {
+              "x": 9.6548,
+              "y": 9.787,
+              "w": 0.5201,
+              "h": 0.9042,
+              "fontSize": 70,
+              "fontFace": "Rajdhani",
+              "color": "FFCB0A",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "PROCESS",
+            "options": {
+              "x": 1.1667,
+              "y": 1.25,
+              "w": 5.8333,
+              "h": 0.6115,
+              "fontSize": 36,
+              "fontFace": "Rajdhani",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "OUR COMPOSITES ARE DESIGNED TO HIGHLIGHT TIMES OF RISK-ON AND RISK-OFF BEHAVIOR",
+            "options": {
+              "x": 4.2147,
+              "y": 2.7072,
+              "w": 18.2373,
+              "h": 1.775,
+              "fontSize": 60,
+              "fontFace": "Rajdhani",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "layer": "Editable_Texts",
+        "item_count": 16,
+        "object_count": 16,
+        "reference_image": null
+      }
+    },
+    {
+      "slide_number": 9,
+      "template_id": "four-col-equation-dark",
+      "slide_type": "content",
+      "background": {
+        "color": "FFFFFF"
+      },
+      "objects": [
+        {
+          "text": {
+            "text": "Percent invested numbers are for illustrative purposes only",
+            "options": {
+              "x": 9.6432,
+              "y": 13.7192,
+              "w": 7.3802,
+              "h": 0.2778,
+              "fontSize": 20,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Long-Term Positioning with Short-Term Opportunity Capture",
+            "options": {
+              "x": 6.2466,
+              "y": 4.5638,
+              "w": 14.1735,
+              "h": 0.4167,
+              "fontSize": 30,
+              "fontFace": "Quicksand (TT)",
+              "color": "FEC00F",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s09_e04.png",
+            "options": {
+              "x": 20.5486,
+              "y": 6.6931,
+              "w": 4.2462,
+              "h": 5.484
+            },
+            "source": "group_export",
+            "exported_png": "s09_e04.png"
+          }
+        },
+        {
+          "text": {
+            "text": [
+              {
+                "text": "Keeping combined",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "system exposure to",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "62% can help reduce risk.",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": true,
+                  "italic": false,
+                  "breakLine": true
+                }
+              }
+            ],
+            "options": {
+              "x": 20.9887,
+              "y": 9.4127,
+              "w": 3.3662,
+              "h": 1.6528,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Composite",
+            "options": {
+              "x": 21.2115,
+              "y": 6.94,
+              "w": 2.9204,
+              "h": 0.4167,
+              "fontSize": 30,
+              "fontFace": "Quicksand (TT)",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 20.5767,
+              "y": 6.6931,
+              "w": 4.1901,
+              "h": 1.0089,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 20.5486,
+              "y": 8.3009,
+              "w": 4.2462,
+              "h": 3.8762,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s09_e05.png",
+            "options": {
+              "x": 14.3185,
+              "y": 6.6931,
+              "w": 4.2462,
+              "h": 5.484
+            },
+            "source": "group_export",
+            "exported_png": "s09_e05.png"
+          }
+        },
+        {
+          "text": {
+            "text": [
+              {
+                "text": "VIX oversold exposure:",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Invested 4% ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": true,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "of the time",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              }
+            ],
+            "options": {
+              "x": 14.6222,
+              "y": 9.1974,
+              "w": 3.6389,
+              "h": 2.0833,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Trigger",
+            "options": {
+              "x": 14.8324,
+              "y": 6.94,
+              "w": 3.2183,
+              "h": 0.4167,
+              "fontSize": 30,
+              "fontFace": "Quicksand (TT)",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 14.3465,
+              "y": 6.6931,
+              "w": 4.1901,
+              "h": 1.0089,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "D6E0DE"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 14.3185,
+              "y": 8.3009,
+              "w": 4.2462,
+              "h": 3.8762,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "D6E0DE"
+              }
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s09_e06.png",
+            "options": {
+              "x": 8.0952,
+              "y": 6.6931,
+              "w": 4.2462,
+              "h": 5.484
+            },
+            "source": "group_export",
+            "exported_png": "s09_e06.png"
+          }
+        },
+        {
+          "text": {
+            "text": [
+              {
+                "text": "Volume thrust exposure:",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Invested 43% ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": true,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "of the time",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              }
+            ],
+            "options": {
+              "x": 8.3988,
+              "y": 9.1974,
+              "w": 3.6389,
+              "h": 2.0833,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Trigger",
+            "options": {
+              "x": 8.6091,
+              "y": 6.94,
+              "w": 3.2183,
+              "h": 0.4167,
+              "fontSize": 30,
+              "fontFace": "Quicksand (TT)",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 8.1232,
+              "y": 6.6931,
+              "w": 4.1901,
+              "h": 1.0089,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "D6E0DE"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 8.0952,
+              "y": 8.3009,
+              "w": 4.2462,
+              "h": 3.8762,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "D6E0DE"
+              }
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s09_e07.png",
+            "options": {
+              "x": 1.8718,
+              "y": 6.6931,
+              "w": 4.2462,
+              "h": 5.484
+            },
+            "source": "group_export",
+            "exported_png": "s09_e07.png"
+          }
+        },
+        {
+          "text": {
+            "text": [
+              {
+                "text": "Long-term trend exposure:",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Invested 71% ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": true,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "of the time",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              }
+            ],
+            "options": {
+              "x": 2.1755,
+              "y": 9.1974,
+              "w": 3.6389,
+              "h": 2.0833,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Base",
+            "options": {
+              "x": 2.5347,
+              "y": 6.94,
+              "w": 2.9204,
+              "h": 0.4167,
+              "fontSize": 30,
+              "fontFace": "Quicksand (TT)",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 1.8999,
+              "y": 6.6931,
+              "w": 4.1901,
+              "h": 1.0089,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "D6E0DE"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 1.8718,
+              "y": 8.3009,
+              "w": 4.2462,
+              "h": 3.8762,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "D6E0DE"
+              }
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "=",
+            "options": {
+              "x": 19.2932,
+              "y": 9.787,
+              "w": 0.5269,
+              "h": 0.9042,
+              "fontSize": 70,
+              "fontFace": "Rajdhani",
+              "color": "FFCB0A",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "+",
+            "options": {
+              "x": 13.0699,
+              "y": 9.787,
+              "w": 0.5201,
+              "h": 0.9042,
+              "fontSize": 70,
+              "fontFace": "Rajdhani",
+              "color": "FFCB0A",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "+",
+            "options": {
+              "x": 6.8465,
+              "y": 9.787,
+              "w": 0.5201,
+              "h": 0.9042,
+              "fontSize": 70,
+              "fontFace": "Rajdhani",
+              "color": "FFCB0A",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "PROCESS",
+            "options": {
+              "x": 1.1667,
+              "y": 1.25,
+              "w": 5.8333,
+              "h": 0.6115,
+              "fontSize": 36,
+              "fontFace": "Rajdhani",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "REDUCING RISK BY REDUCING EXPOSURE",
+            "options": {
+              "x": 4.2147,
+              "y": 2.7072,
+              "w": 18.2373,
+              "h": 1.775,
+              "fontSize": 60,
+              "fontFace": "Rajdhani",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "layer": "Editable_Texts",
+        "item_count": 27,
+        "object_count": 27,
+        "reference_image": null
+      }
+    },
+    {
+      "slide_number": 10,
+      "template_id": "split-dark-light",
+      "slide_type": "data_chart",
+      "background": {
+        "color": "FFFFFF"
+      },
+      "objects": [
+        {
+          "rect": {
+            "options": {
+              "x": 8.0691,
+              "y": 1.08,
+              "w": 17.6698,
+              "h": 12.8748,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "212121",
+                "transparency": 95
+              },
+              "line": {
+                "color": "D6E0DE",
+                "width": 4
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 8.0556,
+              "y": 1.0522,
+              "w": 17.6698,
+              "h": 12.8748,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FFFFFF"
+              }
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e08.png",
+            "options": {
+              "x": 14.2097,
+              "y": 8.9983,
+              "w": 10.2765,
+              "h": 3.8294
+            },
+            "source": "group_export",
+            "exported_png": "s10_e08.png"
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e09.png",
+            "options": {
+              "x": 14.7339,
+              "y": 10.3687,
+              "w": 8.2692,
+              "h": 1.8378
+            },
+            "source": "group_export",
+            "exported_png": "s10_e09.png"
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e10.png",
+            "options": {
+              "x": 16.697,
+              "y": 10.3687,
+              "w": 6.3062,
+              "h": 1.8378
+            },
+            "source": "group_export",
+            "exported_png": "s10_e10.png"
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e11.png",
+            "options": {
+              "x": 20.9446,
+              "y": 11.705,
+              "w": 2.0585,
+              "h": 0.5015
+            },
+            "source": "group_export",
+            "exported_png": "s10_e11.png"
+          }
+        },
+        {
+          "text": {
+            "text": "TREASURIES",
+            "options": {
+              "x": 21.4461,
+              "y": 11.7787,
+              "w": 1.557,
+              "h": 0.2655,
+              "fontSize": 19.1,
+              "fontFace": "Quicksand (TT)",
+              "color": "000000",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 20.9446,
+              "y": 11.705,
+              "w": 0.3245,
+              "h": 0.5015,
+              "rectRadius": 0.1667,
+              "shape": "roundRect"
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 20.7971,
+              "y": 11.5522,
+              "w": 0.8261,
+              "h": 0.708,
+              "rectRadius": 0.1667,
+              "shape": "roundRect"
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 20.8384,
+              "y": 11.6709,
+              "w": 0.5782,
+              "h": 0.6188,
+              "rectRadius": 0.1667,
+              "shape": "roundRect"
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e12.png",
+            "options": {
+              "x": 18.6341,
+              "y": 11.705,
+              "w": 1.5763,
+              "h": 0.5015
+            },
+            "source": "group_export",
+            "exported_png": "s10_e12.png"
+          }
+        },
+        {
+          "text": {
+            "text": "INVERSE",
+            "options": {
+              "x": 19.1356,
+              "y": 11.7787,
+              "w": 1.0748,
+              "h": 0.2655,
+              "fontSize": 19.1,
+              "fontFace": "Quicksand (TT)",
+              "color": "000000",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 18.6341,
+              "y": 11.705,
+              "w": 0.3245,
+              "h": 0.5015,
+              "rectRadius": 0.1667,
+              "shape": "roundRect"
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 18.4866,
+              "y": 11.5522,
+              "w": 0.8261,
+              "h": 0.708,
+              "rectRadius": 0.1667,
+              "shape": "roundRect"
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 18.5279,
+              "y": 11.6709,
+              "w": 0.5782,
+              "h": 0.6188,
+              "rectRadius": 0.1667,
+              "shape": "roundRect"
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e13.png",
+            "options": {
+              "x": 16.697,
+              "y": 11.705,
+              "w": 1.1874,
+              "h": 0.5015
+            },
+            "source": "group_export",
+            "exported_png": "s10_e13.png"
+          }
+        },
+        {
+          "text": {
+            "text": "CASH",
+            "options": {
+              "x": 17.1985,
+              "y": 11.7787,
+              "w": 0.6858,
+              "h": 0.2655,
+              "fontSize": 19.1,
+              "fontFace": "Quicksand (TT)",
+              "color": "000000",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 16.697,
+              "y": 11.705,
+              "w": 0.3245,
+              "h": 0.5015,
+              "rectRadius": 0.1667,
+              "shape": "roundRect"
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 16.5494,
+              "y": 11.5522,
+              "w": 0.8261,
+              "h": 0.708,
+              "rectRadius": 0.1667,
+              "shape": "roundRect"
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 16.5907,
+              "y": 11.6709,
+              "w": 0.5782,
+              "h": 0.6188,
+              "rectRadius": 0.1667,
+              "shape": "roundRect"
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e14.png",
+            "options": {
+              "x": 16.697,
+              "y": 10.3687,
+              "w": 5.3392,
+              "h": 0.5015
+            },
+            "source": "group_export",
+            "exported_png": "s10_e14.png"
+          }
+        },
+        {
+          "text": {
+            "text": "LEVERAGED INDEX EXPOSURE",
+            "options": {
+              "x": 17.1985,
+              "y": 10.4425,
+              "w": 4.8377,
+              "h": 0.295,
+              "fontSize": 19.1,
+              "fontFace": "Quicksand (TT)",
+              "color": "000000",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 16.697,
+              "y": 10.3687,
+              "w": 0.3245,
+              "h": 0.5015,
+              "rectRadius": 0.1667,
+              "shape": "roundRect"
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 16.697,
+              "y": 10.3677,
+              "w": 0.3245,
+              "h": 0.6206,
+              "rectRadius": 0.1667,
+              "shape": "roundRect"
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 16.6379,
+              "y": 10.3677,
+              "w": 0.59,
+              "h": 0.6206,
+              "rectRadius": 0.1667,
+              "shape": "roundRect"
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e15.png",
+            "options": {
+              "x": 14.7339,
+              "y": 10.4254,
+              "w": 1.2968,
+              "h": 1.6655
+            },
+            "source": "group_export",
+            "exported_png": "s10_e15.png"
+          }
+        },
+        {
+          "text": {
+            "text": "RISK-OFF",
+            "options": {
+              "x": 14.7339,
+              "y": 11.7616,
+              "w": 1.2968,
+              "h": 0.3292,
+              "fontSize": 24,
+              "fontFace": "Rajdhani SemiBold",
+              "color": "000000",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "RISK-ON",
+            "options": {
+              "x": 14.7339,
+              "y": 10.4254,
+              "w": 1.1817,
+              "h": 0.3292,
+              "fontSize": 24,
+              "fontFace": "Rajdhani SemiBold",
+              "color": "000000",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e16.png",
+            "options": {
+              "x": 14.2097,
+              "y": 9.3582,
+              "w": 10.2765,
+              "h": 3.4694
+            },
+            "source": "group_export",
+            "exported_png": "s10_e16.png"
+          }
+        },
+        {
+          "text": {
+            "text": [
+              {
+                "text": "ALTERNATE BETWEEN ",
+                "options": {
+                  "fontSize": 21.2,
+                  "fontFace": "Lexend Deca",
+                  "color": "000000",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "RISK-ON AND RISK-OFF",
+                "options": {
+                  "fontSize": 21.2,
+                  "fontFace": "Lexend Deca",
+                  "color": "000000",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              }
+            ],
+            "options": {
+              "x": 17.1697,
+              "y": 8.9983,
+              "w": 4.3958,
+              "h": 0.7789,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e17.png",
+            "options": {
+              "x": 18.79,
+              "y": 2.0799,
+              "w": 5.6962,
+              "h": 5.5956
+            },
+            "source": "group_export",
+            "exported_png": "s10_e17.png"
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e18.png",
+            "options": {
+              "x": 18.79,
+              "y": 5.0911,
+              "w": 2.088,
+              "h": 2.5843
+            },
+            "source": "group_export",
+            "exported_png": "s10_e18.png"
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e19.png",
+            "options": {
+              "x": 18.79,
+              "y": 5.0911,
+              "w": 2.088,
+              "h": 2.088
+            },
+            "source": "group_export",
+            "exported_png": "s10_e19.png"
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e20.png",
+            "options": {
+              "x": 18.79,
+              "y": 5.0911,
+              "w": 2.088,
+              "h": 2.088
+            },
+            "source": "group_export",
+            "exported_png": "s10_e20.png"
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 18.79,
+              "y": 5.0911,
+              "w": 2.088,
+              "h": 2.088,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "E5E6E7"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 18.79,
+              "y": 5.0911,
+              "w": 2.0879,
+              "h": 2.088,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "212121"
+              }
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "6.67%",
+            "options": {
+              "x": 19.2182,
+              "y": 5.8943,
+              "w": 1.2314,
+              "h": 0.4816,
+              "fontSize": 37.3,
+              "fontFace": "Rajdhani SemiBold",
+              "color": "212121",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "CRTBX",
+            "options": {
+              "x": 19.4425,
+              "y": 7.3865,
+              "w": 0.783,
+              "h": 0.289,
+              "fontSize": 22.4,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e21.png",
+            "options": {
+              "x": 22.3982,
+              "y": 2.0799,
+              "w": 2.088,
+              "h": 2.5811
+            },
+            "source": "group_export",
+            "exported_png": "s10_e21.png"
+          }
+        },
+        {
+          "text": {
+            "text": "CRMVX",
+            "options": {
+              "x": 22.9442,
+              "y": 4.372,
+              "w": 0.996,
+              "h": 0.289,
+              "fontSize": 22.4,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e22.png",
+            "options": {
+              "x": 22.3982,
+              "y": 2.0799,
+              "w": 2.088,
+              "h": 2.088
+            },
+            "source": "group_export",
+            "exported_png": "s10_e22.png"
+          }
+        },
+        {
+          "text": {
+            "text": "6.66%",
+            "options": {
+              "x": 22.8021,
+              "y": 2.8831,
+              "w": 1.2801,
+              "h": 0.4816,
+              "fontSize": 37.3,
+              "fontFace": "Rajdhani SemiBold",
+              "color": "212121",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e23.png",
+            "options": {
+              "x": 22.3982,
+              "y": 2.0799,
+              "w": 2.088,
+              "h": 2.088
+            },
+            "source": "group_export",
+            "exported_png": "s10_e23.png"
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 22.3982,
+              "y": 2.0799,
+              "w": 2.088,
+              "h": 2.088,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "E5E6E7"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 22.3982,
+              "y": 2.0799,
+              "w": 2.0879,
+              "h": 2.088,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "212121"
+              }
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e24.png",
+            "options": {
+              "x": 22.3982,
+              "y": 5.0838,
+              "w": 2.088,
+              "h": 2.5916
+            },
+            "source": "group_export",
+            "exported_png": "s10_e24.png"
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e25.png",
+            "options": {
+              "x": 22.3982,
+              "y": 5.0838,
+              "w": 2.088,
+              "h": 2.088
+            },
+            "source": "group_export",
+            "exported_png": "s10_e25.png"
+          }
+        },
+        {
+          "text": {
+            "text": "6.67%",
+            "options": {
+              "x": 22.8402,
+              "y": 5.887,
+              "w": 1.204,
+              "h": 0.4816,
+              "fontSize": 37.3,
+              "fontFace": "Rajdhani SemiBold",
+              "color": "212121",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e26.png",
+            "options": {
+              "x": 22.3982,
+              "y": 5.0838,
+              "w": 2.088,
+              "h": 2.088
+            },
+            "source": "group_export",
+            "exported_png": "s10_e26.png"
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 22.3982,
+              "y": 5.0838,
+              "w": 2.088,
+              "h": 2.088,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "E5E6E7"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 22.3982,
+              "y": 5.0838,
+              "w": 2.0879,
+              "h": 2.088,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "212121"
+              }
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "CRTOX",
+            "options": {
+              "x": 23.0501,
+              "y": 7.3865,
+              "w": 0.7842,
+              "h": 0.289,
+              "fontSize": 22.4,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e27.png",
+            "options": {
+              "x": 18.79,
+              "y": 2.0799,
+              "w": 2.0879,
+              "h": 2.5811
+            },
+            "source": "group_export",
+            "exported_png": "s10_e27.png"
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e28.png",
+            "options": {
+              "x": 18.79,
+              "y": 2.0799,
+              "w": 2.0879,
+              "h": 2.088
+            },
+            "source": "group_export",
+            "exported_png": "s10_e28.png"
+          }
+        },
+        {
+          "text": {
+            "text": "80%",
+            "options": {
+              "x": 19.3692,
+              "y": 2.8831,
+              "w": 0.9295,
+              "h": 0.4816,
+              "fontSize": 37.3,
+              "fontFace": "Rajdhani SemiBold",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s10_e29.png",
+            "options": {
+              "x": 18.79,
+              "y": 2.0799,
+              "w": 2.0879,
+              "h": 2.088
+            },
+            "source": "group_export",
+            "exported_png": "s10_e29.png"
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 18.79,
+              "y": 2.0799,
+              "w": 2.0879,
+              "h": 2.088,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "212121"
+              }
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 18.79,
+              "y": 2.0799,
+              "w": 2.0879,
+              "h": 2.088,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "E5E6E7"
+              }
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "CRDBX",
+            "options": {
+              "x": 19.3404,
+              "y": 4.372,
+              "w": 0.987,
+              "h": 0.289,
+              "fontSize": 22.4,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "BULL BEAR STRATEGY",
+            "options": {
+              "x": 1.1667,
+              "y": 1.25,
+              "w": 5.8333,
+              "h": 0.6115,
+              "fontSize": 36,
+              "fontFace": "Rajdhani",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": [
+              {
+                "text": "The strategy allocates using a suite of affiliated tactical mutual funds. Bull Bear will hold a core position that will focus on providing tactical concentrated exposure to a major market index. The remainder will be allocated among a diverse group of tactical funds. ",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "The underlying funds utilize a combination of dynamic asset allocation and mechanical system trading. Additionally, they employ risk management techniques including the use of hedging, treasuries, and cash positions during adverse market    conditions; cash positions could at times be 100%.",
+                "options": {
+                  "fontSize": 26,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              }
+            ],
+            "options": {
+              "x": 1.1667,
+              "y": 3.9583,
+              "w": 8.5833,
+              "h": 5.5278,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "BULL BEAR",
+            "options": {
+              "x": 1.1667,
+              "y": 2.5,
+              "w": 9.1791,
+              "h": 0.8067,
+              "fontSize": 60,
+              "fontFace": "Rajdhani",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "layer": "Your Image Place",
+        "item_count": 62,
+        "object_count": 62,
+        "reference_image": null
+      }
+    },
+    {
+      "slide_number": 11,
+      "template_id": "data-table-light",
+      "slide_type": "dark_section",
+      "background": {
+        "color": "212121"
+      },
+      "objects": [
+        {
+          "text": {
+            "text": "\u0016",
+            "options": {
+              "x": 3.7684,
+              "y": 2.8611,
+              "w": 19.1299,
+              "h": 10.6072,
+              "fontSize": 77.3,
+              "fontFace": "Rajdhani",
+              "color": "000000",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "Source: FastTrack as of 12/31/2025. Dataset inception: 9/1/1988. ",
+            "options": {
+              "x": 7.0636,
+              "y": 14.0278,
+              "w": 12.5395,
+              "h": 0.4879,
+              "fontSize": 20,
+              "fontFace": "Quicksand (TT)",
+              "color": "000000",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "IF YOU WANT THE S&P 500, JUST BUY THE S&P 500!",
+            "options": {
+              "x": 1.1667,
+              "y": 1.25,
+              "w": 10.75,
+              "h": 0.6115,
+              "fontSize": 36,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "layer": "Background",
+        "item_count": 4,
+        "object_count": 3,
+        "reference_image": null
+      }
+    },
+    {
+      "slide_number": 12,
+      "template_id": "comparison-table",
+      "slide_type": "dark_section",
+      "background": {
+        "color": "212121"
+      },
+      "objects": [
+        {
+          "rect": {
+            "options": {
+              "x": -0.0903,
+              "y": -0.0903,
+              "w": 26.8473,
+              "h": 15.1807,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "212121",
+                "transparency": 95
+              },
+              "line": {
+                "color": "D6E0DE",
+                "width": 4
+              }
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "\u0016",
+            "options": {
+              "x": 2.5975,
+              "y": 6.1183,
+              "w": 21.4717,
+              "h": 4.157,
+              "fontSize": 77.3,
+              "fontFace": "Rajdhani",
+              "color": "000000",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "*Calculated since common inception (6/1/2002). Source: FastTrack. ",
+            "options": {
+              "x": 7.0636,
+              "y": 10.8308,
+              "w": 12.5395,
+              "h": 0.4879,
+              "fontSize": 20,
+              "fontFace": "Quicksand (TT)",
+              "color": "000000",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "BULL BEAR STRATEGY",
+            "options": {
+              "x": 1.1667,
+              "y": 1.25,
+              "w": 5.8333,
+              "h": 0.6115,
+              "fontSize": 36,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "TACTICAL AS A DIVERSIFIER",
+            "options": {
+              "x": 4.2147,
+              "y": 2.7072,
+              "w": 18.2373,
+              "h": 1.775,
+              "fontSize": 60,
+              "fontFace": "Rajdhani",
+              "color": "212121",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "layer": "Background",
+        "item_count": 5,
+        "object_count": 5,
+        "reference_image": null
+      }
+    },
+    {
+      "slide_number": 13,
+      "template_id": "three-circles-dark",
+      "slide_type": "content",
+      "background": {
+        "color": "FFFFFF"
+      },
+      "objects": [
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s13_e30.png",
+            "options": {
+              "x": 17.0143,
+              "y": 6.25,
+              "w": 6.033,
+              "h": 6.033
+            },
+            "source": "group_export",
+            "exported_png": "s13_e30.png"
+          }
+        },
+        {
+          "text": {
+            "text": "Replacing tactical managers with high market correlations i.e. fake tactical.",
+            "options": {
+              "x": 17.9064,
+              "y": 7.3441,
+              "w": 4.2487,
+              "h": 3.8447,
+              "fontSize": 26,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 17.0143,
+              "y": 6.25,
+              "w": 6.033,
+              "h": 6.033,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s13_e31.png",
+            "options": {
+              "x": 10.3168,
+              "y": 6.25,
+              "w": 6.033,
+              "h": 6.033
+            },
+            "source": "group_export",
+            "exported_png": "s13_e31.png"
+          }
+        },
+        {
+          "text": {
+            "text": "Complement to traditional buy and hold portfolios.",
+            "options": {
+              "x": 11.0048,
+              "y": 7.3441,
+              "w": 4.657,
+              "h": 3.8447,
+              "fontSize": 26,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 10.3168,
+              "y": 6.25,
+              "w": 6.033,
+              "h": 6.033,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "image": {
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Strategies\\Strategies\\Bull Bear\\Assets\\potomac_export\\elements\\s13_e32.png",
+            "options": {
+              "x": 3.6194,
+              "y": 6.25,
+              "w": 6.033,
+              "h": 6.033
+            },
+            "source": "group_export",
+            "exported_png": "s13_e32.png"
+          }
+        },
+        {
+          "text": {
+            "text": "Core Holding",
+            "options": {
+              "x": 4.5115,
+              "y": 7.3441,
+              "w": 4.2487,
+              "h": 3.8447,
+              "fontSize": 26,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "rect": {
+            "options": {
+              "x": 3.6194,
+              "y": 6.25,
+              "w": 6.033,
+              "h": 6.033,
+              "rectRadius": 0.1667,
+              "shape": "roundRect",
+              "fill": {
+                "color": "FEC00F"
+              }
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "BULL BEAR STRATEGY",
+            "options": {
+              "x": 1.1667,
+              "y": 1.25,
+              "w": 5.8333,
+              "h": 0.6115,
+              "fontSize": 36,
+              "fontFace": "Rajdhani",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "HOW ARE ADVISORS USING BULL BEAR?",
+            "options": {
+              "x": 4.2147,
+              "y": 2.7072,
+              "w": 18.2373,
+              "h": 1.775,
+              "fontSize": 60,
+              "fontFace": "Rajdhani",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "layer": "Editable_Texts",
+        "item_count": 12,
+        "object_count": 11,
+        "reference_image": null
+      }
+    },
+    {
+      "slide_number": 14,
+      "template_id": "thank-you",
+      "slide_type": "closing",
+      "background": {
+        "color": "FFFFFF"
+      },
+      "objects": [
+        {
+          "image": {
+            "options": {
+              "x": 16.164,
+              "y": 7.902,
+              "w": 5.3367,
+              "h": 5.3367
+            },
+            "linked_file": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Meet Potomac\\Assets\\Potomac Master Presentation DM.png",
+            "exported_png": "",
+            "path": "C:\\Users\\SohaibAli\\PycharmProjects\\skills\\Potomac Branding\\Dump from Marketing\\Meet Potomac\\Assets\\Potomac Master Presentation DM.png"
+          }
+        },
+        {
+          "image": {
+            "options": {
+              "x": 4.8816,
+              "y": 6.9602,
+              "w": 9.5399,
+              "h": 6.2785
+            },
+            "linked_file": "cloud-asset:\\platform-cs.adobe.io\\assets\\adobe-libraries\\c4cc2cf3-e101-4893-844f-06e54c0b8f04;node=b150e76b-052f-4d45-be76-bded6a5ec190",
+            "exported_png": ""
+          }
+        },
+        {
+          "text": {
+            "text": "potomac.com/contact",
+            "options": {
+              "x": 16.5893,
+              "y": 6.9602,
+              "w": 4.4862,
+              "h": 0.4167,
+              "fontSize": 30,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "We have a team of regional consultants across the country to support your business.",
+            "options": {
+              "x": 4.8816,
+              "y": 4.5638,
+              "w": 16.9035,
+              "h": 0.4167,
+              "fontSize": 30,
+              "fontFace": "Quicksand (TT)",
+              "color": "FEC00F",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "POTOMAC",
+            "options": {
+              "x": 1.1667,
+              "y": 1.25,
+              "w": 5.8333,
+              "h": 0.6115,
+              "fontSize": 36,
+              "fontFace": "Rajdhani",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "THANK YOU!",
+            "options": {
+              "x": 4.2147,
+              "y": 2.7072,
+              "w": 18.2373,
+              "h": 1.775,
+              "fontSize": 60,
+              "fontFace": "Rajdhani",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "center",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "layer": "Editable_Texts",
+        "item_count": 8,
+        "object_count": 6,
+        "reference_image": null
+      }
+    },
+    {
+      "slide_number": 15,
+      "template_id": "text-dark",
+      "slide_type": "disclosure",
+      "background": {
+        "color": "FFFFFF"
+      },
+      "objects": [
+        {
+          "text": {
+            "text": [
+              {
+                "text": "Potomac Fund Management (“Potomac”) is an SEC registered investment adviser located in Bethesda, Maryland. Registration does not imply a certain level of skill or training, nor is it an endorsement by the SEC. This material is for general informational purposes only and does not constitute investment advice, tax advice, or a recommendation regarding any specific product, security, strategy, or investment decision. Readers should not assume that any discussion or information applies to their individual circumstances. This communication does not constitute an offer to buy or sell any security or a solicitation to provide personalized investment advice for compensation. Nothing herein should be construed as individualized or tailored advice delivered over the internet.",
+                "options": {
+                  "fontSize": 20,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Opinions expressed are current as of the date of publication and may change without notice. Information obtained from third party sources is believed to be reliable, but Potomac does not guarantee its accuracy or completeness and is not responsible for any third party content referenced or linked in this material.",
+                "options": {
+                  "fontSize": 20,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Investing involves risk, including the possible loss of principal. Past performance does not guarantee future results. For additional important disclosures, please visit potomac.com/disclosures.",
+                "options": {
+                  "fontSize": 20,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Performance results of Potomac strategies reﬂect the composite performance of all fully discretionary portfolios managed by Potomac according to the strategy subject to policies that may require the exclusion of certain accounts. All returns are time-weighted and reﬂect the reinvestment of dividends and capital gain distributions. Gross performance returns do not reflect the payment of investment advisory fees but reflect the underlying fund management fees, other fund (administrative) expenses, and redemption or 12b1 (fund marketing) fees, if any. Net performance reﬂects the deduction of a model fee (the highest investment advisory fee charged by Potomac), underlying fund management fees, other fund (administrative) expenses and, if any, redemption or 12b1 (fund marketing) fees. Net of fee returns are calculated using a model fee of 2.5%. The model fee, applied monthly, is the highest fee that may be or has been charged to an investor in this composite. Actual investment advisory fees incurred may vary. Past performance does not guarantee future results. There is no guarantee that any investment strategy or account will be proﬁtable or will avoid loss. Individual investors’ objectives, ﬁnancial situations, their speciﬁc instructions, or restrictions on investments, or the time at which an account is opened, or additions are made may result in different trades and returns. Performance for the strategy presented may differ materially (more or less) from the performance of the comparable benchmark and other Potomac investment strategies. Market and economic conditions could change in the future producing materially different returns. Results do not reﬂect the impact of taxes for taxable accounts or their owners. You cannot invest directly in an index. This presentation is supplemental to the composite report. Potomac claims compliance with the Global Investment Performance Standards (GIPS®). The Annual GIPS® Report is available upon request. GIPS® is a registered trademark of CFA Institute. CFA Institute does not endorse or promote this organization, nor does it warrant the accuracy or quality of the content contained herein.   ",
+                "options": {
+                  "fontSize": 20,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Potomac Funds are distributed by Paralel Distributors LLC. Paralel is not affiliated with Potomac Fund Management, Inc.",
+                "options": {
+                  "fontSize": 20,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              }
+            ],
+            "options": {
+              "x": 1.1667,
+              "y": 3.0556,
+              "w": 24.3333,
+              "h": 10.6111,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "DISCLOSURES",
+            "options": {
+              "x": 1.1667,
+              "y": 1.25,
+              "w": 5.8333,
+              "h": 0.6115,
+              "fontSize": 36,
+              "fontFace": "Rajdhani",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "layer": "Editable_Texts",
+        "item_count": 2,
+        "object_count": 2,
+        "reference_image": null
+      }
+    },
+    {
+      "slide_number": 16,
+      "template_id": "text-dark",
+      "slide_type": "disclosure",
+      "background": {
+        "color": "FFFFFF"
+      },
+      "objects": [
+        {
+          "text": {
+            "text": [
+              {
+                "text": "S&P 500 Index TR: The S&P 500 TR index is a basket of 500 stocks that are considered to be widely held. The S&P 500 Index TR is weighted by market value, and its performance is thought to be representative of the stock market as a whole. The S&P 500 Index TR is one of the most commonly used benchmarks for the overall U.S. stock market. S&P 500 TR is a total return index adjusted for distributions (i.e., assuming that all distributions are reinvested).",
+                "options": {
+                  "fontSize": 20,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Beta: Beta measures the relationship between an investment and a major market index (the S&P 500 Index TR is used in this report). A beta of 1.0 means that a 1% rise in the S&P 500 Index TR could lead to a 1% rise in the investment, while a beta of -0.5 means that a 1% rise in the S&P 500 Index TR could lead to a 0.5% drop in the investment. The beta for an investment is determined by using regression analysis to measure the relationship between the returns of the investment and the returns of the S&P 500 Index TR.",
+                "options": {
+                  "fontSize": 20,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Drawdown: A Drawdown is any losing period during an investment record. It is defined as the percent retrenchment from peak to trough. A Drawdown is in effect from the time retrenchment begins until a new high is reached. The monthly maximum drawdown is used to calculate strategy scores, benchmark scores, and to determine the relevant benchmark.",
+                "options": {
+                  "fontSize": 20,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "Correlation: Correlation is a statistical measure that determines how assets move relative to one another.",
+                "options": {
+                  "fontSize": 20,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              },
+              {
+                "text": "PFM-506-20260212",
+                "options": {
+                  "fontSize": 20,
+                  "fontFace": "Quicksand (TT)",
+                  "color": "FFFFFF",
+                  "bold": false,
+                  "italic": false,
+                  "breakLine": true
+                }
+              }
+            ],
+            "options": {
+              "x": 1.1667,
+              "y": 3.0556,
+              "w": 24.3333,
+              "h": 10.4444,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        },
+        {
+          "text": {
+            "text": "IMPORTANT DEFINITIONS USED IN THIS REPORT",
+            "options": {
+              "x": 1.1667,
+              "y": 1.25,
+              "w": 9.2709,
+              "h": 0.465,
+              "fontSize": 36,
+              "fontFace": "Rajdhani",
+              "color": "FFFFFF",
+              "bold": false,
+              "align": "left",
+              "isTextBox": true,
+              "autoFit": true
+            }
+          }
+        }
+      ],
+      "metadata": {
+        "layer": "Editable_Texts",
+        "item_count": 2,
+        "object_count": 2,
+        "reference_image": null
+      }
+    }
+  ]
+}

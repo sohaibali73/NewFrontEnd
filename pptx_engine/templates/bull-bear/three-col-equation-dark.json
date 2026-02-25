@@ -1,0 +1,305 @@
+{
+  "slide_number": 8,
+  "template_id": "three-col-equation-dark",
+  "slide_type": "content",
+  "background": {
+    "color": "FFFFFF"
+  },
+  "objects": [
+    {
+      "text": {
+        "text": [
+          {
+            "text": "Composite trading result. ",
+            "options": {
+              "fontSize": 26,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "italic": false,
+              "breakLine": true
+            }
+          },
+          {
+            "text": "Should we be invested?",
+            "options": {
+              "fontSize": 26,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "italic": false,
+              "breakLine": true
+            }
+          }
+        ],
+        "options": {
+          "x": 18.3474,
+          "y": 9.1974,
+          "w": 3.6389,
+          "h": 2.0833,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "Composites",
+        "options": {
+          "x": 18.7066,
+          "y": 6.9499,
+          "w": 2.9204,
+          "h": 0.4167,
+          "fontSize": 30,
+          "fontFace": "Quicksand (TT)",
+          "color": "212121",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "rect": {
+        "options": {
+          "x": 18.0717,
+          "y": 6.6931,
+          "w": 4.1901,
+          "h": 1.0089,
+          "rectRadius": 0.1667,
+          "shape": "roundRect",
+          "fill": {
+            "color": "FEC00F"
+          }
+        }
+      }
+    },
+    {
+      "rect": {
+        "options": {
+          "x": 18.0437,
+          "y": 8.3009,
+          "w": 4.2462,
+          "h": 3.8762,
+          "rectRadius": 0.1667,
+          "shape": "roundRect",
+          "fill": {
+            "color": "FEC00F"
+          }
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "Capture short-term market inefficiencies that generate high returns while invested.",
+        "options": {
+          "x": 11.5105,
+          "y": 9.1974,
+          "w": 3.6389,
+          "h": 2.0833,
+          "fontSize": 26,
+          "fontFace": "Quicksand (TT)",
+          "color": "FFFFFF",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "Trigger Systems",
+        "options": {
+          "x": 11.7208,
+          "y": 6.9499,
+          "w": 3.2183,
+          "h": 0.4167,
+          "fontSize": 30,
+          "fontFace": "Quicksand (TT)",
+          "color": "212121",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "rect": {
+        "options": {
+          "x": 11.2349,
+          "y": 6.6931,
+          "w": 4.1901,
+          "h": 1.0089,
+          "rectRadius": 0.1667,
+          "shape": "roundRect",
+          "fill": {
+            "color": "FEC00F"
+          }
+        }
+      }
+    },
+    {
+      "rect": {
+        "options": {
+          "x": 11.2068,
+          "y": 8.3009,
+          "w": 4.2462,
+          "h": 3.8762,
+          "rectRadius": 0.1667,
+          "shape": "roundRect",
+          "fill": {
+            "color": "FEC00F"
+          }
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "Total market systems that trade infrequently to capture long term trend changes.",
+        "options": {
+          "x": 4.6804,
+          "y": 9.1974,
+          "w": 3.6389,
+          "h": 2.0833,
+          "fontSize": 26,
+          "fontFace": "Quicksand (TT)",
+          "color": "FFFFFF",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "Base Systems",
+        "options": {
+          "x": 5.0397,
+          "y": 6.9499,
+          "w": 2.9204,
+          "h": 0.4167,
+          "fontSize": 30,
+          "fontFace": "Quicksand (TT)",
+          "color": "212121",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "rect": {
+        "options": {
+          "x": 4.4048,
+          "y": 6.6931,
+          "w": 4.1901,
+          "h": 1.0089,
+          "rectRadius": 0.1667,
+          "shape": "roundRect",
+          "fill": {
+            "color": "FEC00F"
+          }
+        }
+      }
+    },
+    {
+      "rect": {
+        "options": {
+          "x": 4.3768,
+          "y": 8.3009,
+          "w": 4.2462,
+          "h": 3.8762,
+          "rectRadius": 0.1667,
+          "shape": "roundRect",
+          "fill": {
+            "color": "FEC00F"
+          }
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "=",
+        "options": {
+          "x": 16.4849,
+          "y": 9.787,
+          "w": 0.5269,
+          "h": 0.9042,
+          "fontSize": 70,
+          "fontFace": "Rajdhani",
+          "color": "FFCB0A",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "+",
+        "options": {
+          "x": 9.6548,
+          "y": 9.787,
+          "w": 0.5201,
+          "h": 0.9042,
+          "fontSize": 70,
+          "fontFace": "Rajdhani",
+          "color": "FFCB0A",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "PROCESS",
+        "options": {
+          "x": 1.1667,
+          "y": 1.25,
+          "w": 5.8333,
+          "h": 0.6115,
+          "fontSize": 36,
+          "fontFace": "Rajdhani",
+          "color": "FFFFFF",
+          "bold": false,
+          "align": "left",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "OUR COMPOSITES ARE DESIGNED TO HIGHLIGHT TIMES OF RISK-ON AND RISK-OFF BEHAVIOR",
+        "options": {
+          "x": 4.2147,
+          "y": 2.7072,
+          "w": 18.2373,
+          "h": 1.775,
+          "fontSize": 60,
+          "fontFace": "Rajdhani",
+          "color": "FFFFFF",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "layer": "Editable_Texts",
+    "item_count": 16,
+    "object_count": 16,
+    "reference_image": null
+  }
+}

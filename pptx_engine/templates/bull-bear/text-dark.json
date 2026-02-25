@@ -1,0 +1,104 @@
+{
+  "slide_number": 15,
+  "template_id": "text-dark",
+  "slide_type": "disclosure",
+  "background": {
+    "color": "FFFFFF"
+  },
+  "objects": [
+    {
+      "text": {
+        "text": [
+          {
+            "text": "Potomac Fund Management (“Potomac”) is an SEC registered investment adviser located in Bethesda, Maryland. Registration does not imply a certain level of skill or training, nor is it an endorsement by the SEC. This material is for general informational purposes only and does not constitute investment advice, tax advice, or a recommendation regarding any specific product, security, strategy, or investment decision. Readers should not assume that any discussion or information applies to their individual circumstances. This communication does not constitute an offer to buy or sell any security or a solicitation to provide personalized investment advice for compensation. Nothing herein should be construed as individualized or tailored advice delivered over the internet.",
+            "options": {
+              "fontSize": 20,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "italic": false,
+              "breakLine": true
+            }
+          },
+          {
+            "text": "Opinions expressed are current as of the date of publication and may change without notice. Information obtained from third party sources is believed to be reliable, but Potomac does not guarantee its accuracy or completeness and is not responsible for any third party content referenced or linked in this material.",
+            "options": {
+              "fontSize": 20,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "italic": false,
+              "breakLine": true
+            }
+          },
+          {
+            "text": "Investing involves risk, including the possible loss of principal. Past performance does not guarantee future results. For additional important disclosures, please visit potomac.com/disclosures.",
+            "options": {
+              "fontSize": 20,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "italic": false,
+              "breakLine": true
+            }
+          },
+          {
+            "text": "Performance results of Potomac strategies reﬂect the composite performance of all fully discretionary portfolios managed by Potomac according to the strategy subject to policies that may require the exclusion of certain accounts. All returns are time-weighted and reﬂect the reinvestment of dividends and capital gain distributions. Gross performance returns do not reflect the payment of investment advisory fees but reflect the underlying fund management fees, other fund (administrative) expenses, and redemption or 12b1 (fund marketing) fees, if any. Net performance reﬂects the deduction of a model fee (the highest investment advisory fee charged by Potomac), underlying fund management fees, other fund (administrative) expenses and, if any, redemption or 12b1 (fund marketing) fees. Net of fee returns are calculated using a model fee of 2.5%. The model fee, applied monthly, is the highest fee that may be or has been charged to an investor in this composite. Actual investment advisory fees incurred may vary. Past performance does not guarantee future results. There is no guarantee that any investment strategy or account will be proﬁtable or will avoid loss. Individual investors’ objectives, ﬁnancial situations, their speciﬁc instructions, or restrictions on investments, or the time at which an account is opened, or additions are made may result in different trades and returns. Performance for the strategy presented may differ materially (more or less) from the performance of the comparable benchmark and other Potomac investment strategies. Market and economic conditions could change in the future producing materially different returns. Results do not reﬂect the impact of taxes for taxable accounts or their owners. You cannot invest directly in an index. This presentation is supplemental to the composite report. Potomac claims compliance with the Global Investment Performance Standards (GIPS®). The Annual GIPS® Report is available upon request. GIPS® is a registered trademark of CFA Institute. CFA Institute does not endorse or promote this organization, nor does it warrant the accuracy or quality of the content contained herein.   ",
+            "options": {
+              "fontSize": 20,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "italic": false,
+              "breakLine": true
+            }
+          },
+          {
+            "text": "Potomac Funds are distributed by Paralel Distributors LLC. Paralel is not affiliated with Potomac Fund Management, Inc.",
+            "options": {
+              "fontSize": 20,
+              "fontFace": "Quicksand (TT)",
+              "color": "FFFFFF",
+              "bold": false,
+              "italic": false,
+              "breakLine": true
+            }
+          }
+        ],
+        "options": {
+          "x": 1.1667,
+          "y": 3.0556,
+          "w": 24.3333,
+          "h": 10.6111,
+          "align": "left",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "DISCLOSURES",
+        "options": {
+          "x": 1.1667,
+          "y": 1.25,
+          "w": 5.8333,
+          "h": 0.6115,
+          "fontSize": 36,
+          "fontFace": "Rajdhani",
+          "color": "FFFFFF",
+          "bold": false,
+          "align": "left",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "layer": "Editable_Texts",
+    "item_count": 2,
+    "object_count": 2,
+    "reference_image": null
+  }
+}

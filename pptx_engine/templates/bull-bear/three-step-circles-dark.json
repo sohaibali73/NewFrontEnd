@@ -1,0 +1,352 @@
+{
+  "slide_number": 4,
+  "template_id": "three-step-circles-dark",
+  "slide_type": "content",
+  "background": {
+    "color": "FFFFFF"
+  },
+  "objects": [
+    {
+      "text": {
+        "text": "Indicators that use market data to assess the odds of a +/- price trend.",
+        "options": {
+          "x": 6.2466,
+          "y": 4.5638,
+          "w": 14.1735,
+          "h": 0.4167,
+          "fontSize": 30,
+          "fontFace": "Quicksand (TT)",
+          "color": "FEC00F",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "(Intermarket Relationships)",
+        "options": {
+          "x": 19.4375,
+          "y": 10.7274,
+          "w": 3.7243,
+          "h": 0.7917,
+          "fontSize": 26,
+          "fontFace": "Quicksand (TT)",
+          "color": "FFFFFF",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "(Breadth and Volume)",
+        "options": {
+          "x": 11.3126,
+          "y": 10.4014,
+          "w": 4.0415,
+          "h": 0.3611,
+          "fontSize": 26,
+          "fontFace": "Quicksand (TT)",
+          "color": "FFFFFF",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "(Up, Down or Sideways)",
+        "options": {
+          "x": 3.3462,
+          "y": 10.315,
+          "w": 4.0415,
+          "h": 0.3611,
+          "fontSize": 26,
+          "fontFace": "Quicksand (TT)",
+          "color": "FFFFFF",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "3",
+        "options": {
+          "x": 21.0105,
+          "y": 7.6827,
+          "w": 0.5783,
+          "h": 0.775,
+          "fontSize": 60,
+          "fontFace": "Rajdhani",
+          "color": "212121",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "Intermarket Confirmation",
+        "options": {
+          "x": 19.5961,
+          "y": 9.5755,
+          "w": 3.407,
+          "h": 0.9167,
+          "fontSize": 30,
+          "fontFace": "Quicksand (TT)",
+          "color": "FFFFFF",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "rect": {
+        "options": {
+          "x": 20.2364,
+          "y": 7.1053,
+          "w": 2.1266,
+          "h": 2.1266,
+          "rectRadius": 0.1667,
+          "shape": "roundRect",
+          "fill": {
+            "color": "FEC00F"
+          }
+        }
+      }
+    },
+    {
+      "rect": {
+        "options": {
+          "x": 18.2947,
+          "y": 6.2769,
+          "w": 6.0099,
+          "h": 6.0099,
+          "rectRadius": 0.1667,
+          "shape": "roundRect",
+          "fill": {
+            "color": "FEC00F"
+          }
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "2",
+        "options": {
+          "x": 13.0517,
+          "y": 7.6827,
+          "w": 0.5633,
+          "h": 0.775,
+          "fontSize": 60,
+          "fontFace": "Rajdhani",
+          "color": "212121",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "Trend Health",
+        "options": {
+          "x": 12.0475,
+          "y": 9.5755,
+          "w": 2.5716,
+          "h": 0.4167,
+          "fontSize": 30,
+          "fontFace": "Quicksand (TT)",
+          "color": "FFFFFF",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "rect": {
+        "options": {
+          "x": 12.27,
+          "y": 7.1053,
+          "w": 2.1266,
+          "h": 2.1266,
+          "rectRadius": 0.1667,
+          "shape": "roundRect",
+          "fill": {
+            "color": "FEC00F"
+          }
+        }
+      }
+    },
+    {
+      "rect": {
+        "options": {
+          "x": 10.3284,
+          "y": 6.2769,
+          "w": 6.0099,
+          "h": 6.0099,
+          "rectRadius": 0.1667,
+          "shape": "roundRect",
+          "fill": {
+            "color": "FEC00F"
+          }
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "1",
+        "options": {
+          "x": 5.152,
+          "y": 7.6827,
+          "w": 0.43,
+          "h": 0.775,
+          "fontSize": 60,
+          "fontFace": "Rajdhani",
+          "color": "212121",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "Trend Direction",
+        "options": {
+          "x": 3.6635,
+          "y": 9.5755,
+          "w": 3.407,
+          "h": 0.4167,
+          "fontSize": 30,
+          "fontFace": "Quicksand (TT)",
+          "color": "FFFFFF",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "rect": {
+        "options": {
+          "x": 4.3037,
+          "y": 7.1053,
+          "w": 2.1266,
+          "h": 2.1266,
+          "rectRadius": 0.1667,
+          "shape": "roundRect",
+          "fill": {
+            "color": "FEC00F"
+          }
+        }
+      }
+    },
+    {
+      "rect": {
+        "options": {
+          "x": 2.3621,
+          "y": 6.2769,
+          "w": 6.0099,
+          "h": 6.0099,
+          "rectRadius": 0.1667,
+          "shape": "roundRect",
+          "fill": {
+            "color": "FEC00F"
+          }
+        }
+      }
+    },
+    {
+      "rect": {
+        "options": {
+          "x": 17.0794,
+          "y": 9.0078,
+          "w": 0.4741,
+          "h": 0.5481,
+          "rectRadius": 0.1667,
+          "shape": "roundRect",
+          "fill": {
+            "color": "FEC00F"
+          }
+        }
+      }
+    },
+    {
+      "rect": {
+        "options": {
+          "x": 9.1131,
+          "y": 9.0078,
+          "w": 0.4741,
+          "h": 0.5481,
+          "rectRadius": 0.1667,
+          "shape": "roundRect",
+          "fill": {
+            "color": "FEC00F"
+          }
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "MARKET ANALYSIS: THREE LEGS TO THE STOOL",
+        "options": {
+          "x": 4.2147,
+          "y": 2.7072,
+          "w": 18.2373,
+          "h": 1.775,
+          "fontSize": 60,
+          "fontFace": "Rajdhani",
+          "color": "FFFFFF",
+          "bold": false,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "PROCESS",
+        "options": {
+          "x": 1.1667,
+          "y": 1.25,
+          "w": 5.8333,
+          "h": 0.6115,
+          "fontSize": 36,
+          "fontFace": "Rajdhani",
+          "color": "FFFFFF",
+          "bold": false,
+          "align": "left",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "layer": "Editable_Texts",
+    "item_count": 20,
+    "object_count": 20,
+    "reference_image": null
+  }
+}

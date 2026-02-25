@@ -1,0 +1,38 @@
+{
+  "deck_family": "bull_bear",
+  "slide_w_in": 26.6667,
+  "slide_h_in": 15,
+  "templates": {
+    "cover-hero": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\cover-hero.pptx",
+    "strategy-intro": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\strategy-intro.pptx",
+    "data-flow-diagram-light": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\data-flow-diagram-light.pptx",
+    "three-step-circles-dark": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\three-step-circles-dark.pptx",
+    "chart-full-light": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\chart-full-light.pptx",
+    "three-col-equation-dark": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\three-col-equation-dark.pptx",
+    "four-col-equation-dark": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\four-col-equation-dark.pptx",
+    "split-dark-light": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\split-dark-light.pptx",
+    "data-table-light": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\data-table-light.pptx",
+    "comparison-table": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\comparison-table.pptx",
+    "three-circles-dark": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\three-circles-dark.pptx",
+    "thank-you": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\thank-you.pptx",
+    "text-dark": "C:\\Users\\SohaibAli\\PycharmProjects\\Potomac-Analyst-Workbench\\pptx_engine\\templates\\bull-bear\\text-dark.pptx"
+  },
+  "slide_map": {
+    "1": "cover-hero",
+    "2": "strategy-intro",
+    "3": "data-flow-diagram-light",
+    "4": "three-step-circles-dark",
+    "5": "chart-full-light",
+    "6": "chart-full-light",
+    "7": "chart-full-light",
+    "8": "three-col-equation-dark",
+    "9": "four-col-equation-dark",
+    "10": "split-dark-light",
+    "11": "data-table-light",
+    "12": "comparison-table",
+    "13": "three-circles-dark",
+    "14": "thank-you",
+    "15": "text-dark",
+    "16": "text-dark"
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "slide_number": 2,
+  "template_id": "strategy-intro",
+  "slide_type": "title",
+  "background": {
+    "color": "212121"
+  },
+  "objects": [
+    {
+      "rect": {
+        "options": {
+          "x": -0.0903,
+          "y": -0.0903,
+          "w": 26.8473,
+          "h": 15.1807,
+          "rectRadius": 0.1667,
+          "shape": "roundRect",
+          "fill": {
+            "color": "212121",
+            "transparency": 95
+          },
+          "line": {
+            "color": "D6E0DE",
+            "width": 4
+          }
+        }
+      }
+    },
+    {
+      "text": {
+        "text": "BULL BEAR STRATEGY",
+        "options": {
+          "x": 1.1667,
+          "y": 1.25,
+          "w": 5.8333,
+          "h": 0.6115,
+          "fontSize": 36,
+          "fontFace": "Rajdhani",
+          "color": "212121",
+          "bold": false,
+          "align": "left",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    },
+    {
+      "image": {
+        "options": {
+          "x": 7.0093,
+          "y": 4.5971,
+          "w": 12.6482,
+          "h": 2.6899
+        },
+        "linked_file": "\\Users\\soophiahussain\\Documents\\InDesign PDF Assets\\Bull Bear\\fig_image_5_573155303.png",
+        "exported_png": ""
+      }
+    },
+    {
+      "text": {
+        "text": [
+          {
+            "text": "A tactical ‘moderate growth’ strategy with the goal of systematically pursuing growth ",
+            "options": {
+              "fontSize": 30,
+              "fontFace": "Quicksand (TT)",
+              "color": "212121",
+              "bold": false,
+              "italic": false,
+              "breakLine": true
+            }
+          },
+          {
+            "text": "in the equity markets, while avoiding catastrophic bear market losses.",
+            "options": {
+              "fontSize": 30,
+              "fontFace": "Quicksand (TT)",
+              "color": "212121",
+              "bold": false,
+              "italic": false,
+              "breakLine": true
+            }
+          }
+        ],
+        "options": {
+          "x": 4.2147,
+          "y": 8.6804,
+          "w": 18.2373,
+          "h": 1.0556,
+          "align": "center",
+          "isTextBox": true,
+          "autoFit": true
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "layer": "Background",
+    "item_count": 5,
+    "object_count": 4,
+    "reference_image": null
+  }
+}

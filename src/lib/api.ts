@@ -1346,6 +1346,21 @@ class APIClient {
     return this.request<MultiSkillResponse>('/api/skills/multi', 'POST', request);
   }
 
+  // Skill background jobs (bypass streaming — runs server-side)
+  async submitSkillJob(slug: string, message: string, extraContext?: string) {
+    return this.request<{ job_id: string; status: string; skill: string; skill_name: string }>(
+      `/api/skills/${slug}/job`, 'POST', { message, extra_context: extraContext || '' }
+    );
+  }
+
+  async getSkillJobs() {
+    return this.request<{ jobs: any[] }>('/api/skills/jobs');
+  }
+
+  async getSkillJob(jobId: string) {
+    return this.request<any>(`/api/skills/jobs/${jobId}`);
+  }
+
   /**
    * Get the streaming endpoint URL for a specific skill
    */

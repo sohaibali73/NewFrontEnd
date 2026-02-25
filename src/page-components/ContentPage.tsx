@@ -9,6 +9,7 @@ import {
   Sliders,
   BookOpen,
   Sparkles,
+  BrainCircuit,
 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -18,6 +19,7 @@ import { ArticlesTab } from '@/components/content/ArticlesTab';
 import { DocumentsTab } from '@/components/content/DocumentsTab';
 import { DashboardsTab } from '@/components/content/DashboardsTab';
 import { WritingStyleSettings } from '@/components/content/WritingStyleSettings';
+import SkillsTab from '@/components/content/SkillsTab';
 
 export function ContentPage() {
   const { resolvedTheme } = useTheme();
@@ -190,6 +192,7 @@ export function ContentPage() {
                 { value: 'articles', label: 'ARTICLES', icon: BookOpen },
                 { value: 'documents', label: 'DOCUMENTS', icon: File },
                 { value: 'dashboards', label: 'DASHBOARDS', icon: BarChart3 },
+                { value: 'skills', label: 'AI SKILLS', icon: BrainCircuit },
               ].map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.value;
@@ -265,6 +268,14 @@ export function ContentPage() {
               style={{ height: '100%' }}
             >
               <DashboardsTab colors={colors} isDark={isDark} />
+            </TabsContent>
+
+            <TabsContent
+              value="skills"
+              className="m-0 h-full"
+              style={{ height: '100%', overflowY: 'auto', padding: '20px' }}
+            >
+              <SkillsTab />
             </TabsContent>
           </div>
         </Tabs>

@@ -1,4 +1,8 @@
 /**
+ * @deprecated This hook is NOT used anywhere in the app. ChatPage, AFLGeneratorPage,
+ * and ReverseEngineerPage all use `useChat` from `@ai-sdk/react` directly with
+ * `DefaultChatTransport`. This file is kept for reference but can be safely deleted.
+ * 
  * useAIChat - Vercel AI SDK v6 streaming chat hook for Potomac Analyst
  * 
  * Uses useChat from @ai-sdk/react with DefaultChatTransport for v6 compatibility.

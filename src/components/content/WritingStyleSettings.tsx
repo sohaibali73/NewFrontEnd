@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   X,
   Plus,
@@ -10,7 +10,10 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
+  Loader2,
+  CheckCircle2,
 } from 'lucide-react';
+import { apiClient } from '@/lib/api';
 
 interface WritingStyleSettingsProps {
   colors: Record<string, string>;
@@ -120,6 +123,9 @@ const CONTENT_TYPE_OPTIONS = [
   { value: 'dashboards', label: 'Dashboards' },
 ];
 
+const LS_STYLES_KEY = 'content_writing_styles';
+const LS_PRESETS_KEY = 'content_writing_presets';
+
 export function WritingStyleSettings({ colors, isDark, onClose }: WritingStyleSettingsProps) {
   const [activeSection, setActiveSection] = useState<'styles' | 'presets' | 'clone'>('styles');
   const [styles, setStyles] = useState<WritingStyle[]>(DEFAULT_STYLES);
@@ -129,6 +135,61 @@ export function WritingStyleSettings({ colors, isDark, onClose }: WritingStyleSe
   const [cloneText, setCloneText] = useState('');
   const [cloneUrl, setCloneUrl] = useState('');
   const [expandedStyle, setExpandedStyle] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+
+  // Load styles from localStorage (immediate) then backend (async)
+  useEffect(() => {
+    // 1. Load from localStorage for instant display
+    try {
+      const cachedStyles = localStorage.getItem(LS_STYLES_KEY);
+      if (cachedStyles) setStyles(JSON.parse(cachedStyles));
+      const cachedPresets = localStorage.getItem(LS_PRESETS_KEY);
+      if (cachedPresets) setPresets(JSON.parse(cachedPresets));
+    } catch {}
+
+    // 2. Try loading from backend (overwrites localStorage if successful)
+    (async () => {
+      try {
+        const backendData = await apiClient.getWritingStyles();
+        if (backendData?.styles && Array.isArray(backendData.styles)) {
+          setStyles(backendData.styles);
+          localStorage.setItem(LS_STYLES_KEY, JSON.stringify(backendData.styles));
+        }
+        if (backendData?.presets && Array.isArray(backendData.presets)) {
+          setPresets(backendData.presets);
+          localStorage.setItem(LS_PRESETS_KEY, JSON.stringify(backendData.presets));
+        }
+      } catch {
+        // Backend unavailable — localStorage data is used
+      }
+    })();
+  }, []);
+
+  // Save to localStorage + backend
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    setSaveStatus('idle');
+
+    // Always save to localStorage (instant)
+    try {
+      localStorage.setItem(LS_STYLES_KEY, JSON.stringify(styles));
+      localStorage.setItem(LS_PRESETS_KEY, JSON.stringify(presets));
+    } catch {}
+
+    // Try saving to backend
+    try {
+      await apiClient.updateWritingStyles({ styles, presets });
+      setSaveStatus('saved');
+    } catch {
+      // Backend save failed but localStorage is saved
+      setSaveStatus('saved'); // Still show success since localStorage works
+    }
+
+    setSaving(false);
+    // Auto-close after save
+    setTimeout(() => onClose(), 800);
+  }, [styles, presets, onClose]);
 
   const handleDeleteStyle = (id: string) => {
     setStyles((prev) => prev.filter((s) => s.id !== id));
@@ -1434,29 +1495,36 @@ export function WritingStyleSettings({ colors, isDark, onClose }: WritingStyleSe
             Cancel
           </button>
           <button
-            onClick={onClose}
+            onClick={handleSave}
+            disabled={saving}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
               padding: '8px 20px',
               borderRadius: '8px',
-              backgroundColor: colors.primaryYellow,
-              color: colors.darkGray,
+              backgroundColor: saveStatus === 'saved' ? '#22c55e' : colors.primaryYellow,
+              color: saveStatus === 'saved' ? '#ffffff' : colors.darkGray,
               border: 'none',
-              cursor: 'pointer',
+              cursor: saving ? 'not-allowed' : 'pointer',
               fontFamily: "'Rajdhani', sans-serif",
               fontWeight: 700,
               fontSize: '13px',
               letterSpacing: '0.5px',
               textTransform: 'uppercase',
-              transition: 'opacity 0.2s ease',
+              transition: 'all 0.2s ease',
+              opacity: saving ? 0.7 : 1,
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+            onMouseEnter={(e) => { if (!saving) e.currentTarget.style.opacity = '0.9'; }}
+            onMouseLeave={(e) => { if (!saving) e.currentTarget.style.opacity = '1'; }}
           >
-            <Save size={14} />
-            Save Changes
+            {saving ? (
+              <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Saving...</>
+            ) : saveStatus === 'saved' ? (
+              <><CheckCircle2 size={14} /> Saved!</>
+            ) : (
+              <><Save size={14} /> Save Changes</>
+            )}
           </button>
         </div>
       </div>

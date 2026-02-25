@@ -226,29 +226,35 @@ export function ChatPage() {
       }),
     }),
     onFinish: ({ message }) => {
-      // Mark stream as just finished — guards against loadPreviousMessages wiping tool UI parts
-      justFinishedStreamRef.current = true;
-      setTimeout(() => { justFinishedStreamRef.current = false; }, 8000);
-
-      // Cache ALL message parts to localStorage so artifacts survive navigation
+      // Mark which conversation just finished streaming — scoped guard prevents
+      // loadPreviousMessages from wiping rich tool UI parts for THIS conversation only
       const convId = conversationIdRef.current;
+      justFinishedStreamRef.current = convId;
+      setTimeout(() => {
+        // Only clear if it's still the same conversation (user hasn't switched)
+        if (justFinishedStreamRef.current === convId) {
+          justFinishedStreamRef.current = null;
+        }
+      }, 3000); // Reduced from 8s — 3s is enough for the sidebar refresh cycle
+
+      // Cache ALL message parts to localStorage so artifacts survive navigation/reload
       if (convId) {
         try {
           const partsCache: Record<string, any[]> = {};
-          // streamMessages is the latest messages array from useChat
+          // Cache the just-finished message (always has the latest parts)
+          if (message.parts && message.parts.length > 0) {
+            partsCache[message.id] = message.parts;
+          }
+          // Also cache other messages with rich parts from the current stream
+          // NOTE: streamMessages may be stale in this closure, so we prioritize `message`
           streamMessages.forEach((m: any) => {
-            if (m.parts && m.parts.length > 0) {
-              // Only cache messages with rich parts (tool outputs, artifacts, etc.)
+            if (m.id !== message.id && m.parts && m.parts.length > 0) {
               const hasRichParts = m.parts.some((p: any) => p.type !== 'text');
               if (hasRichParts) {
                 partsCache[m.id] = m.parts;
               }
             }
           });
-          // Also cache the just-finished message
-          if (message.parts && message.parts.length > 0) {
-            partsCache[message.id] = message.parts;
-          }
           if (Object.keys(partsCache).length > 0) {
             // Merge with existing cache (don't overwrite old messages)
             try {
@@ -335,27 +341,37 @@ export function ChatPage() {
     }
   }, [input]);
 
+  // Track whether initial conversations have been loaded (to distinguish initial load vs refresh)
+  const initialLoadDoneRef = useRef(false);
+
   const loadConversations = async () => {
     try {
       const allData = await apiClient.getConversations();
       const data = allData.filter((c: any) => !c.conversation_type || c.conversation_type === 'agent');
       setConversations(data);
-      // FIX: use conversationIdRef.current (always fresh) instead of selectedConversation (stale closure)
-      // This prevents onFinish → loadConversations → setSelectedConversation → loadPreviousMessages
-      // from wiping out tool UI parts that were just streamed
+
+      // Auto-select first conversation if none is selected
       if (data.length > 0 && !conversationIdRef.current) {
-        skipNextLoadRef.current = true; // also skip the triggered loadPreviousMessages
+        if (initialLoadDoneRef.current) {
+          // This is a sidebar refresh (e.g., from onFinish) — skip loading messages
+          // to avoid wiping tool UI parts that were just streamed
+          skipNextLoadRef.current = true;
+        }
+        // On initial page load (initialLoadDoneRef.current === false), do NOT skip —
+        // we WANT to load messages so the user sees their previous conversation
         setSelectedConversation(data[0]);
       }
+
+      initialLoadDoneRef.current = true;
     } catch { setPageError('Failed to load conversations'); }
     finally { setLoadingConversations(false); }
   };
 
   const loadPreviousMessages = async (conversationId: string) => {
-    // Guard: don't reload if streaming just finished — would overwrite rich tool UI parts
-    // with plain text from the backend (which doesn't store tool output parts in metadata)
-    if (justFinishedStreamRef.current) {
-      justFinishedStreamRef.current = false;
+    // Guard: don't reload if streaming just finished for THIS conversation — would overwrite
+    // rich tool UI parts with plain text from the backend. But allow loading OTHER conversations.
+    if (justFinishedStreamRef.current === conversationId) {
+      justFinishedStreamRef.current = null;
       return;
     }
     try {
@@ -381,8 +397,9 @@ export function ChatPage() {
 
   // Track whether we just created a new conversation (to skip re-loading messages)
   const skipNextLoadRef = useRef(false);
-  // Track when streaming just completed — prevents loadPreviousMessages from wiping tool UI parts
-  const justFinishedStreamRef = useRef(false);
+  // Track which conversation just finished streaming — prevents loadPreviousMessages from wiping tool UI parts
+  // Stores the conversationId (not boolean) so it's scoped to the right conversation
+  const justFinishedStreamRef = useRef<string | null>(null);
 
   const handleNewConversation = async () => {
     try {

@@ -112,4 +112,18 @@ if (isProduction() && !isServer()) {
   }
 }
 
+/**
+ * Get the Next.js API proxy prefix for backend calls.
+ * Use this instead of direct backend URLs to avoid CORS issues.
+ * 
+ * The proxy is configured in next.config.js:
+ *   /api/backend/:path* → ${NEXT_PUBLIC_API_URL}/:path*
+ * 
+ * Example: getProxyUrl('/presentations/generate') → '/api/backend/presentations/generate'
+ */
+export function getProxyUrl(path: string = ''): string {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `/api/backend${cleanPath}`;
+}
+
 export { EnvironmentError };

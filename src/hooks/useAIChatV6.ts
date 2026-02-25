@@ -1,4 +1,7 @@
 /**
+ * @deprecated This hook is NOT used anywhere in the app. All chat pages use
+ * `useChat` from `@ai-sdk/react` directly. This file can be safely deleted.
+ *
  * useAIChatV6 - Simplified AI SDK v6 hook using direct Data Stream Protocol
  * 
  * Uses the new /api/chat/v6 endpoint that bypasses protocol translation

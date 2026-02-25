@@ -5,6 +5,7 @@ import {
   uploadChartImage,
   generateDeck,
   type UploadImageResponse,
+  type GenerateDeckResponse,
 } from '@/lib/pptxApi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Download, Upload, FileImage, Loader2, AlertCircle, Presentation, X, CheckCircle2 } from 'lucide-react';
@@ -42,6 +43,7 @@ export default function DeckGeneratorPage() {
   // Progress / result state
   const [isGenerating, setIsGenerating] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress[]>([]);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [slideCount, setSlideCount] = useState<number | null>(null);
@@ -94,13 +96,18 @@ export default function DeckGeneratorPage() {
         setUploadProgress([...progress]);
       }
 
-      // 2. Generate the deck
-      const result = await generateDeck({
-        outline: brief,
-        deck_family: deckType,
-        uploaded_images: uploadedFilenames,
-      });
+      // 2. Generate the deck (SSE streaming — onStatus shows live progress)
+      setStatusMessage('Starting presentation generation...');
+      const result = await generateDeck(
+        {
+          outline: brief,
+          deck_family: deckType,
+          uploaded_images: uploadedFilenames,
+        },
+        (message) => setStatusMessage(message), // SSE progress callback
+      );
 
+      setStatusMessage(null);
       setDownloadUrl(result.download_url);
       setSlideCount(result.slide_count);
     } catch (err: unknown) {
@@ -455,6 +462,26 @@ export default function DeckGeneratorPage() {
                   </span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* Generation Status Message */}
+          {statusMessage && isGenerating && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '14px 16px',
+                borderRadius: '10px',
+                backgroundColor: isDark ? 'rgba(254,192,15,0.08)' : 'rgba(254,192,15,0.1)',
+                border: `1px solid ${isDark ? 'rgba(254,192,15,0.2)' : 'rgba(254,192,15,0.3)'}`,
+                fontSize: '14px',
+                color: colors.text,
+              }}
+            >
+              <Loader2 size={16} color={colors.accent} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+              <span style={{ fontFamily: "'Quicksand', sans-serif" }}>{statusMessage}</span>
             </div>
           )}
 

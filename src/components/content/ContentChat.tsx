@@ -21,14 +21,19 @@ const CONV_ID_KEY = 'content_chat_conversation_id';
 const HISTORY_KEY = 'content_chat_history';
 
 // ── Fallback response when backend is unreachable ─────────────────────────
-const OFFLINE_RESPONSE = `I'm currently unable to connect to the Potomac backend. Please check your connection and try again.
+function getFallbackResponse(input: string): string {
+  return `⚠️ **Backend Unavailable**
 
-In the meantime, you can use the content tabs (Slide Decks, Articles, Documents, Dashboards) to create content — those work offline as well.
+I'm currently unable to connect to the Potomac AI backend to process your request:
+> "${input.slice(0, 100)}${input.length > 100 ? '...' : ''}"
 
-Once the backend is available, this chat will automatically reconnect and provide full AI-powered responses.`;
+**What you can do:**
+- Check your internet connection
+- Verify the backend server is running (check Settings)
+- Use the **Slide Decks**, **Articles**, **Documents**, or **Dashboards** tabs — they have built-in templates that work offline
+- Try again in a moment — this chat will automatically reconnect when the backend is available
 
-function getFallbackResponse(_input: string): string {
-  return OFFLINE_RESPONSE;
+*This is NOT an AI-generated response — it's a connection error message.*`;
 }
 
 // ── Streaming text helper ─────────────────────────────────────────────────

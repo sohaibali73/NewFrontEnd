@@ -101,7 +101,9 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
             const snap = fullText;
             setMessages(prev => prev.map(m => m.id === aId ? { ...m, content: snap } : m));
           },
-          onError: () => {},
+          onError: (error) => {
+            console.error('[CreationChat] Stream error:', error);
+          },
           onFinish: () => {
             setIsLoading(false);
             setCanSave(true);
@@ -109,35 +111,35 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
         });
 
         if (!fullText.trim()) {
-          // Empty response — fall through to offline generation
+          // Empty response — show a clear error, NOT fake content
           throw new Error('empty');
         }
-      } catch {
-        // Fall back to offline
+      } catch (err) {
+        // Show clear error instead of silently generating fake content
         if (!fullText.trim()) {
           fullText = '';
-          const fallback = generateOfflineContent(prompt, contentType);
-          const chars = fallback.split('');
+          const errorMsg = `⚠️ **Unable to reach the AI backend**\n\nThe backend service is currently unavailable. Please check:\n- Your internet connection\n- That the backend server is running\n- Your API key is configured in Settings\n\nYou can try again in a moment, or use the template below as a starting point:\n\n---\n\n${generateOfflineContent(prompt, contentType)}`;
+          const chars = errorMsg.split('');
           for (let i = 0; i < chars.length; i += 4) {
             fullText += chars.slice(i, i + 4).join('');
             const snap = fullText;
             setMessages(prev => prev.map(m => m.id === aId ? { ...m, content: snap } : m));
-            await new Promise(r => setTimeout(r, 8));
+            await new Promise(r => setTimeout(r, 6));
           }
           setIsLoading(false);
-          setCanSave(true);
+          setCanSave(true); // Still allow saving the template
         }
       }
     } else {
-      // ── Offline — generate locally ───────────────────────────
-      await new Promise(r => setTimeout(r, 400));
-      const fallback = generateOfflineContent(prompt, contentType);
-      const chars = fallback.split('');
+      // ── No conversation created (backend unreachable) — show clear offline indicator
+      await new Promise(r => setTimeout(r, 300));
+      const offlineMsg = `⚠️ **Offline Mode — Backend Unavailable**\n\nCouldn't connect to the AI service. Here's a template to get you started:\n\n---\n\n${generateOfflineContent(prompt, contentType)}`;
+      const chars = offlineMsg.split('');
       for (let i = 0; i < chars.length; i += 4) {
         fullText += chars.slice(i, i + 4).join('');
         const snap = fullText;
         setMessages(prev => prev.map(m => m.id === aId ? { ...m, content: snap } : m));
-        await new Promise(r => setTimeout(r, 8));
+        await new Promise(r => setTimeout(r, 6));
       }
       setIsLoading(false);
       setCanSave(true);

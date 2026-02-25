@@ -4,27 +4,45 @@
  */
 import { NextRequest } from 'next/server';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 
   (process.env.NODE_ENV === 'development' 
     ? 'http://localhost:8000' 
-    : 'https://potomac-analyst-workbench-production.up.railway.app');
+    : 'https://potomac-analyst-workbench-production.up.railway.app')).replace(/\/+$/, '');
+
+export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const authToken = req.headers.get('authorization') || '';
 
-    const response = await fetch(`${API_BASE_URL}/chat/tts`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': authToken,
-      },
-      body: JSON.stringify({
-        text: body.text || '',
-        voice: body.voice || 'en-US-AriaNeural',
-      }),
-    });
+    // Add timeout for TTS generation (15s should be plenty)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE_URL}/chat/tts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authToken,
+        },
+        body: JSON.stringify({
+          text: body.text || '',
+          voice: body.voice || 'en-US-AriaNeural',
+        }),
+        signal: controller.signal,
+      });
+    } catch (fetchErr) {
+      clearTimeout(timeoutId);
+      const isTimeout = fetchErr instanceof Error && fetchErr.name === 'AbortError';
+      return new Response(
+        JSON.stringify({ error: isTimeout ? 'TTS generation timed out' : 'Cannot reach TTS service' }),
+        { status: isTimeout ? 504 : 502, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: `TTS error: ${response.status}` }));

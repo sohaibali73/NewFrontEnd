@@ -1,3 +1,9 @@
+/**
+ * @deprecated This hook is NOT used anywhere in the app. All chat pages use
+ * `useChat` from `@ai-sdk/react` directly with `DefaultChatTransport`.
+ * This lower-level hook uses `apiClient.sendMessageStream()` which bypasses
+ * the AI SDK entirely. It can be safely deleted.
+ */
 import { useCallback, useRef, useState } from 'react';
 import apiClient from '@/lib/api';
 

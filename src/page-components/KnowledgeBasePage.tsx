@@ -320,12 +320,22 @@ export function KnowledgeBasePage() {
   }, []);
 
   const loadData = async () => {
+    setLoading(true);
+    setError('');
     try {
       const [docsData, statsData] = await Promise.all([apiClient.getDocuments(), apiClient.getBrainStats()]);
-      setDocuments(docsData);
+      setDocuments(docsData || []);
       setStats(statsData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data');
+      const msg = err instanceof Error ? err.message : 'Failed to load data';
+      // Provide actionable error message
+      if (msg.includes('fetch') || msg.includes('connect') || msg.includes('network')) {
+        setError('Cannot connect to the backend server. Please check your connection and try again.');
+      } else if (msg.includes('401') || msg.includes('auth')) {
+        setError('Authentication expired. Please log in again.');
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -530,22 +540,43 @@ export function KnowledgeBasePage() {
               <AlertCircle size={18} color="#DC2626" />
               <p style={{ color: '#DC2626', fontSize: '14px', margin: 0 }}>{error}</p>
             </div>
-            <button
-              onClick={() => setError('')}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: '#DC2626',
-                padding: '4px',
-                borderRadius: '6px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <X size={16} />
-            </button>
+            <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+              <button
+                onClick={() => { setError(''); loadData(); }}
+                style={{
+                  background: 'none',
+                  border: '1px solid rgba(220, 38, 38, 0.4)',
+                  cursor: 'pointer',
+                  color: '#DC2626',
+                  padding: '4px 12px',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  fontFamily: "'Rajdhani', sans-serif",
+                }}
+              >
+                Retry
+              </button>
+              <button
+                onClick={() => setError('')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#DC2626',
+                  padding: '4px',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
           </div>
         )}
 

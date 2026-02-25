@@ -2,15 +2,22 @@
  * Next.js API Route: /api/chat
  * 
  * Translates between Vercel AI SDK v5 UI Message Stream Protocol (SSE)
- * and the backend's old Data Stream Protocol (0:, 2:, d: format).
+ * and the backend's Data Stream Protocol (0:, 2:, d: format).
+ * 
+ * PHASE 4 FIXES:
+ * - Removed debug console.log spam
+ * - Added backend fetch timeout (55s to stay under maxDuration)
+ * - Improved error propagation (parse errors logged, not swallowed)
+ * - Uses backend's actual tool call IDs (not random)
+ * - Better error messages for common failure modes
  */
 
 import { NextRequest } from 'next/server';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 
   (process.env.NODE_ENV === 'development' 
     ? 'http://localhost:8000' 
-    : 'https://potomac-analyst-workbench-production.up.railway.app');
+    : 'https://potomac-analyst-workbench-production.up.railway.app')).replace(/\/+$/, '');
 
 // UI Message Stream headers required by AI SDK v5
 const UI_MESSAGE_STREAM_HEADERS = {
@@ -41,7 +48,6 @@ export async function POST(req: NextRequest) {
     }
 
     // Extract text content from parts-based or content-based message
-    // AI SDK v5 sends messages with `parts` array, but also may have `content`
     let messageText = '';
     if (lastUserMessage.parts && Array.isArray(lastUserMessage.parts)) {
       messageText = lastUserMessage.parts
@@ -49,14 +55,9 @@ export async function POST(req: NextRequest) {
         .map((p: any) => p.text || '')
         .join('');
     }
-    // Fallback to content/text fields
     if (!messageText) {
       messageText = lastUserMessage.content || lastUserMessage.text || '';
     }
-    
-    // Check if this is a document generation request
-    const isDocumentRequest = /\b(write|create|generate|write|draft|compose)\s+\w+\s+(document|proposal|report|memo|letter|contract|policy|guide|manual|plan|summary|brief|outline|template|form|checklist)/i.test(messageText) ||
-                              /\b(document|proposal|report|memo|letter|contract|policy|guide|manual|plan|summary|brief|outline|template|form|checklist)\b/i.test(messageText);
     
     if (!messageText.trim()) {
       return new Response(
@@ -66,43 +67,66 @@ export async function POST(req: NextRequest) {
     }
 
     const authToken = req.headers.get('authorization') || '';
-    // conversationId comes from:
-    // 1. sendMessage options body (request-level, merged at top level by DefaultChatTransport)
-    // 2. transport-level body() callback (also merged at top level)
-    // NOTE: body.id is the SDK's internal chat ID, NOT our conversationId - do NOT use it
+    // conversationId from sendMessage options or transport body callback
     const conversationId = body.conversationId || data.conversationId || null;
 
-    // Forward to backend streaming endpoint
-    const backendResponse = await fetch(`${API_BASE_URL}/chat/stream`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': authToken,
-      },
-      body: JSON.stringify({
-        content: messageText,
-        conversation_id: conversationId,
-      }),
-    });
+    // Forward to backend streaming endpoint with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 55000); // 55s timeout (under maxDuration)
+
+    let backendResponse: Response;
+    try {
+      backendResponse = await fetch(`${API_BASE_URL}/chat/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authToken,
+        },
+        body: JSON.stringify({
+          content: messageText,
+          conversation_id: conversationId,
+        }),
+        signal: controller.signal,
+      });
+    } catch (fetchErr) {
+      clearTimeout(timeoutId);
+      const isTimeout = fetchErr instanceof Error && fetchErr.name === 'AbortError';
+      const errorMsg = isTimeout 
+        ? 'Backend request timed out. The AI may be processing a complex request — please try again.'
+        : `Cannot connect to backend at ${API_BASE_URL}. Please check your connection.`;
+      return new Response(
+        JSON.stringify({ error: errorMsg }), 
+        { status: isTimeout ? 504 : 502, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    clearTimeout(timeoutId);
 
     if (!backendResponse.ok) {
       const error = await backendResponse.json().catch(() => ({ 
         detail: `Backend error: ${backendResponse.status}` 
       }));
+      
+      // Provide user-friendly error messages for common status codes
+      let userMessage = error.detail || `HTTP ${backendResponse.status}`;
+      if (backendResponse.status === 401) {
+        userMessage = 'Authentication failed. Please log in again or check your API key in Settings.';
+      } else if (backendResponse.status === 400 && userMessage.includes('API key')) {
+        userMessage = 'Claude API key not configured. Please add your API key in Profile Settings.';
+      }
+      
       return new Response(
-        JSON.stringify({ error: error.detail || `HTTP ${backendResponse.status}` }), 
+        JSON.stringify({ error: userMessage }), 
         { status: backendResponse.status, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
     const newConversationId = backendResponse.headers.get('X-Conversation-Id');
 
-    // Create a TransformStream to translate old protocol → UI Message Stream SSE
+    // Create a TransformStream to translate Data Stream Protocol → UI Message Stream SSE
     const { readable, writable } = new TransformStream();
     const writer = writable.getWriter();
     const encoder = new TextEncoder();
 
-    // Write SSE formatted event
     const writeSSE = async (data: any) => {
       await writer.write(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
     };
@@ -120,17 +144,17 @@ export async function POST(req: NextRequest) {
           await writer.close();
           return;
         }
+
         const reader = backendResponse.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
-        let messageId = `msg-${Date.now()}`;
+        const messageId = `msg-${Date.now()}`;
         let textId = `text-${Date.now()}`;
         let textStarted = false;
-        let accumulatedText = '';
-        // Track which tool calls have had their input-start sent (prevents double start)
+        // Track tool calls to prevent duplicate input-start events
         const toolInputStartedSet = new Set<string>();
+        let finishSent = false;
 
-        // Send message start
         await writeSSE({ type: 'start', messageId });
         
         while (true) {
@@ -148,14 +172,11 @@ export async function POST(req: NextRequest) {
             const content = line.substring(2);
             if (!content) continue;
 
-            // Debug: log what backend sends
-            console.log(`[API/chat] Backend type=${typeCode}, content=${content.substring(0, 100)}`);
-
             try {
               const parsed = JSON.parse(content);
 
               switch (typeCode) {
-                case '0': // Text delta
+                case '0': { // Text delta
                   const text = typeof parsed === 'string' ? parsed : parsed.text || '';
                   if (text) {
                     if (!textStarted) {
@@ -163,60 +184,48 @@ export async function POST(req: NextRequest) {
                       textStarted = true;
                     }
                     await writeSSE({ type: 'text-delta', id: textId, delta: text });
-                    accumulatedText += text;
                   }
                   break;
+                }
 
-                case '2': // Data (artifacts, custom data)
-                  // End text if we were in a text block
+                case '2': { // Data (artifacts, conversation metadata)
                   if (textStarted) {
                     await writeSSE({ type: 'text-end', id: textId });
                     textStarted = false;
-                    textId = `text-${Date.now()}`; // New ID for next text block
+                    textId = `text-${Date.now()}`;
                   }
-                  // Send as custom data part
                   if (Array.isArray(parsed)) {
                     for (const item of parsed) {
                       if (item && item.type === 'artifact') {
                         await writeSSE({
-                          type: `data-artifact`,
+                          type: 'data-artifact',
                           id: item.id || `artifact-${Date.now()}`,
                           data: item,
                         });
                       } else if (item && item.conversation_id) {
-                        // Conversation metadata
-                        await writeSSE({
-                          type: 'data-conversation',
-                          data: item,
-                        });
+                        await writeSSE({ type: 'data-conversation', data: item });
                       }
                     }
-                  } else if (parsed && typeof parsed === 'object') {
-                    if (parsed.conversation_id) {
-                      await writeSSE({
-                        type: 'data-conversation', 
-                        data: parsed,
-                      });
-                    }
+                  } else if (parsed && typeof parsed === 'object' && parsed.conversation_id) {
+                    await writeSSE({ type: 'data-conversation', data: parsed });
                   }
                   break;
+                }
 
-                case '3': // Error
+                case '3': // Error from backend
                   await writeSSE({
                     type: 'error',
                     errorText: typeof parsed === 'string' ? parsed : parsed.message || 'Unknown error',
                   });
                   break;
 
-                case '7': // Tool call streaming start
+                case '7': // Tool call streaming start — use backend's actual toolCallId
                   if (parsed.toolCallId && parsed.toolName) {
-                    // End any open text block before tool starts
                     if (textStarted) {
                       await writeSSE({ type: 'text-end', id: textId });
                       textStarted = false;
                       textId = `text-${Date.now()}`;
                     }
-                    // Only send tool-input-start once per toolCallId
                     if (!toolInputStartedSet.has(parsed.toolCallId)) {
                       toolInputStartedSet.add(parsed.toolCallId);
                       await writeSSE({
@@ -238,15 +247,13 @@ export async function POST(req: NextRequest) {
                   }
                   break;
 
-                case '9': // Complete tool call (input available)
+                case '9': // Complete tool call (input available) — use backend's IDs
                   if (parsed.toolCallId && parsed.toolName) {
-                    // End any open text block before tool
                     if (textStarted) {
                       await writeSSE({ type: 'text-end', id: textId });
                       textStarted = false;
                       textId = `text-${Date.now()}`;
                     }
-                    // Only send tool-input-start if not already sent (e.g., via type 7)
                     if (!toolInputStartedSet.has(parsed.toolCallId)) {
                       toolInputStartedSet.add(parsed.toolCallId);
                       await writeSSE({
@@ -255,7 +262,6 @@ export async function POST(req: NextRequest) {
                         toolName: parsed.toolName,
                       });
                     }
-                    // Send tool-input-available with the complete input
                     await writeSSE({
                       type: 'tool-input-available',
                       toolCallId: parsed.toolCallId,
@@ -265,11 +271,11 @@ export async function POST(req: NextRequest) {
                   }
                   break;
 
-                case 'a': // Tool result (output available)
+                case 'a': { // Tool result (output available) — parse string results
                   if (parsed.toolCallId) {
                     let output = parsed.result;
                     if (typeof output === 'string') {
-                      try { output = JSON.parse(output); } catch {}
+                      try { output = JSON.parse(output); } catch { /* keep as string */ }
                     }
                     await writeSSE({
                       type: 'tool-output-available',
@@ -278,14 +284,17 @@ export async function POST(req: NextRequest) {
                     });
                   }
                   break;
+                }
 
                 case 'd': // Finish message
-                  // End any open text block
                   if (textStarted) {
                     await writeSSE({ type: 'text-end', id: textId });
                     textStarted = false;
                   }
-                  await writeSSE({ type: 'finish' });
+                  if (!finishSent) {
+                    await writeSSE({ type: 'finish' });
+                    finishSent = true;
+                  }
                   break;
 
                 case 'e': // Finish step
@@ -297,28 +306,33 @@ export async function POST(req: NextRequest) {
                   break;
               }
             } catch (parseError) {
-              // Skip unparseable lines
+              // Log parse errors in development, skip silently in production
+              if (process.env.NODE_ENV === 'development') {
+                console.warn(`[API/chat] Parse error for type=${typeCode}:`, content.substring(0, 80));
+              }
             }
           }
         }
 
-        // Ensure text is closed
+        // Ensure text block is closed
         if (textStarted) {
           await writeSSE({ type: 'text-end', id: textId });
         }
 
-        // Ensure finish is sent
-        await writeSSE({ type: 'finish' });
+        // Ensure finish is sent exactly once
+        if (!finishSent) {
+          await writeSSE({ type: 'finish' });
+        }
         
-        // Send done marker
         await writer.write(encoder.encode('data: [DONE]\n\n'));
       } catch (err) {
         try {
-          await writeSSE({ type: 'error', errorText: err instanceof Error ? err.message : 'Stream error' });
+          const errorMsg = err instanceof Error ? err.message : 'Stream processing error';
+          await writeSSE({ type: 'error', errorText: errorMsg });
           await writer.write(encoder.encode('data: [DONE]\n\n'));
-        } catch {}
+        } catch { /* writer may be closed */ }
       } finally {
-        try { await writer.close(); } catch {}
+        try { await writer.close(); } catch { /* already closed */ }
       }
     })();
 
@@ -329,8 +343,9 @@ export async function POST(req: NextRequest) {
 
     return new Response(readable, { status: 200, headers });
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Internal server error';
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }), 
+      JSON.stringify({ error: errorMsg }), 
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

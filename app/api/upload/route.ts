@@ -7,10 +7,10 @@
 
 import { NextRequest } from 'next/server';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 
   (process.env.NODE_ENV === 'development' 
     ? 'http://localhost:8000' 
-    : 'https://potomac-analyst-workbench-production.up.railway.app');
+    : 'https://potomac-analyst-workbench-production.up.railway.app')).replace(/\/+$/, '');
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();

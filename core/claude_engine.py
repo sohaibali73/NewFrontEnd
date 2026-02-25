@@ -93,6 +93,7 @@ class ClaudeAFLEngine:
     # Class constants
     MODEL = DEFAULT_MODEL
     MAX_TOKENS = 4096  # Reduced from 8192 for faster responses
+    AMIBROKER_SKILL_ID = "skill_01GG6E88EuXr9H9tqLp51sH5"  # amibroker-afl-developer skill
 
     # AFL function signatures for validation
     SINGLE_ARG_FUNCTIONS = {
@@ -145,6 +146,15 @@ class ClaudeAFLEngine:
             self._init_client()
         elif not self.client:
             raise ValueError("No API key provided")
+
+    def _get_skills(self) -> List[Dict[str, Any]]:
+        """Get list of enabled skills for Claude API."""
+        return [
+            {
+                "id": self.AMIBROKER_SKILL_ID,
+                "enabled": True
+            }
+        ]
 
     def generate_afl(
             self,
@@ -235,7 +245,8 @@ class ClaudeAFLEngine:
                     model=self.MODEL,
                     max_tokens=self.MAX_TOKENS,
                     system=system_prompt,
-                    messages=messages
+                    messages=messages,
+                    skills=self._get_skills()
                 )
 
                 raw_response = response.content[0].text
@@ -368,7 +379,8 @@ class ClaudeAFLEngine:
             model=self.MODEL,
             max_tokens=self.MAX_TOKENS,
             system=base_prompt,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
+            skills=self._get_skills()
         )
 
         result = response.content[0].text
@@ -397,7 +409,8 @@ class ClaudeAFLEngine:
             model=self.MODEL,
             max_tokens=self.MAX_TOKENS,
             system=base_prompt,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
+            skills=self._get_skills()
         )
 
         result = response.content[0].text
@@ -426,7 +439,8 @@ class ClaudeAFLEngine:
             model=self.MODEL,
             max_tokens=4000,
             system=explain_prompt,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
+            skills=self._get_skills()
         )
 
         return response.content[0].text
@@ -480,7 +494,8 @@ class ClaudeAFLEngine:
                 model=self.MODEL,
                 max_tokens=4096,
                 system=system_prompt,
-                messages=messages
+                messages=messages,
+                skills=self._get_skills()
             )
 
             return response.content[0].text

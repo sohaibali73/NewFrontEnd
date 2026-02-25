@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import apiClient from '@/lib/api';
 
 export type ConnectionStatus = 'connected' | 'checking' | 'disconnected' | 'unknown';
 
@@ -22,9 +21,16 @@ export function useConnectionStatus(options: UseConnectionStatusOptions = {}) {
   const check = useCallback(async () => {
     setStatus('checking');
     try {
-      await apiClient.checkHealth();
-      setStatus('connected');
-      setError(null);
+      // Use Next.js proxy to avoid CORS preflight (OPTIONS 400) on direct backend calls.
+      // /api/backend/health is rewritten to ${BACKEND_URL}/health by next.config.js
+      const res = await fetch('/api/backend/health', { method: 'GET' });
+      if (res.ok) {
+        setStatus('connected');
+        setError(null);
+      } else {
+        setStatus('disconnected');
+        setError(`Health check returned ${res.status}`);
+      }
     } catch (err) {
       setStatus('disconnected');
       setError(err instanceof Error ? err.message : 'Connection failed');

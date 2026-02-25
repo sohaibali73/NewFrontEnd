@@ -112,13 +112,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Regular file upload (documents, images, etc.)
-    // Use the new unified /upload/ endpoint
+    // Route to /chat/conversations/{id}/upload — the actual backend endpoint
     const backendFormData = new FormData();
     backendFormData.append('file', file, file.name);
-    backendFormData.append('conversation_id', conversationId);
 
     const backendResponse = await fetch(
-      `${API_BASE_URL}/upload/`,
+      `${API_BASE_URL}/chat/conversations/${conversationId}/upload`,
       {
         method: 'POST',
         headers: {

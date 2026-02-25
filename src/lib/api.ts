@@ -1160,9 +1160,20 @@ class APIClient {
     return this.request<any>('/content/styles', 'PUT', styles);
   }
 
+  // Content Generation (skill-powered background jobs)
+  async generateContent(prompt: string, contentType: string = 'article', title?: string) {
+    return this.request<{ job_id: string; status: string; content_type: string; title: string }>(
+      '/content/generate', 'POST', { prompt, content_type: contentType, title }
+    );
+  }
+
   // Content Jobs
   async getContentJob(jobId: string) {
     return this.request<any>(`/content/jobs/${jobId}`);
+  }
+
+  async getContentJobs() {
+    return this.request<{ jobs: any[] }>('/content/jobs');
   }
 
   // All Content

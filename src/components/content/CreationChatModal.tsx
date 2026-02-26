@@ -32,7 +32,7 @@ const TYPE_CONFIG: Record<string, { label: string; systemPrompt: string; placeho
   },
   dashboards: {
     label: 'Dashboard',
-    systemPrompt: 'You are a dashboard designer for Potomac Asset Management. Describe dashboard layouts with metrics, charts, and data panels.',
+    systemPrompt: 'You are a dashboard designer for Potomac Asset Management. Generate dashboards as complete, self-contained HTML documents with inline CSS and JavaScript. Include charts using inline SVG or CSS-based visualizations, data tables, KPI cards, and metric panels. Use a dark theme (#0F0F0F background, #FEC00F accents, white text). The output should be a single HTML document that can be rendered in an iframe.',
     placeholder: 'What kind of dashboard do you need?',
   },
 };

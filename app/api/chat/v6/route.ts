@@ -60,6 +60,10 @@ export async function POST(req: NextRequest) {
     // 2. transport-level body() callback (also merged at top level)
     const conversationId = body.conversationId || data.conversationId || null;
 
+    // Append formatting instructions (same as /api/chat route)
+    const formattingInstruction = '\n\n[FORMATTING: Do not use any emojis whatsoever in your response. Use clear, professional formatting with proper markdown headings, bullet points, and structured sections. Keep responses concise and data-driven.]';
+    const enhancedMessage = messageText + formattingInstruction;
+
     // Forward directly to backend's new v6 endpoint (no protocol translation)
     const backendResponse = await fetch(`${API_BASE_URL}/chat/v6`, {
       method: 'POST',
@@ -68,7 +72,7 @@ export async function POST(req: NextRequest) {
         'Authorization': authToken,
       },
       body: JSON.stringify({
-        content: messageText,
+        content: enhancedMessage,
         conversation_id: conversationId,
       }),
     });

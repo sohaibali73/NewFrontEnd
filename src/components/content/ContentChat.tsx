@@ -119,7 +119,20 @@ export function ContentChat({ colors, isDark }: ContentChatProps) {
   const handleSend = useCallback(async () => {
     if (!input.trim() || isLoading) return;
 
-    const prompt = input.trim();
+    let prompt = input.trim();
+    // Inject writing style instruction for the first message
+    if (messages.length === 0) {
+      try {
+        const cached = localStorage.getItem('content_writing_styles');
+        if (cached) {
+          const styles = JSON.parse(cached);
+          const defaultStyle = styles.find((s: any) => s.isDefault) || styles[0];
+          if (defaultStyle) {
+            prompt += `\n\n[Writing Style: ${defaultStyle.name}. Tone: ${defaultStyle.tone || 'Professional'}. Formality: ${defaultStyle.formality || 'formal'}. Do not use any emojis.]`;
+          }
+        }
+      } catch {}
+    }
     const userMsg: ChatMessage = {
       id: `msg-${Date.now()}`,
       role: 'user',
@@ -196,7 +209,7 @@ export function ContentChat({ colors, isDark }: ContentChatProps) {
       setIsLoading(false);
       setMessages((prev) => { saveLocalHistory(prev); return prev; });
     }
-  }, [input, isLoading, backendOk, conversationId]);
+  }, [input, isLoading, backendOk, conversationId, messages.length]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {

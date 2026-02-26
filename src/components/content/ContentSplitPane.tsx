@@ -4,10 +4,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Search, Plus, Loader2, RefreshCw, Pencil, Trash2, Copy,
   Download, MoreVertical, X, Save, Clock,
-  CheckCircle2, AlertCircle, ChevronRight,
+  CheckCircle2, AlertCircle, ChevronRight, FileDown,
 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
+import { SlidePreview } from './SlidePreview';
+import { downloadSlidesAsPptx } from '@/lib/pptxExport';
 import type { LucideIcon } from 'lucide-react';
 
 /* ------------------------------------------------------------------ */
@@ -55,10 +57,12 @@ export interface ContentSplitPaneProps {
 /* ------------------------------------------------------------------ */
 
 export function ContentSplitPane({
-  colors, isDark, icon: Icon, label, items, loading,
+  colors, isDark, contentType, icon: Icon, label, items, loading,
   onRefresh, onGenerate, onDelete, onUpdate, onDuplicate,
   extraActions, metaLine,
 }: ContentSplitPaneProps) {
+
+  const isSlide = contentType === 'slide';
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -139,10 +143,20 @@ export function ContentSplitPane({
     setEditContent(item.content); setEditTitle(item.title); setIsEditing(true);
   };
 
-  const handleDownload = (item: ContentItem) => {
-    const blob = new Blob([`${item.title}\n${'='.repeat(50)}\n\n${item.content}`], { type: 'text/plain' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `${item.title.replace(/[^a-zA-Z0-9 ]/g, '')}.txt`; a.click();
+  const handleDownload = async (item: ContentItem) => {
+    if (isSlide) {
+      // Download as PPTX for slide decks
+      try {
+        await downloadSlidesAsPptx(item.title, item.content);
+      } catch (err) {
+        console.error('PPTX download failed:', err);
+      }
+    } else {
+      // Download as text for other content types
+      const blob = new Blob([`${item.title}\n${'='.repeat(50)}\n\n${item.content}`], { type: 'text/plain' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `${item.title.replace(/[^a-zA-Z0-9 ]/g, '')}.txt`; a.click();
+    }
   };
 
   const formatDate = (d?: string) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
@@ -155,7 +169,7 @@ export function ContentSplitPane({
 
       {/* ========== LEFT PANEL ========== */}
       <LeftPanel
-        colors={colors} isDark={isDark} icon={Icon} label={label}
+        colors={colors} isDark={isDark} icon={Icon} label={label} isSlide={isSlide}
         items={filtered} jobs={jobs} loading={loading} selectedId={selectedId}
         searchQuery={searchQuery} showNewForm={showNewForm} newPrompt={newPrompt}
         newTitle={newTitle} generating={generating} menuOpenId={menuOpenId}
@@ -170,7 +184,7 @@ export function ContentSplitPane({
 
       {/* ========== RIGHT PANEL ========== */}
       <RightPanel
-        colors={colors} isDark={isDark} label={label}
+        colors={colors} isDark={isDark} label={label} isSlide={isSlide}
         selected={selected} isEditing={isEditing} editContent={editContent}
         editTitle={editTitle} icon={Icon}
         onEditContent={setEditContent} onEditTitle={setEditTitle}
@@ -196,7 +210,7 @@ export function ContentSplitPane({
 /* ================================================================== */
 
 interface LeftPanelProps {
-  colors: Record<string, string>; isDark: boolean; icon: LucideIcon; label: string;
+  colors: Record<string, string>; isDark: boolean; icon: LucideIcon; label: string; isSlide: boolean;
   items: ContentItem[]; jobs: GeneratingJob[]; loading: boolean; selectedId: string | null;
   searchQuery: string; showNewForm: boolean; newPrompt: string; newTitle: string;
   generating: boolean; menuOpenId: string | null; confirmDeleteId: string | null;
@@ -209,7 +223,7 @@ interface LeftPanelProps {
 }
 
 function LeftPanel({
-  colors, isDark, icon: Icon, label, items, jobs, loading, selectedId,
+  colors, isDark, icon: Icon, label, isSlide, items, jobs, loading, selectedId,
   searchQuery, showNewForm, newPrompt, newTitle, generating, menuOpenId, confirmDeleteId,
   metaLine, onSelect, onSearch, onToggleNew, onNewPrompt, onNewTitle,
   onGenerate, onRefresh, onMenuToggle, onDelete, onDuplicate, onConfirmDelete,
@@ -480,10 +494,14 @@ function LeftPanel({
                   }}>
                     {[
                       { icon: Copy, text: 'Duplicate', action: () => { onDuplicate(item); onMenuToggle(null); } },
-                      { icon: Download, text: 'Download', action: () => {
-                        const blob = new Blob([`${item.title}\n${'='.repeat(50)}\n\n${item.content}`], { type: 'text/plain' });
-                        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-                        a.download = `${item.title.replace(/[^a-zA-Z0-9 ]/g, '')}.txt`; a.click();
+                      { icon: Download, text: isSlide ? 'Download .pptx' : 'Download', action: async () => {
+                        if (isSlide) {
+                          await downloadSlidesAsPptx(item.title, item.content);
+                        } else {
+                          const blob = new Blob([`${item.title}\n${'='.repeat(50)}\n\n${item.content}`], { type: 'text/plain' });
+                          const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                          a.download = `${item.title.replace(/[^a-zA-Z0-9 ]/g, '')}.txt`; a.click();
+                        }
                         onMenuToggle(null);
                       }},
                       { icon: Trash2, text: 'Delete', action: () => { onConfirmDelete(item.id); onMenuToggle(null); }, danger: true },
@@ -537,6 +555,7 @@ function LeftPanel({
 
 interface RightPanelProps {
   colors: Record<string, string>; isDark: boolean; label: string;
+  isSlide: boolean;
   selected: ContentItem | null; isEditing: boolean; editContent: string;
   editTitle: string; icon: LucideIcon;
   onEditContent: (v: string) => void; onEditTitle: (v: string) => void;
@@ -552,7 +571,7 @@ interface RightPanelProps {
 }
 
 function RightPanel({
-  colors, isDark, label, selected, isEditing, editContent, editTitle, icon: Icon,
+  colors, isDark, label, isSlide, selected, isEditing, editContent, editTitle, icon: Icon,
   onEditContent, onEditTitle, onStartEdit, onSaveEdit, onCancelEdit, onDownload,
   onDuplicate, extraActions, wordCount, readTime, formatDate,
 }: RightPanelProps) {
@@ -730,26 +749,37 @@ function RightPanel({
       </div>
 
       {/* Content body */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
-        {selected.content ? (
-          <div style={{
-            maxWidth: '780px', margin: '0 auto',
-            fontFamily: "'Quicksand', sans-serif", lineHeight: 1.8,
-          }}>
-            <MarkdownRenderer content={selected.content} />
-          </div>
-        ) : (
-          <div style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', height: '100%', gap: '12px',
-          }}>
-            <AlertCircle size={28} color={colors.textSecondary} style={{ opacity: 0.3 }} />
-            <p style={{ fontSize: '13px', color: colors.textMuted }}>
-              No content yet. Click Edit to add content.
-            </p>
-          </div>
-        )}
-      </div>
+      {isSlide && selected.content ? (
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <SlidePreview
+            title={selected.title}
+            content={selected.content}
+            colors={colors}
+            isDark={isDark}
+          />
+        </div>
+      ) : (
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+          {selected.content ? (
+            <div style={{
+              maxWidth: '780px', margin: '0 auto',
+              fontFamily: "'Quicksand', sans-serif", lineHeight: 1.8,
+            }}>
+              <MarkdownRenderer content={selected.content} />
+            </div>
+          ) : (
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              justifyContent: 'center', height: '100%', gap: '12px',
+            }}>
+              <AlertCircle size={28} color={colors.textSecondary} style={{ opacity: 0.3 }} />
+              <p style={{ fontSize: '13px', color: colors.textMuted }}>
+                No content yet. Click Edit to add content.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

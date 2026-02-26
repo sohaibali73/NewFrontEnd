@@ -58,9 +58,9 @@ export function SlideDecksTab({ colors, isDark }: SlideDecksTabProps) {
     setItems(prev => [...prev, created]);
   };
 
-  const slideCount = (item: ContentItem) => {
+  const slideCount = (item: ContentItem): number => {
     const meta = item.metadata as Record<string, unknown> | undefined;
-    return meta?.slideCount || (item.content?.match(/^##/gm) || []).length || 0;
+    return Number(meta?.slideCount) || (item.content?.match(/^##/gm) || []).length || 0;
   };
 
   return (

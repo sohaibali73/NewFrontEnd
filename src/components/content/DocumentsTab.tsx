@@ -58,9 +58,9 @@ export function DocumentsTab({ colors, isDark }: DocumentsTabProps) {
     setItems(prev => [...prev, created]);
   };
 
-  const docType = (item: ContentItem) => {
+  const docType = (item: ContentItem): string => {
     const meta = item.metadata as Record<string, unknown> | undefined;
-    return (meta?.type as string) || item.tags?.[0] || 'Document';
+    return String(meta?.type || '') || item.tags?.[0] || 'Document';
   };
 
   return (

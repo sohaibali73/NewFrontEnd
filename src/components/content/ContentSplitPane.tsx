@@ -9,6 +9,7 @@ import {
 import { apiClient } from '@/lib/api';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import { SlidePreview } from './SlidePreview';
+import { SlideEditor } from './SlideEditor';
 import { downloadSlidesAsPptx } from '@/lib/pptxExport';
 import type { LucideIcon } from 'lucide-react';
 
@@ -609,7 +610,27 @@ function RightPanel({
     );
   }
 
-  // Editing mode
+  // Editing mode - Slide Editor for slides
+  if (isEditing && isSlide && selected) {
+    return (
+      <div style={{ flex: 1, overflow: 'hidden' }}>
+        <SlideEditor
+          title={editTitle || selected.title}
+          initialContent={editContent || selected.content}
+          colors={colors}
+          isDark={isDark}
+          onSave={(newContent) => {
+            onEditContent(newContent);
+            // Auto-save via the parent's handleSaveEdit
+            onSaveEdit();
+          }}
+          onClose={onCancelEdit}
+        />
+      </div>
+    );
+  }
+
+  // Editing mode - textarea for other content types
   if (isEditing) {
     return (
       <div style={{

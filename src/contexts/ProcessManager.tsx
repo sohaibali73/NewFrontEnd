@@ -119,7 +119,27 @@ export function ProcessManagerWidget() {
   const [expanded, setExpanded] = useState(false);
   const [minimized, setMinimized] = useState(false);
 
-  if (processes.length === 0) return null;
+  // Always show a minimal indicator so users know the widget exists
+  if (processes.length === 0) {
+    return (
+      <div style={{
+        position: 'fixed', bottom: '20px', right: '20px', zIndex: 9998,
+        display: 'flex', alignItems: 'center', gap: '6px',
+        padding: '6px 12px', borderRadius: '20px',
+        backgroundColor: '#141414', border: '1px solid #2a2a2a',
+        color: '#555', fontSize: '10px', fontFamily: "'Rajdhani', sans-serif",
+        fontWeight: 600, letterSpacing: '0.5px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+        opacity: 0.6, transition: 'opacity 0.2s',
+      }}
+        onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}
+        onMouseLeave={e => { e.currentTarget.style.opacity = '0.6'; }}
+      >
+        <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#00DED1' }} />
+        NO TASKS
+      </div>
+    );
+  }
 
   const completedCount = processes.filter(p => p.status === 'complete').length;
   const failedCount = processes.filter(p => p.status === 'failed').length;

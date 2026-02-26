@@ -133,6 +133,12 @@ export function WritingStyleSettings({ colors, isDark, onClose }: WritingStyleSe
   const [editingStyle, setEditingStyle] = useState<string | null>(null);
   const [editingPreset, setEditingPreset] = useState<string | null>(null);
   const [cloneText, setCloneText] = useState('');
+  const [analyzing, setAnalyzing] = useState(false);
+  const [cloneResult, setCloneResult] = useState<{
+    name: string; description: string; tone: string;
+    formality: 'very_formal' | 'formal' | 'neutral' | 'casual' | 'very_casual';
+    personality: string[]; sampleText: string;
+  } | null>(null);
   const [cloneUrl, setCloneUrl] = useState('');
   const [expandedStyle, setExpandedStyle] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -1425,7 +1431,60 @@ export function WritingStyleSettings({ colors, isDark, onClose }: WritingStyleSe
               </div>
 
               <button
-                disabled={!cloneText.trim() && !cloneUrl.trim()}
+                disabled={(!cloneText.trim() && !cloneUrl.trim()) || analyzing}
+                onClick={async () => {
+                  const text = cloneText.trim();
+                  if (!text) return;
+                  setAnalyzing(true);
+                  setCloneResult(null);
+                  try {
+                    // Client-side text analysis
+                    const words = text.split(/\s+/).filter(Boolean);
+                    const sentences = text.split(/[.!?]+/).filter(s => s.trim());
+                    const avgSentenceLen = sentences.length > 0 ? Math.round(words.length / sentences.length) : 10;
+                    const hasDataRefs = /\d+%|\$[\d,.]+|bps|basis points|Q[1-4]|FY\d{2,4}/i.test(text);
+                    const hasQuestions = (text.match(/\?/g) || []).length > 1;
+                    const hasFirstPerson = /\bI\b|\bwe\b|\bour\b|\bmy\b/i.test(text);
+                    const hasContractions = /\b(don't|won't|can't|it's|we're|they're|isn't)\b/i.test(text);
+                    const hasTechnicalTerms = /\b(alpha|beta|volatility|drawdown|sharpe|correlation|regression|yield|equity|portfolio)\b/i.test(text);
+                    // Determine formality
+                    let formality: 'very_formal' | 'formal' | 'neutral' | 'casual' | 'very_casual' = 'neutral';
+                    if (avgSentenceLen > 25 && !hasContractions && !hasFirstPerson) formality = 'very_formal';
+                    else if (avgSentenceLen > 18 && !hasContractions) formality = 'formal';
+                    else if (hasContractions && hasFirstPerson) formality = 'casual';
+                    else if (hasContractions && hasQuestions) formality = 'very_casual';
+                    // Determine tone
+                    let tone = 'Professional and measured';
+                    if (hasDataRefs && hasTechnicalTerms) tone = 'Analytical and data-driven';
+                    else if (hasQuestions && hasFirstPerson) tone = 'Conversational and engaging';
+                    else if (!hasContractions && avgSentenceLen > 20) tone = 'Formal and authoritative';
+                    else if (hasFirstPerson) tone = 'Personal and direct';
+                    // Personality tags
+                    const personality: string[] = [];
+                    if (hasDataRefs) personality.push('Data-driven');
+                    if (hasTechnicalTerms) personality.push('Technical');
+                    if (avgSentenceLen < 15) personality.push('Concise');
+                    if (avgSentenceLen > 22) personality.push('Detailed');
+                    if (hasFirstPerson) personality.push('Personal');
+                    if (!hasContractions && formality !== 'casual') personality.push('Professional');
+                    if (hasQuestions) personality.push('Engaging');
+                    if (personality.length === 0) personality.push('Balanced');
+                    // Simulate async delay
+                    await new Promise(r => setTimeout(r, 800));
+                    setCloneResult({
+                      name: `Cloned Style ${styles.length + 1}`,
+                      description: `Analyzed from ${words.length} words, ${sentences.length} sentences. ${formality === 'formal' || formality === 'very_formal' ? 'Formal' : 'Conversational'} writing with ${avgSentenceLen}-word average sentence length.`,
+                      tone,
+                      formality,
+                      personality,
+                      sampleText: text.slice(0, 200) + (text.length > 200 ? '...' : ''),
+                    });
+                  } catch {
+                    setCloneResult(null);
+                  } finally {
+                    setAnalyzing(false);
+                  }
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1434,18 +1493,18 @@ export function WritingStyleSettings({ colors, isDark, onClose }: WritingStyleSe
                   padding: '12px',
                   borderRadius: '10px',
                   backgroundColor:
-                    cloneText.trim() || cloneUrl.trim()
+                    (cloneText.trim() || cloneUrl.trim()) && !analyzing
                       ? colors.primaryYellow
                       : isDark
                         ? '#333333'
                         : '#e0e0e0',
                   color:
-                    cloneText.trim() || cloneUrl.trim()
+                    (cloneText.trim() || cloneUrl.trim()) && !analyzing
                       ? colors.darkGray
                       : colors.textMuted,
                   border: 'none',
                   cursor:
-                    cloneText.trim() || cloneUrl.trim()
+                    (cloneText.trim() || cloneUrl.trim()) && !analyzing
                       ? 'pointer'
                       : 'not-allowed',
                   fontFamily: "'Rajdhani', sans-serif",
@@ -1456,9 +1515,69 @@ export function WritingStyleSettings({ colors, isDark, onClose }: WritingStyleSe
                   transition: 'all 0.2s ease',
                 }}
               >
-                <Sparkles size={18} />
-                Analyze & Clone Style
+                {analyzing ? (
+                  <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Analyzing...</>
+                ) : (
+                  <><Sparkles size={18} /> Analyze & Clone Style</>
+                )}
               </button>
+
+              {/* Clone Result */}
+              {cloneResult && (
+                <div style={{
+                  padding: '16px', borderRadius: '12px',
+                  border: `1px solid ${colors.turquoise}40`,
+                  backgroundColor: `${colors.turquoise}08`,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <span style={{
+                      fontFamily: "'Rajdhani', sans-serif", fontWeight: 700,
+                      fontSize: '13px', color: colors.turquoise,
+                      letterSpacing: '0.5px', textTransform: 'uppercase',
+                    }}>ANALYSIS RESULT</span>
+                    <button onClick={() => {
+                      const newStyle: WritingStyle = {
+                        id: `style-${Date.now()}`,
+                        name: cloneResult.name,
+                        description: cloneResult.description,
+                        tone: cloneResult.tone,
+                        formality: cloneResult.formality === 'very_formal' ? 'formal'
+                          : cloneResult.formality === 'very_casual' ? 'casual'
+                          : cloneResult.formality as WritingStyle['formality'],
+                        personality: cloneResult.personality,
+                        sampleText: cloneResult.sampleText,
+                        isDefault: false,
+                      };
+                      setStyles(prev => [...prev, newStyle]);
+                      setCloneResult(null);
+                      setCloneText('');
+                      setActiveSection('styles');
+                      setExpandedStyle(newStyle.id);
+                    }} style={{
+                      padding: '5px 14px', borderRadius: '6px',
+                      background: `linear-gradient(135deg, ${colors.primaryYellow}, #FFD700)`,
+                      color: '#1a1a1a', border: 'none', cursor: 'pointer',
+                      fontFamily: "'Rajdhani', sans-serif", fontWeight: 700,
+                      fontSize: '11px', letterSpacing: '0.5px',
+                      display: 'flex', alignItems: 'center', gap: '5px',
+                    }}>
+                      <Plus size={12} /> SAVE AS STYLE
+                    </button>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
+                    <div><span style={{ color: colors.textMuted }}>Tone:</span> <span style={{ color: colors.text }}>{cloneResult.tone}</span></div>
+                    <div><span style={{ color: colors.textMuted }}>Formality:</span> <span style={{ color: colors.text, textTransform: 'capitalize' }}>{cloneResult.formality.replace('_', ' ')}</span></div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '8px' }}>
+                    {cloneResult.personality.map((tag, i) => (
+                      <span key={i} style={{
+                        padding: '2px 8px', borderRadius: '4px', fontSize: '10px',
+                        backgroundColor: isDark ? '#333' : '#e0e0e0', color: colors.text,
+                      }}>{tag}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

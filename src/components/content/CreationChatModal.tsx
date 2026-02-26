@@ -89,7 +89,21 @@ export function CreationChatModal({ colors, isDark, contentType, onClose, onCrea
     // Prepend system context to the user prompt for the first message
     const isFirst = messages.filter(m => m.role === 'user').length === 0;
     const effectivePrompt = isFirst
-      ? `${config.systemPrompt}\n\nUser request: ${prompt}`
+      ? (() => {
+          // Inject writing style from localStorage if available
+          let styleInstruction = '';
+          try {
+            const cached = localStorage.getItem('content_writing_styles');
+            if (cached) {
+              const styles = JSON.parse(cached);
+              const defaultStyle = styles.find((s: any) => s.isDefault) || styles[0];
+              if (defaultStyle) {
+                styleInstruction = `\n\n[Writing Style: ${defaultStyle.name}. Tone: ${defaultStyle.tone || 'Professional'}. Formality: ${defaultStyle.formality || 'formal'}. ${defaultStyle.personality?.length ? `Traits: ${defaultStyle.personality.join(', ')}.` : ''} Do not use any emojis.]`;
+              }
+            }
+          } catch {}
+          return `${config.systemPrompt}${styleInstruction}\n\nUser request: ${prompt}`;
+        })()
       : prompt;
 
     if (conversationId) {

@@ -63,6 +63,7 @@ export function ContentSplitPane({
 }: ContentSplitPaneProps) {
 
   const isSlide = contentType === 'slide';
+  const isDashboard = contentType === 'dashboard';
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -184,7 +185,7 @@ export function ContentSplitPane({
 
       {/* ========== RIGHT PANEL ========== */}
       <RightPanel
-        colors={colors} isDark={isDark} label={label} isSlide={isSlide}
+        colors={colors} isDark={isDark} label={label} isSlide={isSlide} isDashboard={isDashboard}
         selected={selected} isEditing={isEditing} editContent={editContent}
         editTitle={editTitle} icon={Icon}
         onEditContent={setEditContent} onEditTitle={setEditTitle}
@@ -555,7 +556,7 @@ function LeftPanel({
 
 interface RightPanelProps {
   colors: Record<string, string>; isDark: boolean; label: string;
-  isSlide: boolean;
+  isSlide: boolean; isDashboard: boolean;
   selected: ContentItem | null; isEditing: boolean; editContent: string;
   editTitle: string; icon: LucideIcon;
   onEditContent: (v: string) => void; onEditTitle: (v: string) => void;
@@ -571,7 +572,7 @@ interface RightPanelProps {
 }
 
 function RightPanel({
-  colors, isDark, label, isSlide, selected, isEditing, editContent, editTitle, icon: Icon,
+  colors, isDark, label, isSlide, isDashboard, selected, isEditing, editContent, editTitle, icon: Icon,
   onEditContent, onEditTitle, onStartEdit, onSaveEdit, onCancelEdit, onDownload,
   onDuplicate, extraActions, wordCount, readTime, formatDate,
 }: RightPanelProps) {
@@ -756,6 +757,20 @@ function RightPanel({
             content={selected.content}
             colors={colors}
             isDark={isDark}
+          />
+        </div>
+      ) : isDashboard && selected.content && (selected.content.includes('<html') || selected.content.includes('<div') || selected.content.includes('<table')) ? (
+        <div style={{ flex: 1, overflow: 'hidden', padding: '16px', backgroundColor: isDark ? '#0a0a0a' : '#e8e8e8' }}>
+          <iframe
+            srcDoc={selected.content}
+            title={selected.title}
+            sandbox="allow-scripts"
+            style={{
+              width: '100%', height: '100%',
+              border: `1px solid ${colors.border}`,
+              borderRadius: '8px',
+              backgroundColor: '#fff',
+            }}
           />
         </div>
       ) : (

@@ -78,6 +78,10 @@ export async function POST(req: NextRequest) {
 
     let backendResponse: Response;
     try {
+      // Append formatting instructions to every message
+      const formattingInstruction = '\n\n[FORMATTING: Do not use any emojis whatsoever in your response. Use clear, professional formatting with proper markdown headings, bullet points, and structured sections. Keep responses concise and data-driven.]';
+      const enhancedMessage = messageText + formattingInstruction;
+
       backendResponse = await fetch(`${API_BASE_URL}/chat/stream`, {
         method: 'POST',
         headers: {
@@ -85,7 +89,7 @@ export async function POST(req: NextRequest) {
           'Authorization': authToken,
         },
         body: JSON.stringify({
-          content: messageText,
+          content: enhancedMessage,
           conversation_id: conversationId,
         }),
         signal: controller.signal,

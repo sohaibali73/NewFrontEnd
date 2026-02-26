@@ -315,7 +315,7 @@ export function AFLGeneratorPage() {
   const handleNewConversation = async () => {
     try {
       skipNextLoadRef.current = true;
-      const newConv = await apiClient.createConversation('AFL Chat', 'afl');
+      const newConv = await apiClient.createConversation('New Strategy', 'afl');
       setConversations(prev => [newConv, ...prev]);
       setSelectedConversation(newConv);
       conversationIdRef.current = newConv.id;
@@ -884,7 +884,9 @@ export function AFLGeneratorPage() {
                   if (!convId) {
                     try {
                       skipNextLoadRef.current = true;
-                      const conv = await apiClient.createConversation('AFL Chat', 'afl');
+                      // Use first 50 chars of prompt as conversation title
+                      const convTitle = text.trim().replace(/\[AFL Generator Context:.*?\]\s*/s, '').slice(0, 50).trim() || 'New Strategy';
+                      const conv = await apiClient.createConversation(convTitle, 'afl');
                       setConversations(prev => [conv, ...prev]);
                       setSelectedConversation(conv);
                       conversationIdRef.current = conv.id;

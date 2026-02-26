@@ -2,6 +2,7 @@
 
 import ProtectedRoute from '@/components/ProtectedRoute';
 import MainLayout from '@/layouts/MainLayout';
+import { ProcessManagerProvider, ProcessManagerWidget } from '@/contexts/ProcessManager';
 
 export default function ProtectedLayout({
   children,
@@ -10,7 +11,10 @@ export default function ProtectedLayout({
 }) {
   return (
     <ProtectedRoute>
-      <MainLayout>{children}</MainLayout>
+      <ProcessManagerProvider>
+        <MainLayout>{children}</MainLayout>
+        <ProcessManagerWidget />
+      </ProcessManagerProvider>
     </ProtectedRoute>
   );
 }

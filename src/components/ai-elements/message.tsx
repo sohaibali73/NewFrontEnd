@@ -98,12 +98,12 @@ export const MessageContent = ({
   <div
     className={cn(
       "flex min-w-0 flex-col gap-2 overflow-hidden text-sm leading-relaxed",
-      // User bubble: gold, compact, right-aligned
-      "group-[.is-user]:w-fit group-[.is-user]:max-w-full",
+      // User bubble: gold, compact, right-aligned with min-width for short messages
+      "group-[.is-user]:w-fit group-[.is-user]:min-w-[60px] group-[.is-user]:max-w-full",
       "group-[.is-user]:rounded-2xl group-[.is-user]:rounded-br-md",
       "group-[.is-user]:bg-[#FEC00F] group-[.is-user]:text-[#1a1a1a]",
-      "group-[.is-user]:px-4 group-[.is-user]:py-2.5 group-[.is-user]:font-medium",
-      "group-[.is-user]:shadow-[0_1px_3px_rgba(0,0,0,0.2)]",
+      "group-[.is-user]:px-5 group-[.is-user]:py-3 group-[.is-user]:font-medium",
+      "group-[.is-user]:shadow-[0_2px_8px_rgba(254,192,15,0.15)]",
       // Yang bubble: subtle elevated surface, full-width, left-aligned
       "group-[.is-assistant]:w-full group-[.is-assistant]:max-w-none",
       "group-[.is-assistant]:rounded-2xl group-[.is-assistant]:rounded-bl-md",

@@ -807,17 +807,19 @@ export function RegisterPage() {
               height: '2px',
               background: 'linear-gradient(90deg, transparent, #FEC00F, transparent)',
             }} />
-            <h2 style={{
-              fontFamily: "'Rajdhani', sans-serif",
-              fontSize: '28px',
-              fontWeight: 700,
-              color: '#FEC00F',
-              letterSpacing: '6px',
-              textTransform: 'uppercase',
-              margin: 0,
-              lineHeight: 1.4,
-              textShadow: '0 0 40px rgba(254, 192, 15, 0.3)',
-            }}>
+            <h2
+              className="tagline-glow"
+              style={{
+                fontFamily: "'Rajdhani', sans-serif",
+                fontSize: '28px',
+                fontWeight: 700,
+                color: '#FEC00F',
+                letterSpacing: '6px',
+                textTransform: 'uppercase',
+                margin: 0,
+                lineHeight: 1.4,
+              }}
+            >
               Break the Status Quo
             </h2>
             <div style={{
@@ -847,6 +849,25 @@ export function RegisterPage() {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        @keyframes taglineGlow {
+          0%, 100% {
+            text-shadow:
+              0 0 7px rgba(254, 192, 15, 0.4),
+              0 0 20px rgba(254, 192, 15, 0.3),
+              0 0 42px rgba(254, 192, 15, 0.2),
+              0 0 80px rgba(254, 192, 15, 0.1);
+          }
+          50% {
+            text-shadow:
+              0 0 12px rgba(254, 192, 15, 0.7),
+              0 0 30px rgba(254, 192, 15, 0.5),
+              0 0 60px rgba(254, 192, 15, 0.35),
+              0 0 110px rgba(254, 192, 15, 0.18);
+          }
+        }
+        .tagline-glow {
+          animation: taglineGlow 3s ease-in-out infinite;
         }
       `}</style>
     </div>

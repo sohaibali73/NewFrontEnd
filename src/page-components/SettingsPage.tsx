@@ -19,6 +19,7 @@ import {
   LogOut,
   AlertTriangle,
   ExternalLink,
+  Info,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -55,6 +56,7 @@ const sections = [
   { id: 'appearance', label: 'APPEARANCE', icon: Palette },
   { id: 'notifications', label: 'NOTIFICATIONS', icon: Bell },
   { id: 'security', label: 'SECURITY', icon: Shield },
+  { id: 'about', label: 'ABOUT', icon: Info },
 ];
 
 export function SettingsPage() {
@@ -1046,6 +1048,179 @@ export function SettingsPage() {
                     </span>
                   </button>
                 )}
+              </div>
+            )}
+
+            {/* ─── About ────────────────────────────────────────────────────── */}
+            {activeSection === 'about' && (
+              <div>
+                <SectionHeader
+                  title="ABOUT"
+                  desc="Application information and legal"
+                  colors={colors}
+                />
+
+                {/* Tagline */}
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: isMobile ? '32px 20px' : '48px 32px',
+                    backgroundColor: colors.inputBg,
+                    borderRadius: '14px',
+                    marginBottom: '24px',
+                  }}
+                >
+                  <h3
+                    style={{
+                      fontFamily: "'Rajdhani', sans-serif",
+                      fontSize: isMobile ? '1.75rem' : '2.25rem',
+                      fontWeight: 700,
+                      color: colors.accent,
+                      letterSpacing: '2px',
+                      margin: '0 0 8px 0',
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    BREAK THE STATUS QUO
+                  </h3>
+                  <p
+                    style={{
+                      fontFamily: "'Rajdhani', sans-serif",
+                      fontSize: isMobile ? '1rem' : '1.125rem',
+                      fontWeight: 600,
+                      color: colors.text,
+                      letterSpacing: '1.5px',
+                      margin: '0 0 24px 0',
+                    }}
+                  >
+                    BUILT TO CONQUER RISK<span style={{ verticalAlign: 'super', fontSize: '0.625rem' }}>&reg;</span>
+                  </p>
+                  <div
+                    style={{
+                      width: '48px',
+                      height: '2px',
+                      backgroundColor: colors.accent,
+                      margin: '0 auto 24px auto',
+                    }}
+                  />
+                  <p
+                    style={{
+                      fontFamily: "'Quicksand', sans-serif",
+                      fontSize: '0.9375rem',
+                      color: colors.text,
+                      fontWeight: 600,
+                      margin: '0 0 4px 0',
+                    }}
+                  >
+                    Developed by Sohaib Ali
+                  </p>
+                  <p
+                    style={{
+                      fontFamily: "'Quicksand', sans-serif",
+                      fontSize: '0.8125rem',
+                      color: colors.textMuted,
+                      margin: 0,
+                    }}
+                  >
+                    {'© Copyright 2026 \u2014 All Rights Reserved'}
+                  </p>
+                  <p
+                    style={{
+                      fontFamily: "'Rajdhani', sans-serif",
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      color: colors.text,
+                      letterSpacing: '0.5px',
+                      margin: '4px 0 0 0',
+                    }}
+                  >
+                    Potomac Fund Management, Inc.
+                  </p>
+                </div>
+
+                {/* Version info */}
+                <div
+                  style={{
+                    padding: '20px 24px',
+                    backgroundColor: colors.inputBg,
+                    borderRadius: '14px',
+                    marginBottom: '24px',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '12px',
+                    }}
+                  >
+                    <div>
+                      <p
+                        style={{
+                          fontFamily: "'Rajdhani', sans-serif",
+                          fontSize: '0.8125rem',
+                          fontWeight: 600,
+                          color: colors.textMuted,
+                          letterSpacing: '0.5px',
+                          margin: '0 0 4px 0',
+                        }}
+                      >
+                        VERSION
+                      </p>
+                      <p
+                        style={{
+                          fontFamily: "'Rajdhani', sans-serif",
+                          fontSize: '1.125rem',
+                          fontWeight: 700,
+                          color: colors.text,
+                          margin: 0,
+                          letterSpacing: '0.5px',
+                        }}
+                      >
+                        BETA VERSION: 1.6.3
+                      </p>
+                    </div>
+                    <span
+                      style={{
+                        padding: '4px 12px',
+                        borderRadius: '8px',
+                        fontSize: '0.6875rem',
+                        fontWeight: 700,
+                        fontFamily: "'Rajdhani', sans-serif",
+                        letterSpacing: '0.5px',
+                        color: colors.accent,
+                        backgroundColor: 'rgba(254, 192, 15, 0.1)',
+                        border: '1px solid rgba(254, 192, 15, 0.2)',
+                      }}
+                    >
+                      BETA
+                    </span>
+                  </div>
+                </div>
+
+                {/* Fine print */}
+                <div
+                  style={{
+                    padding: '16px 24px',
+                    backgroundColor: colors.inputBg,
+                    borderRadius: '14px',
+                  }}
+                >
+                  <p
+                    style={{
+                      fontFamily: "'Quicksand', sans-serif",
+                      fontSize: '0.6875rem',
+                      color: colors.textMuted,
+                      lineHeight: 1.7,
+                      margin: 0,
+                      textAlign: 'center',
+                    }}
+                  >
+                    {'This application\u2019s AI engine is powered by Claude\u2122, a registered trademark of Anthropic, PBC. All trademarks, service marks, and trade names referenced herein are the property of their respective owners. Use of these marks does not imply endorsement or affiliation.'}
+                  </p>
+                </div>
               </div>
             )}
 

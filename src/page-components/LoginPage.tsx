@@ -490,24 +490,30 @@ export function LoginPage() {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
-        @keyframes taglineGlow {
+        @keyframes taglinePulse {
           0%, 100% {
             text-shadow:
-              0 0 7px rgba(254, 192, 15, 0.4),
-              0 0 20px rgba(254, 192, 15, 0.3),
-              0 0 42px rgba(254, 192, 15, 0.2),
-              0 0 80px rgba(254, 192, 15, 0.1);
+              0 0 10px  #FEC00F,
+              0 0 20px  #FEC00F,
+              0 0 40px  rgba(254, 192, 15, 0.85),
+              0 0 70px  rgba(254, 192, 15, 0.65),
+              0 0 110px rgba(254, 192, 15, 0.45),
+              0 0 160px rgba(254, 192, 15, 0.25);
+            opacity: 0.95;
           }
           50% {
             text-shadow:
-              0 0 12px rgba(254, 192, 15, 0.7),
-              0 0 30px rgba(254, 192, 15, 0.5),
-              0 0 60px rgba(254, 192, 15, 0.35),
-              0 0 110px rgba(254, 192, 15, 0.18);
+              0 0 15px  #FEC00F,
+              0 0 30px  #FEC00F,
+              0 0 60px  rgba(254, 192, 15, 1),
+              0 0 100px rgba(254, 192, 15, 0.9),
+              0 0 150px rgba(254, 192, 15, 0.7),
+              0 0 200px rgba(254, 192, 15, 0.4);
+            opacity: 1;
           }
         }
         .tagline-glow {
-          animation: taglineGlow 3s ease-in-out infinite;
+          animation: taglinePulse 3.5s ease-in-out infinite;
         }
       `}</style>
     </div>

@@ -1150,9 +1150,9 @@ export function ChatPage() {
   };
 
   return (
-    <div style={{ height: '100dvh', maxHeight: '100vh', backgroundColor: colors.background, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+    <div style={{ height: '100%', backgroundColor: colors.background, display: 'flex', overflow: 'hidden', position: 'relative' }}>
       {/* Sidebar */}
-      <div style={{ width: sidebarCollapsed ? '0px' : '280px', backgroundColor: colors.sidebar, borderRight: sidebarCollapsed ? 'none' : `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', height: '100dvh', maxHeight: '100vh', overflow: 'hidden', transition: 'width 0.3s ease', flexShrink: 0 }}>
+      <div style={{ width: sidebarCollapsed ? '0px' : '280px', backgroundColor: colors.sidebar, borderRight: sidebarCollapsed ? 'none' : `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', transition: 'width 0.3s ease', flexShrink: 0 }}>
         <div style={{ padding: '24px 20px', borderBottom: `2px solid ${colors.primaryYellow}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(254, 192, 15, 0.05)' : 'rgba(254, 192, 15, 0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <img src={logo} alt="Logo" style={{ width: '32px', height: '32px' }} />
@@ -1201,7 +1201,7 @@ export function ChatPage() {
             )}
           </div>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px', maxHeight: 'calc(100vh - 140px)' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px', minHeight: 0 }}>
           {loadingConversations ? (
             <div className="space-y-3 px-2 py-4">
               {/* AI Elements: Shimmer skeleton for conversation list loading */}

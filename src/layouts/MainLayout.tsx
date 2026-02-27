@@ -487,11 +487,12 @@ export function MainLayout({ children }: MainLayoutProps) {
       {/* Main Content */}
       <main style={{
         flex: 1,
-        minHeight: '100vh',
+        height: isMobile ? 'calc(100vh - 64px)' : '100vh',
         marginLeft: isMobile ? 0 : sidebarWidth,
         marginTop: isMobile ? '64px' : 0,
         width: isMobile ? '100%' : `calc(100% - ${sidebarWidth}px)`,
         transition: 'margin-left 0.3s ease',
+        overflow: 'hidden',
       }}>
         {children}
       </main>

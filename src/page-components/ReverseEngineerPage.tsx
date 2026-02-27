@@ -468,9 +468,9 @@ export function ReverseEngineerPage() {
 
   // --- RENDER ---
   return (
-    <div style={{ height: '100dvh', maxHeight: '100vh', backgroundColor: colors.background, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+    <div style={{ height: '100%', backgroundColor: colors.background, display: 'flex', overflow: 'hidden', position: 'relative' }}>
       {/* ===== SIDEBAR ===== */}
-      <div style={{ width: sidebarCollapsed ? '0px' : '280px', backgroundColor: colors.sidebar, borderRight: sidebarCollapsed ? 'none' : `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', height: '100dvh', maxHeight: '100vh', overflow: 'hidden', transition: 'width 0.3s ease', flexShrink: 0 }}>
+      <div style={{ width: sidebarCollapsed ? '0px' : '280px', backgroundColor: colors.sidebar, borderRight: sidebarCollapsed ? 'none' : `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', transition: 'width 0.3s ease', flexShrink: 0 }}>
         {/* Sidebar Header */}
         <div style={{ padding: '24px 20px', borderBottom: `2px solid ${colors.primaryYellow}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(254, 192, 15, 0.05)' : 'rgba(254, 192, 15, 0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -507,7 +507,7 @@ export function ReverseEngineerPage() {
         </div>
 
         {/* Conversation List */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px', maxHeight: 'calc(100vh - 140px)' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px', minHeight: 0 }}>
           {loadingConversations ? (
             <div className="space-y-3 px-2 py-4">
               {[1, 2, 3, 4, 5].map((i) => (
@@ -790,7 +790,7 @@ export function ReverseEngineerPage() {
 
       {/* ===== CODE PANEL (Right Side) ===== */}
       {codePanelOpen && (
-        <div style={{ width: isMobile ? '100%' : '420px', backgroundColor: colors.codePanelBg, borderLeft: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', height: '100dvh', flexShrink: 0, transition: 'width 0.3s ease', position: isMobile ? 'absolute' : 'relative', right: 0, top: 0, zIndex: isMobile ? 200 : 1 }}>
+        <div style={{ width: isMobile ? '100%' : '420px', backgroundColor: colors.codePanelBg, borderLeft: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', height: '100%', flexShrink: 0, transition: 'width 0.3s ease', position: isMobile ? 'absolute' : 'relative', right: 0, top: 0, zIndex: isMobile ? 200 : 1 }}>
           {/* Panel Header */}
           <div style={{ padding: '16px 20px', borderBottom: `2px solid ${colors.primaryYellow}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(254, 192, 15, 0.05)' : 'rgba(254, 192, 15, 0.08)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

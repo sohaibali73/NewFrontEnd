@@ -15,68 +15,15 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { ArtifactRenderer } from '@/components/artifacts';
 
-// AI Elements - Composable Components
+// AI Elements - only the components actually used in ChatPage shell
 import { Suggestions, Suggestion } from '@/components/ai-elements/suggestion';
-import { Reasoning, ReasoningTrigger, ReasoningContent } from '@/components/ai-elements/reasoning';
 import { Shimmer } from '@/components/ai-elements/shimmer';
-import { Tool as AITool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool';
-import { Conversation as AIConversation, ConversationContent, ConversationScrollButton, ConversationEmptyState } from '@/components/ai-elements/conversation';
-import { Message as AIMessage, MessageContent, MessageActions, MessageAction, MessageResponse, MessageToolbar } from '@/components/ai-elements/message';
-import { CodeBlock, CodeBlockHeader, CodeBlockTitle, CodeBlockActions, CodeBlockCopyButton, CodeBlockContent } from '@/components/ai-elements/code-block';
-import { PromptInput, PromptInputTextarea, PromptInputFooter, PromptInputHeader, PromptInputTools, PromptInputButton, PromptInputSubmit, usePromptInputAttachments, PromptInputActionMenu, PromptInputActionMenuTrigger, PromptInputActionMenuContent, PromptInputActionMenuContent as MenuContent, PromptInputActionAddAttachments } from '@/components/ai-elements/prompt-input';
-import { Attachments, Attachment, AttachmentPreview, AttachmentInfo, AttachmentRemove } from '@/components/ai-elements/attachments';
-import { Sources, SourcesTrigger, SourcesContent, Source } from '@/components/ai-elements/sources';
-import { Artifact, ArtifactHeader, ArtifactTitle, ArtifactContent, ArtifactActions, ArtifactAction } from '@/components/ai-elements/artifact';
-import { DocumentGenerator } from '@/components/ai-elements/document-generator';
-import { ChainOfThought, ChainOfThoughtHeader, ChainOfThoughtContent, ChainOfThoughtStep } from '@/components/ai-elements/chain-of-thought';
-import { SpeechInput } from '@/components/ai-elements/speech-input';
-import { WebPreview, WebPreviewNavigation, WebPreviewNavigationButton, WebPreviewBody, WebPreviewConsole } from '@/components/ai-elements/web-preview';
-import { Terminal, TerminalHeader, TerminalTitle, TerminalContent, TerminalCopyButton, TerminalActions } from '@/components/ai-elements/terminal';
-import { Image as AIImage } from '@/components/ai-elements/image';
-import { Plan, PlanHeader, PlanTitle, PlanDescription, PlanContent, PlanTrigger } from '@/components/ai-elements/plan';
-import { Task, TaskTrigger, TaskContent, TaskItem } from '@/components/ai-elements/task';
-import { StackTrace, StackTraceHeader, StackTraceError, StackTraceErrorType, StackTraceErrorMessage, StackTraceContent, StackTraceFrames, StackTraceCopyButton, StackTraceActions, StackTraceExpandButton } from '@/components/ai-elements/stack-trace';
-import { Confirmation, ConfirmationTitle, ConfirmationRequest, ConfirmationAccepted, ConfirmationRejected, ConfirmationActions, ConfirmationAction } from '@/components/ai-elements/confirmation';
-import { Sandbox, SandboxHeader, SandboxContent, SandboxTabs, SandboxTabsBar, SandboxTabsList, SandboxTabsTrigger, SandboxTabContent } from '@/components/ai-elements/sandbox';
-import { InlineCitation, InlineCitationText, InlineCitationCard, InlineCitationCardTrigger, InlineCitationCardBody, InlineCitationSource } from '@/components/ai-elements/inline-citation';
+import { ConversationEmptyState } from '@/components/ai-elements/conversation';
+import { Message as AIMessage, MessageContent } from '@/components/ai-elements/message';
+import { PromptInput, PromptInputHeader, PromptInputButton, usePromptInputAttachments } from '@/components/ai-elements/prompt-input';
+import { Attachments, Attachment, AttachmentPreview, AttachmentRemove } from '@/components/ai-elements/attachments';
 import VoiceMode from '@/components/VoiceMode';
-import { InlineReactPreview, stripReactCodeBlocks } from '@/components/InlineReactPreview';
-import {
-  StockCard,
-  LiveStockChart,
-  TechnicalAnalysis,
-  WeatherCard,
-  NewsHeadlines,
-  CodeSandbox,
-  DataChart,
-  CodeExecution,
-  KnowledgeBaseResults,
-  AFLGenerateCard,
-  AFLValidateCard,
-  AFLDebugCard,
-  AFLExplainCard,
-  AFLSanityCheckCard,
-  WebSearchResults,
-  ToolLoading,
-  StockScreener,
-  StockComparison,
-  SectorPerformance,
-  PositionSizer,
-  CorrelationMatrix,
-  DividendCard,
-  RiskMetrics,
-  MarketOverview,
-  BacktestResults,
-  OptionsSnapshot,
-  PresentationCard,
-  LiveSportsScores,
-  SearchTrends,
-  LinkedInPost,
-  WebsitePreview,
-  FoodOrder,
-  FlightTracker,
-  FlightSearchCard,
-} from '@/components/generative-ui';
+import { MessageRenderer } from '@/components/chat/MessageRenderer';
 
 const logo = '/potomac-icon.png';
 
@@ -289,7 +236,7 @@ export function ChatPage() {
 
   const isStreaming = status === 'streaming' || status === 'submitted';
 
-  const colors = {
+  const colors = useMemo(() => ({
     background: isDark ? '#0F0F0F' : '#ffffff',
     sidebar: isDark ? '#1A1A1A' : '#ffffff',
     cardBg: isDark ? '#1A1A1A' : '#ffffff',
@@ -300,7 +247,7 @@ export function ChatPage() {
     primaryYellow: '#FEC00F',
     darkGray: '#212121',
     accentYellow: '#FFD700',
-  };
+  }), [isDark]);
 
   // Keep conversationIdRef in sync with selectedConversation state
   useEffect(() => {
@@ -318,18 +265,22 @@ export function ChatPage() {
       loadPreviousMessages(selectedConversation.id);
     }
   }, [selectedConversation]);
-  // Edge-compatible auto-scroll: use scrollTop instead of scrollIntoView for better compatibility
+  // Throttled auto-scroll: rAF-based instead of firing on every token update
+  const scrollRafRef = useRef<number | null>(null);
   useEffect(() => {
-    if (messagesEndRef.current) {
-      const scrollContainer = messagesEndRef.current.closest('[data-scroll-container]');
-      if (scrollContainer) {
-        // Use scrollTop for Edge compatibility (avoids scrollIntoView quirks)
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      } else {
-        // Fallback: scrollIntoView with block:'end' for better Edge support
-        messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' });
+    if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current);
+    scrollRafRef.current = requestAnimationFrame(() => {
+      if (messagesEndRef.current) {
+        const scrollContainer = messagesEndRef.current.closest('[data-scroll-container]');
+        if (scrollContainer) {
+          scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        } else {
+          messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' });
+        }
       }
-    }
+      scrollRafRef.current = null;
+    });
+    return () => { if (scrollRafRef.current) cancelAnimationFrame(scrollRafRef.current); };
   }, [streamMessages]);
   useEffect(() => { if (chatError) setPageError(chatError.message); }, [chatError]);
 
@@ -451,7 +402,7 @@ export function ChatPage() {
   };
 
   // Use AI SDK messages as single source of truth
-  const allMessages = useMemo(() => streamMessages, [streamMessages]);
+  const allMessages = streamMessages;
   const lastIdx = allMessages.length - 1;
   const userName = user?.name || 'You';
 
@@ -474,7 +425,9 @@ export function ChatPage() {
     toast.success('Document generated!');
   }, []);
 
-  // Render a single message using AI Elements composable architecture
+  // NOTE: renderMessage below is DEAD CODE — kept temporarily for reference.
+  // Message rendering now uses the memoized <MessageRenderer> component.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const renderMessage = (message: any, idx: number) => {
     const parts = message.parts || [];
     const isLast = idx === lastIdx;
@@ -1310,7 +1263,20 @@ export function ChatPage() {
               ) : (
                 <>
                   <div className="flex flex-col gap-6">
-                    {allMessages.map((msg, idx) => renderMessage(msg, idx))}
+                    {allMessages.map((msg, idx) => (
+                      <MessageRenderer
+                        key={msg.id}
+                        message={msg}
+                        isLast={idx === lastIdx}
+                        isStreaming={isStreaming}
+                        status={status}
+                        isDark={isDark}
+                        userName={userName}
+                        colors={colors}
+                        onCopy={handleCopyMessage}
+                        onDocumentGenerated={handleDocumentGenerated}
+                      />
+                    ))}
                   </div>
 
                   {/* Display generated artifacts */}

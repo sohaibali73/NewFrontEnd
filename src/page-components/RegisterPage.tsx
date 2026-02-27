@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -17,13 +17,15 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useResponsive } from '@/hooks/useResponsive';
 
-// Use logo from public directory (not src/assets which doesn't work in Next.js)
 const logoSrc = '/potomac-icon.png';
 
 export function RegisterPage() {
   const router = useRouter();
   const { resolvedTheme } = useTheme();
+  const { isMobile: isSmallMobile, isDesktop } = useResponsive();
+  const isMobile = !isDesktop; // < 1024 — matches original breakpoint
   const isDark = resolvedTheme === 'dark';
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -31,8 +33,6 @@ export function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showClaudeKey, setShowClaudeKey] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [isSmallMobile, setIsSmallMobile] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -43,23 +43,6 @@ export function RegisterPage() {
     tavilyApiKey: '',
     agreeToTerms: false,
   });
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 1024);
-      setIsSmallMobile(window.innerWidth < 768);
-    };
-
-    // Initial check
-    handleResize();
-
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleResize);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
-    };
-  }, []);
 
   const updateFormData = (field: string, value: string | boolean) => {
     setFormData({ ...formData, [field]: value });

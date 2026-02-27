@@ -18,10 +18,10 @@ import {
   Monitor,
   Rocket,
   Presentation,
-
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useResponsive } from '@/hooks/useResponsive';
 
 // Use logo from public directory
 const logo = '/potomac-icon.png';
@@ -49,33 +49,19 @@ export function MainLayout({ children }: MainLayoutProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { actualTheme } = useTheme();
+  const { isMobile, isTablet } = useResponsive();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [isTablet, setIsTablet] = useState(false);
 
+  // Auto-collapse on tablet, hide on mobile
   useEffect(() => {
-    const handleResize = () => {
-      const width = window.innerWidth;
-      const mobile = width < 768;
-      const tablet = width >= 768 && width < 1024;
-      
-      setIsMobile(mobile);
-      setIsTablet(tablet);
-      
-      // Auto-collapse on tablet, hide on mobile
-      if (mobile) {
-        setCollapsed(true);
-        setMobileMenuOpen(false);
-      } else if (tablet) {
-        setCollapsed(true);
-      }
-    };
-    
-    window.addEventListener('resize', handleResize);
-    handleResize(); // Run on mount
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    if (isMobile) {
+      setCollapsed(true);
+      setMobileMenuOpen(false);
+    } else if (isTablet) {
+      setCollapsed(true);
+    }
+  }, [isMobile, isTablet]);
 
   // Lock body scroll when mobile menu is open
   useEffect(() => {

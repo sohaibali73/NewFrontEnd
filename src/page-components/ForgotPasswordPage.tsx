@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { 
   ArrowLeft, 
@@ -11,35 +11,19 @@ import {
   Key
 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useResponsive } from '@/hooks/useResponsive';
 
-// Use logo from public directory (Next.js serves from /public)
 const logo = '/potomac-icon.png';
 
 export function ForgotPasswordPage() {
   const { resolvedTheme } = useTheme();
+  const { isMobile: isSmallMobile, isDesktop } = useResponsive();
+  const isMobile = !isDesktop; // < 1024 — matches original breakpoint
   const isDark = resolvedTheme === 'dark';
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  // FIXED: SSR-safe - don't access window in useState initializer
-  const [isMobile, setIsMobile] = useState(false);
-  const [isSmallMobile, setIsSmallMobile] = useState(false);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 1024);
-      setIsSmallMobile(window.innerWidth < 768);
-    };
-
-    handleResize(); // Call immediately to set initial values
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleResize);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
-    };
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

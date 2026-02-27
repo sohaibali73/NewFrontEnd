@@ -17,13 +17,14 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useResponsive } from '@/hooks/useResponsive';
 import apiClient from '@/lib/api';
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { resolvedTheme } = useTheme();
-  const [isMobile, setIsMobile] = useState(false);
+  const { isMobile } = useResponsive();
   const [recentChats, setRecentChats] = useState<any[]>([]);
   const [stats, setStats] = useState({ conversations: 0, documents: 0 });
 
@@ -37,16 +38,6 @@ export default function DashboardPage() {
     textMuted: isDark ? '#9E9E9E' : '#757575',
     accent: '#FEC00F',
   };
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-
-    handleResize(); // Run on mount
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // Load recent conversations and stats
   useEffect(() => {

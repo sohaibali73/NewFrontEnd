@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { storage } from '@/lib/storage';
 
 type FontSize = 'small' | 'medium' | 'large';
@@ -46,14 +46,18 @@ export function FontSizeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const setFontSize = (size: FontSize) => {
+  const setFontSize = useCallback((size: FontSize) => {
     setFontSizeState(size);
     storage.setItem('fontSize', size);
     applyFontSize(size);
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    fontSize, setFontSize,
+  }), [fontSize, setFontSize]);
 
   return (
-    <FontSizeContext.Provider value={{ fontSize, setFontSize }}>
+    <FontSizeContext.Provider value={value}>
       {children}
     </FontSizeContext.Provider>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   X, ChevronUp, ChevronDown, Loader2, CheckCircle2,
   AlertCircle, Minimize2, Maximize2, Presentation,
@@ -93,12 +93,17 @@ export function ProcessManagerProvider({ children }: { children: React.ReactNode
     setProcesses(prev => prev.filter(p => p.status !== 'complete' && p.status !== 'failed'));
   }, []);
 
-  const activeCount = processes.filter(p => p.status === 'pending' || p.status === 'running').length;
+  const activeCount = useMemo(
+    () => processes.filter(p => p.status === 'pending' || p.status === 'running').length,
+    [processes]
+  );
+
+  const value = useMemo(() => ({
+    processes, addProcess, updateProcess, removeProcess, clearCompleted, activeCount,
+  }), [processes, addProcess, updateProcess, removeProcess, clearCompleted, activeCount]);
 
   return (
-    <ProcessManagerContext.Provider value={{
-      processes, addProcess, updateProcess, removeProcess, clearCompleted, activeCount,
-    }}>
+    <ProcessManagerContext.Provider value={value}>
       {children}
     </ProcessManagerContext.Provider>
   );

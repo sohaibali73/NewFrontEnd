@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import {
   MessageCircle,
   Presentation,
@@ -10,21 +11,30 @@ import {
   BookOpen,
   Sparkles,
   BrainCircuit,
+  LayoutTemplate,
+  Activity,
 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { ContentChat } from '@/components/content/ContentChat';
-import { SlideDecksTab } from '@/components/content/SlideDecksTab';
-import { ArticlesTab } from '@/components/content/ArticlesTab';
-import { DocumentsTab } from '@/components/content/DocumentsTab';
-import { DashboardsTab } from '@/components/content/DashboardsTab';
-import { WritingStyleSettings } from '@/components/content/WritingStyleSettings';
-import SkillsTab from '@/components/content/SkillsTab';
-import { GlobalSearch } from '@/components/content/GlobalSearch';
-import { TemplatesPanel, type Template } from '@/components/content/TemplatesPanel';
-import { ContentAnalytics } from '@/components/content/ContentAnalytics';
-import { LayoutTemplate, Activity } from 'lucide-react';
 import { useResponsive } from '@/hooks/useResponsive';
+
+// Only ContentChat is loaded eagerly (default tab).
+// All other tabs are lazy-loaded to reduce initial bundle size.
+import { ContentChat } from '@/components/content/ContentChat';
+
+const TabLoader = () => <div className="w-full h-64 animate-pulse bg-muted rounded-lg" />;
+const SlideDecksTab = dynamic(() => import('@/components/content/SlideDecksTab').then(m => ({ default: m.SlideDecksTab })), { loading: TabLoader });
+const ArticlesTab = dynamic(() => import('@/components/content/ArticlesTab').then(m => ({ default: m.ArticlesTab })), { loading: TabLoader });
+const DocumentsTab = dynamic(() => import('@/components/content/DocumentsTab').then(m => ({ default: m.DocumentsTab })), { loading: TabLoader });
+const DashboardsTab = dynamic(() => import('@/components/content/DashboardsTab').then(m => ({ default: m.DashboardsTab })), { loading: TabLoader });
+const WritingStyleSettings = dynamic(() => import('@/components/content/WritingStyleSettings').then(m => ({ default: m.WritingStyleSettings })), { loading: TabLoader });
+const SkillsTab = dynamic(() => import('@/components/content/SkillsTab'), { loading: TabLoader });
+const GlobalSearch = dynamic(() => import('@/components/content/GlobalSearch').then(m => ({ default: m.GlobalSearch })), { loading: TabLoader });
+const ContentAnalytics = dynamic(() => import('@/components/content/ContentAnalytics').then(m => ({ default: m.ContentAnalytics })), { loading: TabLoader });
+
+// TemplatesPanel is used as a sheet/modal - lazy load it too
+import { type Template } from '@/components/content/TemplatesPanel';
+const TemplatesPanel = dynamic(() => import('@/components/content/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })), { loading: TabLoader });
 
 export function ContentPage() {
   const { resolvedTheme } = useTheme();

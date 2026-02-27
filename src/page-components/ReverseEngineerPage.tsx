@@ -12,7 +12,8 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
-import Editor from '@monaco-editor/react';
+import dynamic from 'next/dynamic';
+const Editor = dynamic(() => import('@monaco-editor/react'), { ssr: false, loading: () => <div className="w-full h-[400px] animate-pulse bg-muted rounded-lg" /> });
 import FeedbackModal from '@/components/FeedbackModal';
 
 // AI Elements

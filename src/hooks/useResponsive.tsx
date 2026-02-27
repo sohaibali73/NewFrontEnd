@@ -1,49 +1,50 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface BreakpointState {
-  isMobile: boolean;
-  isTablet: boolean;
-  isDesktop: boolean;
+  isMobile: boolean;       // < 768
+  isSmallMobile: boolean;  // < 480 (alias kept for auth pages)
+  isTablet: boolean;       // 768..1023
+  isDesktop: boolean;      // >= 1024
   width: number;
   height: number;
 }
 
+function calcBreakpoints(width: number, height: number): BreakpointState {
+  return {
+    isMobile: width < 768,
+    isSmallMobile: width < 480,
+    isTablet: width >= 768 && width < 1024,
+    isDesktop: width >= 1024,
+    width,
+    height,
+  };
+}
+
+const SSR_DEFAULT: BreakpointState = calcBreakpoints(1200, 800);
+
 export function useResponsive(): BreakpointState {
   const [state, setState] = useState<BreakpointState>(() => {
-    if (typeof window === 'undefined') {
-      return {
-        isMobile: false,
-        isTablet: false,
-        isDesktop: true,
-        width: 1200,
-        height: 800,
-      };
-    }
-
-    const width = window.innerWidth;
-    return {
-      isMobile: width < 768,
-      isTablet: width >= 768 && width < 1024,
-      isDesktop: width >= 1024,
-      width,
-      height: window.innerHeight,
-    };
+    if (typeof window === 'undefined') return SSR_DEFAULT;
+    return calcBreakpoints(window.innerWidth, window.innerHeight);
   });
+
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const handleResize = () => {
-      const width = window.innerWidth;
-      setState({
-        isMobile: width < 768,
-        isTablet: width >= 768 && width < 1024,
-        isDesktop: width >= 1024,
-        width,
-        height: window.innerHeight,
-      });
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        setState(calcBreakpoints(window.innerWidth, window.innerHeight));
+      }, 150); // 150ms debounce
     };
 
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
   }, []);
 
   return state;

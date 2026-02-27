@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 
 interface TabState {
   [key: string]: {
@@ -58,8 +58,12 @@ export function TabProvider({ children }: { children: ReactNode }) {
     return tabState[page]?.data || null;
   }, [tabState]);
 
+  const value = useMemo(() => ({
+    tabState, setActiveTab, getActiveTab, setTabData, getTabData,
+  }), [tabState, setActiveTab, getActiveTab, setTabData, getTabData]);
+
   return (
-    <TabContext.Provider value={{ tabState, setActiveTab, getActiveTab, setTabData, getTabData }}>
+    <TabContext.Provider value={value}>
       {children}
     </TabContext.Provider>
   );

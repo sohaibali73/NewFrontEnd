@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { storage } from '@/lib/storage';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -67,32 +67,32 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [theme]);
 
-  const setTheme = (newTheme: Theme) => {
+  const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
     storage.setItem('theme', newTheme);
-  };
+  }, []);
 
-  const setAccentColor = (color: string) => {
+  const setAccentColor = useCallback((color: string) => {
     setAccentColorState(color);
     storage.setItem('accentColor', color);
-    // Apply to CSS variable for global use
     document.documentElement.style.setProperty('--accent-color', color);
-  };
+  }, []);
 
   useEffect(() => {
-    // Apply accent color to CSS variable
     document.documentElement.style.setProperty('--accent-color', accentColor);
   }, [accentColor]);
 
+  const value = useMemo(() => ({
+    theme,
+    actualTheme,
+    resolvedTheme: actualTheme,
+    setTheme,
+    accentColor,
+    setAccentColor,
+  }), [theme, actualTheme, setTheme, accentColor, setAccentColor]);
+
   return (
-    <ThemeContext.Provider value={{ 
-      theme, 
-      actualTheme, 
-      resolvedTheme: actualTheme,  // Alias for compatibility
-      setTheme,
-      accentColor,
-      setAccentColor
-    }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

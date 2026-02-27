@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import apiClient from '@/lib/api';
 import { storage } from '@/lib/storage';
@@ -66,15 +66,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
       const response = await apiClient.login(email, password);
-      // The apiClient.login already sets the token in localStorage
-      // Response structure should be { access_token: string, user: User }
       if (response.user) {
         setUser(response.user);
       } else {
-        // If user is not in response, fetch it separately
         const userData = await apiClient.getCurrentUser();
         setUser(userData);
       }
@@ -83,23 +80,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logger.error('Login failed', error);
       throw error;
     }
-  };
+  }, [router]);
 
-  const register = async (email: string, password: string, name?: string, claudeApiKey?: string, tavilyApiKey?: string) => {
+  const register = useCallback(async (email: string, password: string, name?: string, claudeApiKey?: string, tavilyApiKey?: string) => {
     try {
       const response = await apiClient.register(
         email,
         password,
-        name || email.split('@')[0], // Use email prefix as name if not provided
-        claudeApiKey || '', // Claude API key from registration form
-        tavilyApiKey || ''  // Tavily API key optional
+        name || email.split('@')[0],
+        claudeApiKey || '',
+        tavilyApiKey || ''
       );
-      // The apiClient.register already sets the token in localStorage
-      // Response structure should be { access_token: string, user: User }
       if (response.user) {
         setUser(response.user);
       } else {
-        // If user is not in response, fetch it separately
         const userData = await apiClient.getCurrentUser();
         setUser(userData);
       }
@@ -108,11 +102,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logger.error('Registration failed', error);
       throw error;
     }
-  };
+  }, [router]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
-      // Clear local state
       apiClient.logout();
       storage.removeItem('auth_token');
       setUser(null);
@@ -120,14 +113,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       logger.error('Logout error', error);
     }
-  };
+  }, [router]);
 
-  const updateUser = (updatedUser: User) => {
+  const updateUser = useCallback((updatedUser: User) => {
     setUser(updatedUser);
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    user, loading, login, register, logout, updateUser,
+  }), [user, loading, login, register, logout, updateUser]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

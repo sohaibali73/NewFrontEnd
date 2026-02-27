@@ -370,7 +370,7 @@ export function ContentSplitPane({
             items={filtered} jobs={jobs} loading={loading} selectedId={selectedId}
             searchQuery={searchQuery} showNewForm={showNewForm} newPrompt={newPrompt}
             newTitle={newTitle} generating={generating} menuOpenId={menuOpenId}
-            confirmDeleteId={confirmDeleteId} metaLine={metaLine}
+            confirmDeleteId={confirmDeleteId} metaLine={metaLine} extraToolbar={extraToolbar}
             onSelect={handleMobileSelect} onSearch={setSearchQuery}
             onToggleNew={() => setShowNewForm(p => !p)} onNewPrompt={setNewPrompt}
             onNewTitle={setNewTitle} onGenerate={handleGenerate}
@@ -409,7 +409,7 @@ export function ContentSplitPane({
         items={filtered} jobs={jobs} loading={loading} selectedId={selectedId}
         searchQuery={searchQuery} showNewForm={showNewForm} newPrompt={newPrompt}
         newTitle={newTitle} generating={generating} menuOpenId={menuOpenId}
-        confirmDeleteId={confirmDeleteId} metaLine={metaLine}
+        confirmDeleteId={confirmDeleteId} metaLine={metaLine} extraToolbar={extraToolbar}
         onSelect={setSelectedId} onSearch={setSearchQuery}
         onToggleNew={() => setShowNewForm(p => !p)} onNewPrompt={setNewPrompt}
         onNewTitle={setNewTitle} onGenerate={handleGenerate}
@@ -461,6 +461,7 @@ interface LeftPanelProps {
   searchQuery: string; showNewForm: boolean; newPrompt: string; newTitle: string;
   generating: boolean; menuOpenId: string | null; confirmDeleteId: string | null;
   metaLine?: (item: ContentItem) => React.ReactNode;
+  extraToolbar?: React.ReactNode;
   onSelect: (id: string) => void; onSearch: (q: string) => void;
   onToggleNew: () => void; onNewPrompt: (v: string) => void; onNewTitle: (v: string) => void;
   onGenerate: () => void; onRefresh: () => Promise<void>; onMenuToggle: (id: string | null) => void;
@@ -482,7 +483,7 @@ interface LeftPanelProps {
 function LeftPanel({
   colors, isDark, icon: Icon, label, isSlide, items, jobs, loading, selectedId,
   searchQuery, showNewForm, newPrompt, newTitle, generating, menuOpenId, confirmDeleteId,
-  metaLine, onSelect, onSearch, onToggleNew, onNewPrompt, onNewTitle,
+  metaLine, extraToolbar, onSelect, onSearch, onToggleNew, onNewPrompt, onNewTitle,
   onGenerate, onRefresh, onMenuToggle, onDelete, onDuplicate, onConfirmDelete,
   sortBy, onSortChange, statusFilter, onStatusFilterChange,
   dateFilter, onDateFilterChange, showFilters, onToggleFilters,
@@ -1007,16 +1008,18 @@ function LeftPanel({
                   }}>
                     {[
                       { icon: Copy, text: 'Duplicate', action: () => { onDuplicate(item); onMenuToggle(null); } },
-                      { icon: Download, text: isSlide ? 'Download .pptx' : 'Download', action: async () => {
-                        if (isSlide) {
-                          await downloadSlidesAsPptx(item.title, item.content);
-                        } else {
-                          const blob = new Blob([`${item.title}\n${'='.repeat(50)}\n\n${item.content}`], { type: 'text/plain' });
-                          const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-                          a.download = `${item.title.replace(/[^a-zA-Z0-9 ]/g, '')}.txt`; a.click();
+                      {
+                        icon: Download, text: isSlide ? 'Download .pptx' : 'Download', action: async () => {
+                          if (isSlide) {
+                            await downloadSlidesAsPptx(item.title, item.content);
+                          } else {
+                            const blob = new Blob([`${item.title}\n${'='.repeat(50)}\n\n${item.content}`], { type: 'text/plain' });
+                            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                            a.download = `${item.title.replace(/[^a-zA-Z0-9 ]/g, '')}.txt`; a.click();
+                          }
+                          onMenuToggle(null);
                         }
-                        onMenuToggle(null);
-                      }},
+                      },
                       { icon: Trash2, text: 'Delete', action: () => { onConfirmDelete(item.id); onMenuToggle(null); }, danger: true },
                     ].map(({ icon: MI, text, action, danger }) => (
                       <button key={text} onClick={action} style={{
@@ -1265,9 +1268,11 @@ function RightPanel({
           {extraActions && extraActions(selected)}
           {[
             { icon: Pencil, tip: 'Edit', action: () => onStartEdit(selected) },
-            { icon: ClipboardCopy, tip: 'Copy to Clipboard', action: () => {
-              navigator.clipboard.writeText(selected.content || '').catch(() => {});
-            }},
+            {
+              icon: ClipboardCopy, tip: 'Copy to Clipboard', action: () => {
+                navigator.clipboard.writeText(selected.content || '').catch(() => { });
+              }
+            },
             { icon: Download, tip: 'Download', action: () => onDownload(selected) },
             { icon: Copy, tip: 'Duplicate', action: () => onDuplicate(selected) },
           ].map(({ icon: AI, tip, action }) => (

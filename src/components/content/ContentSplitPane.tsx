@@ -61,6 +61,7 @@ export interface ContentSplitPaneProps {
   extraActions?: (item: ContentItem) => React.ReactNode;
   metaLine?: (item: ContentItem) => React.ReactNode;
   navigateToItemId?: string | null;
+  extraToolbar?: React.ReactNode;
 }
 
 /* ------------------------------------------------------------------ */
@@ -70,7 +71,7 @@ export interface ContentSplitPaneProps {
 export function ContentSplitPane({
   colors, isDark, contentType, icon: Icon, label, items, loading,
   onRefresh, onGenerate, onDelete, onUpdate, onDuplicate,
-  extraActions, metaLine, navigateToItemId,
+  extraActions, metaLine, navigateToItemId, extraToolbar,
 }: ContentSplitPaneProps) {
 
   const isSlide = contentType === 'slide';
@@ -546,6 +547,7 @@ function LeftPanel({
             {showNewForm ? <X size={13} /> : <Plus size={13} />}
             {showNewForm ? 'CANCEL' : 'NEW'}
           </button>
+          {extraToolbar}
         </div>
       </div>
 

@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import {
   ChevronLeft, ChevronRight, Maximize2, Minimize2,
   Download, Grid, Layers, Play, X, StickyNote,
-  ImageIcon, Columns2, Quote, Minus, AlignCenter,
+  ImageIcon, Columns2, Quote, Minus, AlignCenter, Film, Wand2,
 } from 'lucide-react';
 import { parseMarkdownToSlides, downloadSlidesAsPptx, type ParsedSlide } from '@/lib/pptxExport';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -179,6 +179,217 @@ function SlideRenderer({ slide, slideIndex, totalSlides, title, t, scale }: {
           <div style={{ display: 'flex', gap: '20px', paddingLeft: '12px' }}>
             <div style={{ flex: 1 }}>{renderBullets(slide.bullets.slice(0, mid), t)}</div>
             <div style={{ flex: 1 }}>{renderBullets(slide.bullets.slice(mid), t)}</div>
+          </div>
+        </div>
+        {footer}
+      </div>
+    );
+  }
+
+  // -- Full Image --
+  if (layout === 'full-image') {
+    const mediaUrl = (slide as ParsedSlide & { mediaUrl?: string }).mediaUrl;
+    const mediaCaption = (slide as ParsedSlide & { mediaCaption?: string }).mediaCaption;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: t.bg }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+          {mediaUrl ? (
+            <div style={{ flex: 1, backgroundImage: `url(${mediaUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+              <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to top, ${t.bg}CC, transparent 50%)` }} />
+            </div>
+          ) : (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: `${t.accent}06` }}>
+              <div style={{ textAlign: 'center', color: t.mutedColor }}>
+                <ImageIcon size={48} style={{ opacity: 0.15 }} />
+                <div style={{ fontSize: '11px', fontFamily: "'Quicksand', sans-serif", marginTop: '8px', opacity: 0.4 }}>Full-bleed image</div>
+              </div>
+            </div>
+          )}
+          <div style={{ position: 'absolute', bottom: '44px', left: '28px', right: '28px', zIndex: 1 }}>
+            <h2 style={{
+              fontFamily: "'Rajdhani', sans-serif", fontWeight: 700,
+              fontSize: 'clamp(18px, 2.4vw, 24px)', color: '#FFFFFF',
+              letterSpacing: '1.5px', textTransform: 'uppercase', margin: '0 0 4px',
+              textShadow: '0 2px 8px rgba(0,0,0,0.6)',
+            }}>{slide.title}</h2>
+            {mediaCaption && (
+              <p style={{
+                fontFamily: "'Quicksand', sans-serif", fontSize: 'clamp(10px, 1.2vw, 12px)',
+                color: '#FFFFFF', opacity: 0.7, margin: 0,
+                textShadow: '0 1px 4px rgba(0,0,0,0.5)',
+              }}>{mediaCaption}</p>
+            )}
+          </div>
+        </div>
+        {footer}
+      </div>
+    );
+  }
+
+  // -- Image Grid --
+  if (layout === 'image-grid') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: t.bg }}>
+        <div style={{ padding: '16px 20px 8px' }}>
+          <h2 style={{
+            fontFamily: "'Rajdhani', sans-serif", fontWeight: 700,
+            fontSize: 'clamp(14px, 1.8vw, 18px)', color: t.titleColor,
+            letterSpacing: '1.5px', textTransform: 'uppercase', margin: 0,
+          }}>{slide.title}</h2>
+        </div>
+        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '6px', padding: '6px 20px 10px' }}>
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} style={{
+              backgroundColor: `${t.accent}06`, borderRadius: '6px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: `1px dashed ${t.accent}15`,
+            }}>
+              <div style={{ textAlign: 'center', color: t.mutedColor }}>
+                <ImageIcon size={20} style={{ opacity: 0.15 }} />
+                <div style={{ fontSize: '8px', fontFamily: "'Quicksand', sans-serif", marginTop: '3px', opacity: 0.3 }}>Image {i}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        {footer}
+      </div>
+    );
+  }
+
+  // -- Video Embed --
+  if (layout === 'video-embed') {
+    const mediaUrl = (slide as ParsedSlide & { mediaUrl?: string }).mediaUrl;
+    const mediaCaption = (slide as ParsedSlide & { mediaCaption?: string }).mediaCaption;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: t.bg }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px 32px' }}>
+          <div style={{
+            width: '80%', aspectRatio: '16/9', backgroundColor: `${t.accent}06`,
+            borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: `1px dashed ${t.accent}15`, position: 'relative', overflow: 'hidden',
+          }}>
+            <div style={{
+              width: '48px', height: '48px', borderRadius: '50%',
+              backgroundColor: `${t.accent}25`, display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              transition: 'transform 0.2s ease',
+            }}>
+              <div style={{
+                width: 0, height: 0,
+                borderLeft: `16px solid ${t.accent}`, borderTop: '10px solid transparent',
+                borderBottom: '10px solid transparent', marginLeft: '4px',
+              }} />
+            </div>
+            {mediaUrl && (
+              <div style={{
+                position: 'absolute', bottom: '8px', left: '10px', right: '10px',
+                backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: '6px', padding: '5px 10px',
+              }}>
+                <span style={{
+                  fontFamily: "'Quicksand', sans-serif", fontSize: '8px', color: '#999',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block',
+                }}>{mediaUrl}</span>
+              </div>
+            )}
+          </div>
+          <h2 style={{
+            fontFamily: "'Rajdhani', sans-serif", fontWeight: 700,
+            fontSize: 'clamp(14px, 1.8vw, 18px)', color: t.titleColor,
+            letterSpacing: '1.5px', textTransform: 'uppercase', margin: '14px 0 4px', textAlign: 'center',
+          }}>{slide.title}</h2>
+          {mediaCaption && (
+            <p style={{
+              fontFamily: "'Quicksand', sans-serif", fontSize: 'clamp(10px, 1.2vw, 12px)',
+              color: t.mutedColor, textAlign: 'center', margin: 0,
+            }}>{mediaCaption}</p>
+          )}
+        </div>
+        {footer}
+      </div>
+    );
+  }
+
+  // -- Animated Intro --
+  if (layout === 'animated-intro') {
+    const animationType = (slide as ParsedSlide & { animationType?: string }).animationType || 'fade-in';
+    const animLabel = animationType.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: t.bg }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '28px 40px' }}>
+          <div style={{
+            position: 'absolute', top: '12px', right: '14px',
+            padding: '3px 10px', borderRadius: '12px',
+            backgroundColor: `${t.accent}12`, border: `1px solid ${t.accent}25`,
+          }}>
+            <span style={{
+              fontFamily: "'Rajdhani', sans-serif", fontSize: '8px', fontWeight: 700,
+              color: t.accent, letterSpacing: '0.5px',
+            }}>{animLabel}</span>
+          </div>
+          <h2 style={{
+            fontFamily: "'Rajdhani', sans-serif", fontWeight: 700,
+            fontSize: 'clamp(20px, 2.6vw, 28px)', color: t.titleColor,
+            letterSpacing: '2px', textTransform: 'uppercase', textAlign: 'center',
+            margin: '0 0 14px',
+            animation: animationType === 'fade-in' ? 'previewFadeIn 1s ease both' :
+              animationType === 'slide-up' ? 'previewSlideUp 0.8s ease both' :
+              animationType === 'zoom-in' ? 'previewZoomIn 0.8s ease both' : 'none',
+          }}>{slide.title}</h2>
+          {slide.bullets[0]?.trim() && (
+            <p style={{
+              fontFamily: "'Quicksand', sans-serif", fontSize: 'clamp(12px, 1.4vw, 14px)',
+              color: t.bodyColor, textAlign: 'center', lineHeight: 1.7, maxWidth: '80%',
+              opacity: 0.85,
+              animation: animationType === 'stagger' ? 'previewFadeIn 1.2s ease 0.3s both' : 'none',
+            }}>{slide.bullets[0]}</p>
+          )}
+          <div style={{ display: 'flex', gap: '5px', marginTop: '14px' }}>
+            {[0, 1, 2].map(i => (
+              <div key={i} style={{
+                width: '7px', height: '7px', borderRadius: '50%',
+                backgroundColor: t.accent, opacity: 0.1 + (i * 0.35),
+              }} />
+            ))}
+          </div>
+        </div>
+        {footer}
+      </div>
+    );
+  }
+
+  // -- Comparison --
+  if (layout === 'comparison') {
+    const mid = Math.ceil(slide.bullets.length / 2);
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: t.bg }}>
+        <div style={{ padding: '18px 20px 6px' }}>
+          <h2 style={{
+            fontFamily: "'Rajdhani', sans-serif", fontWeight: 700,
+            fontSize: 'clamp(16px, 2vw, 20px)', color: t.titleColor,
+            letterSpacing: '1.5px', textTransform: 'uppercase', margin: 0, textAlign: 'center',
+          }}>{slide.title}</h2>
+        </div>
+        <div style={{ flex: 1, display: 'flex', gap: '3px', padding: '10px 20px' }}>
+          <div style={{
+            flex: 1, backgroundColor: `${t.accent}06`, borderRadius: '8px 0 0 8px',
+            padding: '14px', display: 'flex', flexDirection: 'column',
+          }}>
+            <div style={{
+              fontFamily: "'Rajdhani', sans-serif", fontSize: '10px', fontWeight: 700,
+              color: t.accent, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '10px',
+            }}>OPTION A</div>
+            {renderBullets(slide.bullets.slice(0, mid), t)}
+          </div>
+          <div style={{ width: '2px', backgroundColor: `${t.accent}25`, flexShrink: 0 }} />
+          <div style={{
+            flex: 1, backgroundColor: `${t.accentSecondary}06`, borderRadius: '0 8px 8px 0',
+            padding: '14px', display: 'flex', flexDirection: 'column',
+          }}>
+            <div style={{
+              fontFamily: "'Rajdhani', sans-serif", fontSize: '10px', fontWeight: 700,
+              color: t.accentSecondary, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '10px',
+            }}>OPTION B</div>
+            {renderBullets(slide.bullets.slice(mid), t)}
           </div>
         </div>
         {footer}

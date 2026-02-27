@@ -14,7 +14,11 @@ import { useResponsive } from '@/hooks/useResponsive';
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-export type SlideLayout = 'title-bullets' | 'title-only' | 'two-columns' | 'image-left' | 'quote' | 'section-divider';
+export type SlideLayout =
+  | 'title-bullets' | 'title-only' | 'two-columns' | 'image-left' | 'quote' | 'section-divider'
+  | 'full-image' | 'video-embed' | 'animated-intro' | 'image-grid' | 'comparison';
+
+export type SlideContentType = 'text' | 'image' | 'video' | 'animated';
 
 export interface EditorSlide {
   id: string;
@@ -22,6 +26,10 @@ export interface EditorSlide {
   bullets: string[];
   layout: SlideLayout;
   notes: string;
+  contentType?: SlideContentType;
+  mediaUrl?: string;
+  mediaCaption?: string;
+  animationType?: 'fade-in' | 'slide-up' | 'zoom-in' | 'typewriter' | 'stagger';
 }
 
 export type ThemePreset = 'potomac-dark' | 'minimal-light' | 'bold-color' | 'corporate-blue';
@@ -62,13 +70,18 @@ const THEMES: Record<ThemePreset, ThemeColors> = {
   },
 };
 
-const LAYOUT_OPTIONS: { value: SlideLayout; label: string; icon: React.ReactNode; desc: string }[] = [
-  { value: 'title-bullets', label: 'Title + Bullets', icon: <Type size={12} />, desc: 'Standard layout' },
-  { value: 'title-only', label: 'Title Only', icon: <AlignCenter size={12} />, desc: 'Large centered title' },
-  { value: 'two-columns', label: 'Two Columns', icon: <Columns2 size={12} />, desc: 'Split bullets' },
-  { value: 'image-left', label: 'Image Left', icon: <ImageIcon size={12} />, desc: 'Image placeholder + text' },
-  { value: 'quote', label: 'Quote', icon: <Quote size={12} />, desc: 'Centered callout' },
-  { value: 'section-divider', label: 'Section Break', icon: <Minus size={12} />, desc: 'Full-bleed title' },
+const LAYOUT_OPTIONS: { value: SlideLayout; label: string; icon: React.ReactNode; desc: string; contentType: SlideContentType }[] = [
+  { value: 'title-bullets', label: 'Title + Bullets', icon: <Type size={12} />, desc: 'Standard layout', contentType: 'text' },
+  { value: 'title-only', label: 'Title Only', icon: <AlignCenter size={12} />, desc: 'Large centered title', contentType: 'text' },
+  { value: 'two-columns', label: 'Two Columns', icon: <Columns2 size={12} />, desc: 'Split bullets', contentType: 'text' },
+  { value: 'image-left', label: 'Image Left', icon: <ImageIcon size={12} />, desc: 'Image placeholder + text', contentType: 'image' },
+  { value: 'quote', label: 'Quote', icon: <Quote size={12} />, desc: 'Centered callout', contentType: 'text' },
+  { value: 'section-divider', label: 'Section Break', icon: <Minus size={12} />, desc: 'Full-bleed title', contentType: 'text' },
+  { value: 'full-image', label: 'Full Image', icon: <ImageIcon size={12} />, desc: 'Full-bleed image slide', contentType: 'image' },
+  { value: 'image-grid', label: 'Image Grid', icon: <ImageIcon size={12} />, desc: '2x2 image gallery', contentType: 'image' },
+  { value: 'video-embed', label: 'Video Embed', icon: <Type size={12} />, desc: 'Video with caption', contentType: 'video' },
+  { value: 'animated-intro', label: 'Animated Intro', icon: <Type size={12} />, desc: 'Animated entrance text', contentType: 'animated' },
+  { value: 'comparison', label: 'Comparison', icon: <Columns2 size={12} />, desc: 'Side-by-side compare', contentType: 'text' },
 ];
 
 interface SlideEditorProps {
@@ -85,10 +98,10 @@ interface SlideEditorProps {
 /* ------------------------------------------------------------------ */
 
 function parseContentToSlides(content: string): EditorSlide[] {
-  if (!content) return [{ id: genId(), title: 'New Slide', bullets: [''], layout: 'title-bullets', notes: '' }];
+  if (!content) return [{ id: genId(), title: 'New Slide', bullets: [''], layout: 'title-bullets', notes: '', contentType: 'text' }];
   const sections = content.split(/^##\s+/gm).filter(Boolean);
   if (sections.length === 0) {
-    return [{ id: genId(), title: 'Slide 1', bullets: content.split('\n').filter(l => l.trim()), layout: 'title-bullets', notes: '' }];
+    return [{ id: genId(), title: 'Slide 1', bullets: content.split('\n').filter(l => l.trim()), layout: 'title-bullets', notes: '', contentType: 'text' }];
   }
   return sections.map(section => {
     const lines = section.split('\n');
@@ -106,10 +119,30 @@ function parseContentToSlides(content: string): EditorSlide[] {
       layout = layoutMatch[1] as SlideLayout;
     }
 
+    // Extract content type
+    let contentType: SlideContentType = 'text';
+    const ctMatch = section.match(/<!--\s*contentType:\s*(\S+)\s*-->/);
+    if (ctMatch) contentType = ctMatch[1] as SlideContentType;
+
+    // Extract media URL
+    let mediaUrl = '';
+    const muMatch = section.match(/<!--\s*mediaUrl:\s*([\s\S]*?)\s*-->/);
+    if (muMatch) mediaUrl = muMatch[1].trim();
+
+    // Extract media caption
+    let mediaCaption = '';
+    const mcMatch = section.match(/<!--\s*mediaCaption:\s*([\s\S]*?)\s*-->/);
+    if (mcMatch) mediaCaption = mcMatch[1].trim();
+
+    // Extract animation type
+    let animationType: EditorSlide['animationType'];
+    const anMatch = section.match(/<!--\s*animationType:\s*(\S+)\s*-->/);
+    if (anMatch) animationType = anMatch[1] as EditorSlide['animationType'];
+
     const bullets = lines.slice(1)
       .map(l => l.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, '').trim())
       .filter(l => l && !l.startsWith('<!--'));
-    return { id: genId(), title, bullets: bullets.length > 0 ? bullets : [''], layout, notes };
+    return { id: genId(), title, bullets: bullets.length > 0 ? bullets : [''], layout, notes, contentType, mediaUrl, mediaCaption, animationType };
   });
 }
 
@@ -118,6 +151,10 @@ function slidesToMarkdown(slides: EditorSlide[]): string {
     const bullets = s.bullets.filter(b => b.trim()).map(b => `- ${b}`).join('\n');
     let md = `## ${s.title}\n\n${bullets}`;
     if (s.layout !== 'title-bullets') md += `\n\n<!-- layout: ${s.layout} -->`;
+    if (s.contentType && s.contentType !== 'text') md += `\n\n<!-- contentType: ${s.contentType} -->`;
+    if (s.mediaUrl?.trim()) md += `\n\n<!-- mediaUrl: ${s.mediaUrl.trim()} -->`;
+    if (s.mediaCaption?.trim()) md += `\n\n<!-- mediaCaption: ${s.mediaCaption.trim()} -->`;
+    if (s.animationType) md += `\n\n<!-- animationType: ${s.animationType} -->`;
     if (s.notes.trim()) md += `\n\n<!-- notes: ${s.notes.trim()} -->`;
     return md;
   }).join('\n\n');
@@ -272,6 +309,214 @@ function SlideCanvas({ slide, theme, slideIdx, totalSlides, deckTitle }: {
     );
   }
 
+  // -- Full Image --
+  if (slide.layout === 'full-image') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: t.bg }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+          {slide.mediaUrl ? (
+            <div style={{ flex: 1, backgroundImage: `url(${slide.mediaUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+              <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to top, ${t.bg}CC, transparent 50%)` }} />
+            </div>
+          ) : (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: `${t.accent}08` }}>
+              <div style={{ textAlign: 'center', color: t.mutedColor }}>
+                <ImageIcon size={40} style={{ opacity: 0.2 }} />
+                <div style={{ fontSize: '10px', fontFamily: "'Quicksand', sans-serif", marginTop: '8px', opacity: 0.4 }}>Full-bleed image</div>
+                <div style={{ fontSize: '8px', fontFamily: "'Quicksand', sans-serif", marginTop: '4px', opacity: 0.3 }}>Add URL in properties</div>
+              </div>
+            </div>
+          )}
+          <div style={{ position: 'absolute', bottom: '40px', left: '24px', right: '24px', zIndex: 1 }}>
+            <h2 style={{
+              fontFamily: "'Rajdhani', sans-serif", fontWeight: 700,
+              fontSize: 'clamp(16px, 2.2vw, 22px)', color: '#FFFFFF',
+              letterSpacing: '1.5px', textTransform: 'uppercase', margin: '0 0 4px',
+              textShadow: '0 2px 8px rgba(0,0,0,0.6)',
+            }}>{slide.title}</h2>
+            {slide.mediaCaption && (
+              <p style={{
+                fontFamily: "'Quicksand', sans-serif", fontSize: 'clamp(9px, 1vw, 11px)',
+                color: '#FFFFFF', opacity: 0.7, margin: 0,
+                textShadow: '0 1px 4px rgba(0,0,0,0.5)',
+              }}>{slide.mediaCaption}</p>
+            )}
+          </div>
+        </div>
+        {footer}
+      </div>
+    );
+  }
+
+  // -- Image Grid --
+  if (slide.layout === 'image-grid') {
+    const placeholders = [1, 2, 3, 4];
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: t.bg }}>
+        <div style={{ padding: '12px 16px 6px' }}>
+          <h2 style={{
+            fontFamily: "'Rajdhani', sans-serif", fontWeight: 700,
+            fontSize: 'clamp(12px, 1.6vw, 16px)', color: t.titleColor,
+            letterSpacing: '1.5px', textTransform: 'uppercase', margin: 0,
+          }}>{slide.title}</h2>
+        </div>
+        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '4px', padding: '4px 16px 8px' }}>
+          {placeholders.map(i => (
+            <div key={i} style={{
+              backgroundColor: `${t.accent}08`, borderRadius: '4px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: `1px dashed ${t.accent}20`,
+            }}>
+              <div style={{ textAlign: 'center', color: t.mutedColor }}>
+                <ImageIcon size={16} style={{ opacity: 0.2 }} />
+                <div style={{ fontSize: '7px', fontFamily: "'Quicksand', sans-serif", marginTop: '2px', opacity: 0.3 }}>Image {i}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        {footer}
+      </div>
+    );
+  }
+
+  // -- Video Embed --
+  if (slide.layout === 'video-embed') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: t.bg }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px 24px' }}>
+          <div style={{
+            width: '80%', aspectRatio: '16/9', backgroundColor: `${t.accent}08`,
+            borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: `1px dashed ${t.accent}20`, position: 'relative', overflow: 'hidden',
+          }}>
+            <div style={{
+              width: '40px', height: '40px', borderRadius: '50%',
+              backgroundColor: `${t.accent}30`, display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+            }}>
+              <div style={{
+                width: 0, height: 0,
+                borderLeft: `14px solid ${t.accent}`, borderTop: '8px solid transparent',
+                borderBottom: '8px solid transparent', marginLeft: '3px',
+              }} />
+            </div>
+            {slide.mediaUrl && (
+              <div style={{
+                position: 'absolute', bottom: '6px', left: '8px', right: '8px',
+                backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: '4px', padding: '4px 8px',
+              }}>
+                <span style={{
+                  fontFamily: "'Quicksand', sans-serif", fontSize: '7px', color: '#aaa',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block',
+                }}>{slide.mediaUrl}</span>
+              </div>
+            )}
+          </div>
+          <h2 style={{
+            fontFamily: "'Rajdhani', sans-serif", fontWeight: 700,
+            fontSize: 'clamp(12px, 1.6vw, 16px)', color: t.titleColor,
+            letterSpacing: '1.5px', textTransform: 'uppercase', margin: '12px 0 4px', textAlign: 'center',
+          }}>{slide.title}</h2>
+          {slide.mediaCaption && (
+            <p style={{
+              fontFamily: "'Quicksand', sans-serif", fontSize: 'clamp(9px, 1vw, 11px)',
+              color: t.mutedColor, textAlign: 'center', margin: 0,
+            }}>{slide.mediaCaption}</p>
+          )}
+        </div>
+        {footer}
+      </div>
+    );
+  }
+
+  // -- Animated Intro --
+  if (slide.layout === 'animated-intro') {
+    const animType = slide.animationType || 'fade-in';
+    const animLabel = animType.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: t.bg }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 36px' }}>
+          <div style={{
+            position: 'absolute', top: '10px', right: '12px',
+            padding: '2px 8px', borderRadius: '10px',
+            backgroundColor: `${t.accent}15`, border: `1px solid ${t.accent}30`,
+          }}>
+            <span style={{
+              fontFamily: "'Rajdhani', sans-serif", fontSize: '7px', fontWeight: 700,
+              color: t.accent, letterSpacing: '0.5px',
+            }}>{animLabel}</span>
+          </div>
+          <h2 style={{
+            fontFamily: "'Rajdhani', sans-serif", fontWeight: 700,
+            fontSize: 'clamp(18px, 2.4vw, 26px)', color: t.titleColor,
+            letterSpacing: '2px', textTransform: 'uppercase', textAlign: 'center',
+            margin: '0 0 12px',
+          }}>{slide.title}</h2>
+          {slide.bullets[0]?.trim() && (
+            <p style={{
+              fontFamily: "'Quicksand', sans-serif", fontSize: 'clamp(11px, 1.2vw, 13px)',
+              color: t.bodyColor, textAlign: 'center', lineHeight: 1.7, maxWidth: '80%',
+            }}>{slide.bullets[0]}</p>
+          )}
+          <div style={{ display: 'flex', gap: '4px', marginTop: '12px' }}>
+            {[0, 1, 2].map(i => (
+              <div key={i} style={{
+                width: '6px', height: '6px', borderRadius: '50%',
+                backgroundColor: t.accent, opacity: 0.15 + (i * 0.3),
+              }} />
+            ))}
+          </div>
+        </div>
+        {footer}
+      </div>
+    );
+  }
+
+  // -- Comparison --
+  if (slide.layout === 'comparison') {
+    const mid = Math.ceil(slide.bullets.length / 2);
+    const left = slide.bullets.slice(0, mid);
+    const right = slide.bullets.slice(mid);
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: t.bg }}>
+        <div style={{ padding: '14px 16px 4px' }}>
+          <h2 style={{
+            fontFamily: "'Rajdhani', sans-serif", fontWeight: 700,
+            fontSize: 'clamp(14px, 1.8vw, 18px)', color: t.titleColor,
+            letterSpacing: '1.5px', textTransform: 'uppercase', margin: 0, textAlign: 'center',
+          }}>{slide.title}</h2>
+        </div>
+        <div style={{ flex: 1, display: 'flex', gap: '2px', padding: '8px 16px' }}>
+          {/* Left column */}
+          <div style={{
+            flex: 1, backgroundColor: `${t.accent}08`, borderRadius: '6px 0 0 6px',
+            padding: '12px', display: 'flex', flexDirection: 'column',
+          }}>
+            <div style={{
+              fontFamily: "'Rajdhani', sans-serif", fontSize: '9px', fontWeight: 700,
+              color: t.accent, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '8px',
+            }}>OPTION A</div>
+            {renderBullets(left, t)}
+          </div>
+          {/* Divider */}
+          <div style={{ width: '2px', backgroundColor: `${t.accent}30`, flexShrink: 0, alignSelf: 'stretch' }} />
+          {/* Right column */}
+          <div style={{
+            flex: 1, backgroundColor: `${t.accentSecondary}08`, borderRadius: '0 6px 6px 0',
+            padding: '12px', display: 'flex', flexDirection: 'column',
+          }}>
+            <div style={{
+              fontFamily: "'Rajdhani', sans-serif", fontSize: '9px', fontWeight: 700,
+              color: t.accentSecondary, letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '8px',
+            }}>OPTION B</div>
+            {renderBullets(right, t)}
+          </div>
+        </div>
+        {footer}
+      </div>
+    );
+  }
+
   // -- Default: Title + Bullets --
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: t.bg }}>
@@ -375,8 +620,12 @@ export function SlideEditor({ title, initialContent, colors, isDark, onSave, onC
     setSlides(prev => prev.map((s, i) => i === idx ? { ...s, ...updates } : s));
   }, []);
 
-  const addSlide = useCallback(() => {
-    const newSlide: EditorSlide = { id: genId(), title: 'New Slide', bullets: [''], layout: 'title-bullets', notes: '' };
+  const addSlide = useCallback((layoutOverride?: SlideLayout, ct?: SlideContentType) => {
+    const newSlide: EditorSlide = {
+      id: genId(), title: 'New Slide', bullets: [''], notes: '',
+      layout: layoutOverride || 'title-bullets',
+      contentType: ct || 'text',
+    };
     setSlides(prev => [...prev.slice(0, selectedIdx + 1), newSlide, ...prev.slice(selectedIdx + 1)]);
     setSelectedIdx(prev => prev + 1);
   }, [selectedIdx]);
@@ -900,26 +1149,39 @@ function renderPropertiesContent(
         <label style={labelStyle}>SLIDE {selectedIdx + 1} OF {slides.length}</label>
       </div>
 
-      {/* Layout picker */}
+      {/* Layout picker - grouped by content type */}
       <div>
         <label style={labelStyle}>LAYOUT</label>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-          {LAYOUT_OPTIONS.map(opt => (
-            <button key={opt.value} onClick={() => updateSlide(selectedIdx, { layout: opt.value })}
-              style={{
-                padding: '6px 8px', display: 'flex', alignItems: 'center', gap: '6px',
-                backgroundColor: selected.layout === opt.value ? `${colors.primaryYellow}15` : 'transparent',
-                border: selected.layout === opt.value ? `1px solid ${colors.primaryYellow}40` : `1px solid ${colors.borderSubtle || colors.border}`,
-                borderRadius: '6px', cursor: 'pointer', textAlign: 'left',
-              }}>
-              <span style={{ color: selected.layout === opt.value ? colors.primaryYellow : colors.textMuted }}>{opt.icon}</span>
-              <span style={{
-                fontSize: '9px', fontFamily: "'Quicksand', sans-serif", fontWeight: 600,
-                color: selected.layout === opt.value ? colors.primaryYellow : colors.textMuted,
-              }}>{opt.label}</span>
-            </button>
-          ))}
-        </div>
+        {(['text', 'image', 'video', 'animated'] as SlideContentType[]).map(ct => {
+          const groupLayouts = LAYOUT_OPTIONS.filter(o => o.contentType === ct);
+          if (groupLayouts.length === 0) return null;
+          return (
+            <div key={ct} style={{ marginBottom: '8px' }}>
+              <div style={{
+                fontSize: '8px', fontWeight: 700, color: colors.textMuted,
+                fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.5px',
+                textTransform: 'uppercase', marginBottom: '3px', opacity: 0.6,
+              }}>{ct}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px' }}>
+                {groupLayouts.map(opt => (
+                  <button key={opt.value} onClick={() => updateSlide(selectedIdx, { layout: opt.value, contentType: ct })}
+                    style={{
+                      padding: '5px 7px', display: 'flex', alignItems: 'center', gap: '5px',
+                      backgroundColor: selected.layout === opt.value ? `${colors.primaryYellow}15` : 'transparent',
+                      border: selected.layout === opt.value ? `1px solid ${colors.primaryYellow}40` : `1px solid ${colors.borderSubtle || colors.border}`,
+                      borderRadius: '5px', cursor: 'pointer', textAlign: 'left',
+                    }}>
+                    <span style={{ color: selected.layout === opt.value ? colors.primaryYellow : colors.textMuted }}>{opt.icon}</span>
+                    <span style={{
+                      fontSize: '8px', fontFamily: "'Quicksand', sans-serif", fontWeight: 600,
+                      color: selected.layout === opt.value ? colors.primaryYellow : colors.textMuted,
+                    }}>{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Title field */}
@@ -938,6 +1200,26 @@ function renderPropertiesContent(
         />
       </div>
 
+      {/* Content type badge */}
+      <div>
+        <label style={labelStyle}>CONTENT TYPE</label>
+        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+          {(['text', 'image', 'video', 'animated'] as SlideContentType[]).map(ct => (
+            <button key={ct} onClick={() => updateSlide(selectedIdx, { contentType: ct })}
+              style={{
+                padding: '4px 10px', fontSize: '9px', fontWeight: 700,
+                fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.5px',
+                textTransform: 'uppercase', borderRadius: '12px', cursor: 'pointer',
+                backgroundColor: (selected.contentType || 'text') === ct ? `${colors.primaryYellow}20` : 'transparent',
+                border: (selected.contentType || 'text') === ct ? `1px solid ${colors.primaryYellow}50` : `1px solid ${colors.borderSubtle || colors.border}`,
+                color: (selected.contentType || 'text') === ct ? colors.primaryYellow : colors.textMuted,
+              }}>
+              {ct}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Bullets count */}
       <div>
         <label style={labelStyle}>BULLET POINTS</label>
@@ -945,6 +1227,83 @@ function renderPropertiesContent(
           {selected.bullets.filter(b => b.trim()).length} items
         </span>
       </div>
+
+      {/* -- Media fields (Image / Video content types) -- */}
+      {(selected.contentType === 'image' || selected.contentType === 'video' ||
+        selected.layout === 'full-image' || selected.layout === 'image-grid' ||
+        selected.layout === 'image-left' || selected.layout === 'video-embed') && (
+        <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+            <ImageIcon size={10} color={colors.primaryYellow} />
+            <span style={{
+              fontFamily: "'Rajdhani', sans-serif", fontSize: '10px', fontWeight: 700,
+              color: colors.primaryYellow, letterSpacing: '1px',
+            }}>MEDIA</span>
+          </div>
+          <div>
+            <label style={labelStyle}>{selected.contentType === 'video' || selected.layout === 'video-embed' ? 'VIDEO URL' : 'IMAGE URL'}</label>
+            <input
+              value={selected.mediaUrl || ''}
+              onChange={e => updateSlide(selectedIdx, { mediaUrl: e.target.value })}
+              placeholder={selected.contentType === 'video' || selected.layout === 'video-embed' ? 'https://youtube.com/...' : 'https://images.unsplash.com/...'}
+              style={{
+                width: '100%', padding: '6px 8px',
+                backgroundColor: colors.inputBg || (isDark ? '#222' : '#fff'),
+                border: `1px solid ${colors.border}`, borderRadius: '4px',
+                color: colors.text, fontSize: '11px', outline: 'none',
+                fontFamily: "'Quicksand', sans-serif", boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>CAPTION</label>
+            <input
+              value={selected.mediaCaption || ''}
+              onChange={e => updateSlide(selectedIdx, { mediaCaption: e.target.value })}
+              placeholder="Describe the media..."
+              style={{
+                width: '100%', padding: '6px 8px',
+                backgroundColor: colors.inputBg || (isDark ? '#222' : '#fff'),
+                border: `1px solid ${colors.border}`, borderRadius: '4px',
+                color: colors.text, fontSize: '11px', outline: 'none',
+                fontFamily: "'Quicksand', sans-serif", boxSizing: 'border-box',
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* -- Animation fields (Animated content type) -- */}
+      {(selected.contentType === 'animated' || selected.layout === 'animated-intro') && (
+        <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+            <span style={{
+              fontFamily: "'Rajdhani', sans-serif", fontSize: '10px', fontWeight: 700,
+              color: colors.primaryYellow, letterSpacing: '1px',
+            }}>ANIMATION</span>
+          </div>
+          <div>
+            <label style={labelStyle}>ENTRANCE EFFECT</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+              {(['fade-in', 'slide-up', 'zoom-in', 'typewriter', 'stagger'] as const).map(anim => (
+                <button key={anim} onClick={() => updateSlide(selectedIdx, { animationType: anim })}
+                  style={{
+                    width: '100%', padding: '5px 8px', textAlign: 'left',
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    backgroundColor: selected.animationType === anim ? `${colors.primaryYellow}15` : 'transparent',
+                    border: selected.animationType === anim ? `1px solid ${colors.primaryYellow}40` : `1px solid ${colors.borderSubtle || colors.border}`,
+                    borderRadius: '4px', cursor: 'pointer',
+                  }}>
+                  <span style={{
+                    fontSize: '9px', fontFamily: "'Quicksand', sans-serif", fontWeight: 600,
+                    color: selected.animationType === anim ? colors.primaryYellow : colors.textMuted,
+                  }}>{anim.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Speaker Notes */}
       <div>

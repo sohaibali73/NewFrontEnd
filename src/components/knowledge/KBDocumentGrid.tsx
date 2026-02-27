@@ -13,6 +13,11 @@ import {
   BookmarkCheck,
   HardDrive,
   FolderOpen,
+  FileImage,
+  FileCode,
+  FileSpreadsheet,
+  File,
+  Search,
 } from 'lucide-react';
 import { Document } from '@/types/api';
 
@@ -47,17 +52,51 @@ function formatFileSize(bytes: number) {
   return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
 }
 
+function getFileIcon(filename: string) {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  switch (ext) {
+    case 'pdf':
+      return { Icon: FileText, color: '#ef4444' };
+    case 'doc':
+    case 'docx':
+      return { Icon: FileText, color: '#3b82f6' };
+    case 'txt':
+    case 'md':
+      return { Icon: FileCode, color: '#22c55e' };
+    case 'csv':
+    case 'xlsx':
+    case 'xls':
+      return { Icon: FileSpreadsheet, color: '#22c55e' };
+    case 'png':
+    case 'jpg':
+    case 'jpeg':
+    case 'gif':
+    case 'svg':
+      return { Icon: FileImage, color: '#a855f7' };
+    case 'json':
+    case 'xml':
+    case 'html':
+      return { Icon: FileCode, color: '#f59e0b' };
+    default:
+      return { Icon: File, color: '#9ca3af' };
+  }
+}
+
+function getFileExtension(filename: string): string {
+  return filename.split('.').pop()?.toUpperCase() || 'FILE';
+}
+
 function CategoryBadge({ category }: { category: string }) {
   const c = catColors[category] || catColors.general;
   return (
     <span
       style={{
-        fontSize: '11px',
-        padding: '2px 10px',
-        borderRadius: '6px',
+        fontSize: '10px',
+        padding: '2px 8px',
+        borderRadius: '4px',
         backgroundColor: c.bg,
         color: c.text,
-        fontWeight: 600,
+        fontWeight: 700,
         fontFamily: "'Rajdhani', sans-serif",
         letterSpacing: '0.5px',
         textTransform: 'uppercase',
@@ -84,12 +123,22 @@ export default function KBDocumentGrid({
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [searchFilter, setSearchFilter] = useState('');
 
   const filteredDocs = useMemo(() => {
-    const filtered =
+    let filtered =
       activeCategory === 'all'
         ? documents
         : documents.filter((doc) => doc.category === activeCategory);
+
+    if (searchFilter.trim()) {
+      const q = searchFilter.toLowerCase();
+      filtered = filtered.filter(
+        (doc) =>
+          doc.filename.toLowerCase().includes(q) ||
+          doc.category.toLowerCase().includes(q)
+      );
+    }
 
     return [...filtered].sort((a, b) => {
       let compare = 0;
@@ -110,7 +159,7 @@ export default function KBDocumentGrid({
       }
       return sortDir === 'asc' ? compare : -compare;
     });
-  }, [documents, activeCategory, sortField, sortDir]);
+  }, [documents, activeCategory, sortField, sortDir, searchFilter]);
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -146,113 +195,170 @@ export default function KBDocumentGrid({
           padding: isMobile ? '16px' : '20px 24px',
           borderBottom: `1px solid ${colors.border}`,
           display: 'flex',
-          alignItems: isMobile ? 'flex-start' : 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-          flexDirection: isMobile ? 'column' : 'row',
+          flexDirection: 'column',
+          gap: '14px',
         }}
       >
-        <div>
-          <h3
-            style={{
-              fontFamily: "'Rajdhani', sans-serif",
-              fontSize: '16px',
-              fontWeight: 700,
-              color: colors.text,
-              letterSpacing: '1px',
-              margin: 0,
-            }}
-          >
-            DOCUMENTS
-          </h3>
-          <p
-            style={{
-              color: colors.textMuted,
-              fontSize: '13px',
-              marginTop: '4px',
-              marginBottom: 0,
-            }}
-          >
-            {filteredDocs.length} document{filteredDocs.length !== 1 ? 's' : ''}
-            {activeCategory !== 'all' ? ` in ${activeCategory}` : ''}
-          </p>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: isMobile ? 'flex-start' : 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexDirection: isMobile ? 'column' : 'row',
+          }}
+        >
+          <div>
+            <h3
+              style={{
+                fontFamily: "'Rajdhani', sans-serif",
+                fontSize: '15px',
+                fontWeight: 700,
+                color: colors.text,
+                letterSpacing: '1px',
+                margin: 0,
+              }}
+            >
+              DOCUMENTS
+            </h3>
+            <p
+              style={{
+                color: colors.textMuted,
+                fontSize: '12px',
+                marginTop: '3px',
+                marginBottom: 0,
+              }}
+            >
+              {filteredDocs.length} document{filteredDocs.length !== 1 ? 's' : ''}
+              {activeCategory !== 'all' ? ` in ${activeCategory}` : ''}
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            {/* Sort Buttons */}
+            {[
+              { field: 'created_at' as SortField, label: 'Date' },
+              { field: 'filename' as SortField, label: 'Name' },
+              { field: 'size' as SortField, label: 'Size' },
+            ].map((s) => (
+              <button
+                key={s.field}
+                onClick={() => toggleSort(s.field)}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  border: `1px solid ${
+                    sortField === s.field ? colors.accent : colors.border
+                  }`,
+                  backgroundColor:
+                    sortField === s.field ? `${colors.accent}14` : 'transparent',
+                  color: sortField === s.field ? colors.accent : colors.textMuted,
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  fontFamily: "'Rajdhani', sans-serif",
+                  letterSpacing: '0.5px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {s.label}
+                {sortField === s.field && <ArrowUpDown size={10} />}
+              </button>
+            ))}
+
+            {/* View Toggle */}
+            {!isMobile && (
+              <div
+                style={{
+                  display: 'flex',
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: '6px',
+                  overflow: 'hidden',
+                  marginLeft: '2px',
+                }}
+              >
+                {[
+                  { mode: 'list' as ViewMode, Icon: List },
+                  { mode: 'grid' as ViewMode, Icon: LayoutGrid },
+                ].map(({ mode, Icon }) => (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    style={{
+                      width: '30px',
+                      height: '30px',
+                      border: 'none',
+                      backgroundColor:
+                        viewMode === mode ? `${colors.accent}14` : 'transparent',
+                      color: viewMode === mode ? colors.accent : colors.textMuted,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    <Icon size={13} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* Sort Buttons */}
-          {[
-            { field: 'created_at' as SortField, label: 'Date' },
-            { field: 'filename' as SortField, label: 'Name' },
-            { field: 'size' as SortField, label: 'Size' },
-          ].map((s) => (
+        {/* Inline Search */}
+        <div style={{ position: 'relative' }}>
+          <Search
+            size={14}
+            color={colors.textMuted}
+            style={{
+              position: 'absolute',
+              left: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+            }}
+          />
+          <input
+            type="text"
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            placeholder="Filter documents..."
+            style={{
+              width: '100%',
+              height: '36px',
+              paddingLeft: '34px',
+              paddingRight: searchFilter ? '32px' : '12px',
+              backgroundColor: colors.inputBg,
+              border: `1px solid ${colors.border}`,
+              borderRadius: '8px',
+              color: colors.text,
+              fontSize: '12px',
+              fontFamily: "'Quicksand', sans-serif",
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
+          {searchFilter && (
             <button
-              key={s.field}
-              onClick={() => toggleSort(s.field)}
+              onClick={() => setSearchFilter('')}
               style={{
-                padding: '5px 10px',
-                borderRadius: '6px',
-                border: `1px solid ${
-                  sortField === s.field ? colors.accent : colors.border
-                }`,
-                backgroundColor:
-                  sortField === s.field ? `${colors.accent}14` : 'transparent',
-                color: sortField === s.field ? colors.accent : colors.textMuted,
-                fontSize: '11px',
-                fontWeight: 600,
-                fontFamily: "'Rajdhani', sans-serif",
-                letterSpacing: '0.5px',
+                position: 'absolute',
+                right: '8px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
                 cursor: 'pointer',
+                color: colors.textMuted,
+                padding: '2px',
                 display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                transition: 'all 0.2s',
               }}
             >
-              {s.label}
-              {sortField === s.field && (
-                <ArrowUpDown size={10} />
-              )}
+              <Search size={12} />
             </button>
-          ))}
-
-          {/* View Toggle */}
-          {!isMobile && (
-            <div
-              style={{
-                display: 'flex',
-                border: `1px solid ${colors.border}`,
-                borderRadius: '8px',
-                overflow: 'hidden',
-                marginLeft: '4px',
-              }}
-            >
-              {[
-                { mode: 'list' as ViewMode, Icon: List },
-                { mode: 'grid' as ViewMode, Icon: LayoutGrid },
-              ].map(({ mode, Icon }) => (
-                <button
-                  key={mode}
-                  onClick={() => setViewMode(mode)}
-                  style={{
-                    width: '32px',
-                    height: '32px',
-                    border: 'none',
-                    backgroundColor:
-                      viewMode === mode
-                        ? `${colors.accent}14`
-                        : 'transparent',
-                    color: viewMode === mode ? colors.accent : colors.textMuted,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  <Icon size={14} />
-                </button>
-              ))}
-            </div>
           )}
         </div>
       </div>
@@ -261,20 +367,35 @@ export default function KBDocumentGrid({
       {filteredDocs.length === 0 ? (
         <div style={{ padding: '60px', textAlign: 'center' }}>
           <FolderOpen
-            size={48}
+            size={44}
             color={colors.textMuted}
-            style={{ marginBottom: '16px', opacity: 0.3 }}
+            style={{ marginBottom: '14px', opacity: 0.3 }}
           />
           <p
             style={{
               color: colors.textMuted,
-              fontSize: '15px',
+              fontSize: '14px',
               fontWeight: 500,
+              margin: '0 0 4px 0',
             }}
           >
-            {activeCategory !== 'all'
+            {searchFilter
+              ? `No documents matching "${searchFilter}"`
+              : activeCategory !== 'all'
               ? `No documents in "${activeCategory}"`
-              : 'No documents yet. Upload one to get started!'}
+              : 'No documents yet'}
+          </p>
+          <p
+            style={{
+              color: colors.textMuted,
+              fontSize: '12px',
+              opacity: 0.7,
+              margin: 0,
+            }}
+          >
+            {searchFilter
+              ? 'Try a different search term'
+              : 'Upload documents to get started'}
           </p>
         </div>
       ) : viewMode === 'grid' && !isMobile ? (
@@ -285,20 +406,22 @@ export default function KBDocumentGrid({
             gridTemplateColumns: isTablet
               ? 'repeat(2, 1fr)'
               : 'repeat(3, 1fr)',
-            gap: '16px',
+            gap: '14px',
             padding: '20px 24px',
           }}
         >
           {filteredDocs.map((doc) => {
             const isBookmarked = bookmarkedIds.has(doc.id);
+            const { Icon: FIcon, color: fColor } = getFileIcon(doc.filename);
+            const ext = getFileExtension(doc.filename);
             return (
               <div
                 key={doc.id}
                 style={{
                   backgroundColor: isDark ? '#161616' : '#FAFAFA',
                   border: `1px solid ${colors.border}`,
-                  borderRadius: '14px',
-                  padding: '20px',
+                  borderRadius: '12px',
+                  padding: '18px',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
                   position: 'relative',
@@ -306,7 +429,7 @@ export default function KBDocumentGrid({
                 onMouseEnter={(e) => {
                   e.currentTarget.style.borderColor = colors.accent;
                   e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.1)';
+                  e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.borderColor = colors.border;
@@ -324,73 +447,92 @@ export default function KBDocumentGrid({
                     }}
                     style={{
                       position: 'absolute',
-                      top: '12px',
-                      right: '12px',
+                      top: '10px',
+                      right: '10px',
                       background: 'none',
                       border: 'none',
                       cursor: 'pointer',
                       color: isBookmarked ? colors.accent : colors.textMuted,
                       padding: '4px',
+                      opacity: isBookmarked ? 1 : 0.5,
+                      transition: 'all 0.2s',
                     }}
                     title={isBookmarked ? 'Remove bookmark' : 'Bookmark document'}
                   >
-                    {isBookmarked ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
+                    {isBookmarked ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
                   </button>
                 )}
 
-                <div
-                  style={{
-                    width: '44px',
-                    height: '44px',
-                    borderRadius: '12px',
-                    backgroundColor: `${colors.accent}14`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: '14px',
-                  }}
-                >
-                  <FileText size={22} color={colors.accent} />
+                {/* File Icon with Extension Badge */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+                  <div
+                    style={{
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '10px',
+                      backgroundColor: `${fColor}14`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <FIcon size={20} color={fColor} />
+                  </div>
+                  <span
+                    style={{
+                      fontSize: '9px',
+                      padding: '2px 6px',
+                      borderRadius: '3px',
+                      backgroundColor: `${fColor}14`,
+                      color: fColor,
+                      fontWeight: 700,
+                      fontFamily: "'Rajdhani', sans-serif",
+                      letterSpacing: '0.5px',
+                    }}
+                  >
+                    {ext}
+                  </span>
                 </div>
+
                 <p
                   style={{
                     color: colors.text,
-                    fontSize: '14px',
+                    fontSize: '13px',
                     fontWeight: 600,
                     margin: '0 0 8px 0',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
+                    lineHeight: 1.3,
                   }}
                 >
                   {doc.filename}
                 </p>
+
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
+                    gap: '6px',
                     flexWrap: 'wrap',
+                    marginBottom: '10px',
                   }}
                 >
                   <CategoryBadge category={doc.category} />
-                  <span
-                    style={{
-                      color: colors.textMuted,
-                      fontSize: '11px',
-                    }}
-                  >
+                  <span style={{ color: colors.textMuted, fontSize: '11px' }}>
                     {formatFileSize(doc.size)}
                   </span>
                 </div>
+
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '4px',
-                    marginTop: '10px',
                     color: colors.textMuted,
                     fontSize: '11px',
+                    marginBottom: '12px',
                   }}
                 >
                   <Clock size={11} />
@@ -402,7 +544,6 @@ export default function KBDocumentGrid({
                   style={{
                     display: 'flex',
                     gap: '6px',
-                    marginTop: '14px',
                     borderTop: `1px solid ${colors.border}`,
                     paddingTop: '12px',
                   }}
@@ -415,7 +556,7 @@ export default function KBDocumentGrid({
                     style={{
                       flex: 1,
                       padding: '6px',
-                      borderRadius: '8px',
+                      borderRadius: '6px',
                       border: `1px solid ${colors.border}`,
                       backgroundColor: 'transparent',
                       color: colors.textMuted,
@@ -430,7 +571,7 @@ export default function KBDocumentGrid({
                       transition: 'all 0.2s',
                     }}
                   >
-                    <Eye size={14} />
+                    <Eye size={13} />
                     VIEW
                   </button>
                   <button
@@ -439,22 +580,18 @@ export default function KBDocumentGrid({
                       handleDelete(doc.id);
                     }}
                     style={{
-                      width: '34px',
-                      height: '34px',
-                      borderRadius: '8px',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '6px',
                       border: `1px solid ${
-                        confirmDeleteId === doc.id
-                          ? '#DC2626'
-                          : colors.border
+                        confirmDeleteId === doc.id ? '#DC2626' : colors.border
                       }`,
                       backgroundColor:
                         confirmDeleteId === doc.id
                           ? 'rgba(220, 38, 38, 0.08)'
                           : 'transparent',
                       color:
-                        confirmDeleteId === doc.id
-                          ? '#DC2626'
-                          : colors.textMuted,
+                        confirmDeleteId === doc.id ? '#DC2626' : colors.textMuted,
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
@@ -463,7 +600,7 @@ export default function KBDocumentGrid({
                       flexShrink: 0,
                     }}
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={13} />
                   </button>
                 </div>
               </div>
@@ -475,6 +612,8 @@ export default function KBDocumentGrid({
         <div>
           {filteredDocs.map((doc, idx) => {
             const isBookmarked = bookmarkedIds.has(doc.id);
+            const { Icon: FIcon, color: fColor } = getFileIcon(doc.filename);
+            const ext = getFileExtension(doc.filename);
             return (
               <div
                 key={doc.id}
@@ -482,7 +621,7 @@ export default function KBDocumentGrid({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  padding: isMobile ? '14px 16px' : '14px 24px',
+                  padding: isMobile ? '12px 16px' : '12px 24px',
                   borderBottom:
                     idx < filteredDocs.length - 1
                       ? `1px solid ${colors.border}`
@@ -501,7 +640,7 @@ export default function KBDocumentGrid({
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '14px',
+                    gap: '12px',
                     flex: 1,
                     minWidth: 0,
                     cursor: 'pointer',
@@ -510,23 +649,42 @@ export default function KBDocumentGrid({
                 >
                   <div
                     style={{
-                      width: '40px',
-                      height: '40px',
-                      backgroundColor: isDark ? '#2A2A2A' : '#F0F0F0',
-                      borderRadius: '10px',
+                      width: '38px',
+                      height: '38px',
+                      backgroundColor: `${fColor}14`,
+                      borderRadius: '8px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       flexShrink: 0,
+                      position: 'relative',
                     }}
                   >
-                    <FileText size={20} color={colors.accent} />
+                    <FIcon size={18} color={fColor} />
+                    <span
+                      style={{
+                        position: 'absolute',
+                        bottom: '-2px',
+                        right: '-4px',
+                        fontSize: '8px',
+                        padding: '0px 4px',
+                        borderRadius: '3px',
+                        backgroundColor: fColor,
+                        color: '#fff',
+                        fontWeight: 700,
+                        fontFamily: "'Rajdhani', sans-serif",
+                        letterSpacing: '0.3px',
+                        lineHeight: '14px',
+                      }}
+                    >
+                      {ext}
+                    </span>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p
                       style={{
                         color: colors.text,
-                        fontSize: '14px',
+                        fontSize: '13px',
                         fontWeight: 600,
                         margin: 0,
                         overflow: 'hidden',
@@ -540,56 +698,47 @@ export default function KBDocumentGrid({
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '10px',
-                        marginTop: '4px',
+                        gap: '8px',
+                        marginTop: '3px',
                         flexWrap: 'wrap',
                       }}
                     >
                       <CategoryBadge category={doc.category} />
-                      <span
-                        style={{
-                          color: colors.textMuted,
-                          fontSize: '12px',
-                        }}
-                      >
+                      <span style={{ color: colors.textMuted, fontSize: '11px' }}>
                         {formatFileSize(doc.size)}
                       </span>
-                      <span
-                        style={{
-                          color: colors.textMuted,
-                          fontSize: '12px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                        }}
-                      >
-                        <Clock size={11} />
-                        {new Date(doc.created_at).toLocaleDateString()}
-                      </span>
+                      {!isMobile && (
+                        <span
+                          style={{
+                            color: colors.textMuted,
+                            fontSize: '11px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                          }}
+                        >
+                          <Clock size={10} />
+                          {new Date(doc.created_at).toLocaleDateString()}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 {/* Actions */}
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: '6px',
-                    flexShrink: 0,
-                  }}
-                >
+                <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
                   {onBookmark && (
                     <button
                       onClick={() => onBookmark(doc.id)}
                       title={isBookmarked ? 'Remove bookmark' : 'Bookmark'}
                       style={{
-                        width: '36px',
-                        height: '36px',
+                        width: '34px',
+                        height: '34px',
                         backgroundColor: 'transparent',
                         border: `1px solid ${
                           isBookmarked ? colors.accent : colors.border
                         }`,
-                        borderRadius: '8px',
+                        borderRadius: '6px',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
@@ -599,21 +748,20 @@ export default function KBDocumentGrid({
                       }}
                     >
                       {isBookmarked ? (
-                        <BookmarkCheck size={16} />
+                        <BookmarkCheck size={14} />
                       ) : (
-                        <Bookmark size={16} />
+                        <Bookmark size={14} />
                       )}
                     </button>
                   )}
                   <button
                     onClick={() => onViewDocument(doc)}
-                    title="View document"
                     style={{
-                      width: '36px',
-                      height: '36px',
+                      width: '34px',
+                      height: '34px',
                       backgroundColor: 'transparent',
                       border: `1px solid ${colors.border}`,
-                      borderRadius: '8px',
+                      borderRadius: '6px',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
@@ -621,61 +769,32 @@ export default function KBDocumentGrid({
                       color: colors.textMuted,
                       transition: 'all 0.2s',
                     }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = colors.accent;
-                      e.currentTarget.style.color = colors.accent;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = colors.border;
-                      e.currentTarget.style.color = colors.textMuted;
-                    }}
                   >
-                    <Eye size={16} />
+                    <Eye size={14} />
                   </button>
                   <button
                     onClick={() => handleDelete(doc.id)}
-                    title={
-                      confirmDeleteId === doc.id
-                        ? 'Click again to confirm'
-                        : 'Delete document'
-                    }
                     style={{
-                      width: '36px',
-                      height: '36px',
+                      width: '34px',
+                      height: '34px',
                       backgroundColor:
                         confirmDeleteId === doc.id
-                          ? 'rgba(220, 38, 38, 0.08)'
+                          ? 'rgba(220,38,38,0.08)'
                           : 'transparent',
                       border: `1px solid ${
-                        confirmDeleteId === doc.id
-                          ? '#DC2626'
-                          : colors.border
+                        confirmDeleteId === doc.id ? '#DC2626' : colors.border
                       }`,
-                      borderRadius: '8px',
+                      borderRadius: '6px',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       color:
-                        confirmDeleteId === doc.id
-                          ? '#DC2626'
-                          : colors.textMuted,
+                        confirmDeleteId === doc.id ? '#DC2626' : colors.textMuted,
                       transition: 'all 0.2s',
                     }}
-                    onMouseEnter={(e) => {
-                      if (confirmDeleteId !== doc.id) {
-                        e.currentTarget.style.borderColor = '#DC2626';
-                        e.currentTarget.style.color = '#DC2626';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (confirmDeleteId !== doc.id) {
-                        e.currentTarget.style.borderColor = colors.border;
-                        e.currentTarget.style.color = colors.textMuted;
-                      }
-                    }}
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </div>

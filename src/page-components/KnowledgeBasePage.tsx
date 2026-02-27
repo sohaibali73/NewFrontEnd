@@ -16,6 +16,9 @@ import {
   BookOpen,
   MessageSquarePlus,
   RefreshCw,
+  Bookmark,
+  BookmarkCheck,
+  Sparkles,
 } from 'lucide-react';
 import apiClient from '@/lib/api';
 import { Document, SearchResult, BrainStats } from '@/types/api';
@@ -26,7 +29,6 @@ import KBSearchPanel from '@/components/knowledge/KBSearchPanel';
 import KBDocumentGrid from '@/components/knowledge/KBDocumentGrid';
 import KBArticlePreview from '@/components/knowledge/KBArticlePreview';
 import KBTagCloud from '@/components/knowledge/KBTagCloud';
-import KBCommentSection from '@/components/knowledge/KBCommentSection';
 import KBUploadPanel from '@/components/knowledge/KBUploadPanel';
 
 // ─── Tab Type ─────────────────────────────────────────────────
@@ -36,12 +38,13 @@ interface TabConfig {
   id: TabId;
   label: string;
   icon: React.ElementType;
+  description: string;
 }
 
 const TABS: TabConfig[] = [
-  { id: 'discover', label: 'DISCOVER', icon: Search },
-  { id: 'documents', label: 'DOCUMENTS', icon: FileText },
-  { id: 'upload', label: 'UPLOAD', icon: Upload },
+  { id: 'discover', label: 'DISCOVER', icon: Sparkles, description: 'Search & explore' },
+  { id: 'documents', label: 'DOCUMENTS', icon: FileText, description: 'Browse all files' },
+  { id: 'upload', label: 'UPLOAD', icon: Upload, description: 'Add new content' },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -204,7 +207,7 @@ export function KnowledgeBasePage() {
             new Date(b.created_at).getTime() -
             new Date(a.created_at).getTime()
         )
-        .slice(0, 5),
+        .slice(0, 6),
     [documents]
   );
 
@@ -212,6 +215,14 @@ export function KnowledgeBasePage() {
     () => documents.filter((doc) => bookmarkedIds.has(doc.id)),
     [documents, bookmarkedIds]
   );
+
+  const catColors: Record<string, { bg: string; text: string }> = {
+    afl: { bg: 'rgba(254, 192, 15, 0.12)', text: '#FEC00F' },
+    strategy: { bg: 'rgba(34, 197, 94, 0.12)', text: '#22c55e' },
+    indicator: { bg: 'rgba(99, 102, 241, 0.12)', text: '#818cf8' },
+    documentation: { bg: 'rgba(59, 130, 246, 0.12)', text: '#3b82f6' },
+    general: { bg: 'rgba(156, 163, 175, 0.12)', text: '#9ca3af' },
+  };
 
   // ─── Render ────────────────────────────────────────────────
   return (
@@ -230,11 +241,12 @@ export function KnowledgeBasePage() {
             ? 'linear-gradient(135deg, #1E1E1E 0%, #2A2A2A 100%)'
             : 'linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)',
           borderBottom: `1px solid ${colors.border}`,
-          padding: isMobile ? '24px 16px' : '40px 32px',
+          padding: isMobile ? '20px 16px' : '32px 32px 0',
           transition: 'background 0.3s ease',
         }}
       >
         <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+          {/* Title Row */}
           <div
             style={{
               display: 'flex',
@@ -253,9 +265,9 @@ export function KnowledgeBasePage() {
             >
               <div
                 style={{
-                  width: '52px',
-                  height: '52px',
-                  borderRadius: '14px',
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '12px',
                   backgroundColor: `${colors.accent}14`,
                   display: 'flex',
                   alignItems: 'center',
@@ -263,13 +275,13 @@ export function KnowledgeBasePage() {
                   flexShrink: 0,
                 }}
               >
-                <Database size={28} color={colors.accent} />
+                <Database size={24} color={colors.accent} />
               </div>
               <div>
                 <h1
                   style={{
                     fontFamily: "'Rajdhani', sans-serif",
-                    fontSize: isMobile ? '26px' : '36px',
+                    fontSize: isMobile ? '24px' : '32px',
                     fontWeight: 700,
                     color: colors.text,
                     letterSpacing: '1.5px',
@@ -282,9 +294,9 @@ export function KnowledgeBasePage() {
                 <p
                   style={{
                     color: colors.textMuted,
-                    fontSize: isMobile ? '13px' : '15px',
+                    fontSize: isMobile ? '12px' : '14px',
                     lineHeight: 1.5,
-                    margin: '4px 0 0 0',
+                    margin: '3px 0 0 0',
                   }}
                 >
                   Upload, search, and manage your trading knowledge
@@ -298,8 +310,8 @@ export function KnowledgeBasePage() {
                 onClick={loadData}
                 title="Refresh data"
                 style={{
-                  width: '40px',
-                  height: '40px',
+                  width: '38px',
+                  height: '38px',
                   borderRadius: '10px',
                   border: `1px solid ${colors.border}`,
                   backgroundColor: 'transparent',
@@ -311,29 +323,29 @@ export function KnowledgeBasePage() {
                   transition: 'all 0.2s',
                 }}
               >
-                <RefreshCw size={16} />
+                <RefreshCw size={15} />
               </button>
               <button
                 onClick={() => setShowFeedback(true)}
                 style={{
-                  height: '40px',
-                  padding: '0 16px',
+                  height: '38px',
+                  padding: '0 14px',
                   borderRadius: '10px',
                   border: `1px solid ${colors.border}`,
                   backgroundColor: 'transparent',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
+                  gap: '6px',
                   color: colors.textMuted,
                   fontFamily: "'Rajdhani', sans-serif",
                   fontWeight: 600,
-                  fontSize: '13px',
+                  fontSize: '12px',
                   letterSpacing: '0.5px',
                   transition: 'all 0.2s',
                 }}
               >
-                <MessageSquarePlus size={16} />
+                <MessageSquarePlus size={14} />
                 {!isMobile && 'FEEDBACK'}
               </button>
             </div>
@@ -344,8 +356,8 @@ export function KnowledgeBasePage() {
             <div
               style={{
                 display: 'flex',
-                gap: isMobile ? '12px' : '24px',
-                marginTop: '24px',
+                gap: isMobile ? '8px' : '16px',
+                marginTop: '20px',
                 flexWrap: 'wrap',
               }}
             >
@@ -382,21 +394,21 @@ export function KnowledgeBasePage() {
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
-                      padding: '10px 16px',
+                      gap: '8px',
+                      padding: '8px 14px',
                       backgroundColor: isDark
                         ? 'rgba(255,255,255,0.04)'
                         : 'rgba(0,0,0,0.02)',
-                      borderRadius: '10px',
+                      borderRadius: '8px',
                       border: `1px solid ${colors.border}`,
                     }}
                   >
-                    <Icon size={18} color={stat.iconColor} />
+                    <Icon size={16} color={stat.iconColor} />
                     <div>
                       <p
                         style={{
                           fontFamily: "'Rajdhani', sans-serif",
-                          fontSize: '20px',
+                          fontSize: '18px',
                           fontWeight: 700,
                           color: colors.text,
                           margin: 0,
@@ -408,7 +420,7 @@ export function KnowledgeBasePage() {
                       <p
                         style={{
                           color: colors.textMuted,
-                          fontSize: '11px',
+                          fontSize: '10px',
                           margin: 0,
                         }}
                       >
@@ -425,10 +437,8 @@ export function KnowledgeBasePage() {
           <div
             style={{
               display: 'flex',
-              gap: '4px',
-              marginTop: '24px',
-              borderBottom: `1px solid ${colors.border}`,
-              marginLeft: '-4px',
+              gap: '2px',
+              marginTop: '20px',
             }}
           >
             {TABS.map((tab) => {
@@ -450,15 +460,14 @@ export function KnowledgeBasePage() {
                     backgroundColor: 'transparent',
                     color: isActive ? colors.accent : colors.textMuted,
                     fontFamily: "'Rajdhani', sans-serif",
-                    fontSize: '13px',
+                    fontSize: '12px',
                     fontWeight: 700,
                     letterSpacing: '1px',
                     cursor: 'pointer',
                     transition: 'all 0.2s',
-                    marginBottom: '-1px',
                   }}
                 >
-                  <Icon size={16} />
+                  <Icon size={15} />
                   {tab.label}
                 </button>
               );
@@ -470,7 +479,7 @@ export function KnowledgeBasePage() {
       {/* ═══ CONTENT ═══ */}
       <div
         style={{
-          padding: isMobile ? '20px 16px' : '28px 32px',
+          padding: isMobile ? '20px 16px' : '24px 32px',
           maxWidth: '1400px',
           margin: '0 auto',
         }}
@@ -482,8 +491,8 @@ export function KnowledgeBasePage() {
               backgroundColor: 'rgba(220, 38, 38, 0.08)',
               border: '1px solid rgba(220, 38, 38, 0.3)',
               borderRadius: '12px',
-              padding: '14px 20px',
-              marginBottom: '24px',
+              padding: '12px 18px',
+              marginBottom: '20px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -497,12 +506,12 @@ export function KnowledgeBasePage() {
                 gap: '10px',
               }}
             >
-              <AlertCircle size={18} color="#DC2626" />
-              <p style={{ color: '#DC2626', fontSize: '14px', margin: 0 }}>
+              <AlertCircle size={16} color="#DC2626" />
+              <p style={{ color: '#DC2626', fontSize: '13px', margin: 0 }}>
                 {error}
               </p>
             </div>
-            <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
               <button
                 onClick={() => {
                   setError('');
@@ -515,7 +524,7 @@ export function KnowledgeBasePage() {
                   color: '#DC2626',
                   padding: '4px 12px',
                   borderRadius: '6px',
-                  fontSize: '12px',
+                  fontSize: '11px',
                   fontWeight: 600,
                   fontFamily: "'Rajdhani', sans-serif",
                 }}
@@ -532,7 +541,7 @@ export function KnowledgeBasePage() {
                   padding: '4px',
                 }}
               >
-                <X size={16} />
+                <X size={14} />
               </button>
             </div>
           </div>
@@ -547,15 +556,15 @@ export function KnowledgeBasePage() {
               alignItems: 'center',
               justifyContent: 'center',
               padding: '80px',
-              gap: '16px',
+              gap: '14px',
             }}
           >
             <Loader2
-              size={36}
+              size={32}
               color={colors.accent}
               style={{ animation: 'spin 1s linear infinite' }}
             />
-            <p style={{ color: colors.textMuted, fontSize: '15px' }}>
+            <p style={{ color: colors.textMuted, fontSize: '14px' }}>
               Loading knowledge base...
             </p>
           </div>
@@ -570,8 +579,8 @@ export function KnowledgeBasePage() {
                     ? '1fr'
                     : isTablet
                     ? '1fr'
-                    : '1fr 320px',
-                  gap: '24px',
+                    : '1fr 300px',
+                  gap: '20px',
                 }}
               >
                 {/* Main Column */}
@@ -579,7 +588,7 @@ export function KnowledgeBasePage() {
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '24px',
+                    gap: '20px',
                   }}
                 >
                   {/* Search Panel */}
@@ -603,7 +612,7 @@ export function KnowledgeBasePage() {
                     >
                       <div
                         style={{
-                          padding: isMobile ? '16px' : '20px 24px',
+                          padding: isMobile ? '14px 16px' : '16px 20px',
                           borderBottom: `1px solid ${colors.border}`,
                           display: 'flex',
                           alignItems: 'center',
@@ -614,14 +623,14 @@ export function KnowledgeBasePage() {
                           style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '10px',
+                            gap: '8px',
                           }}
                         >
-                          <Clock size={16} color={colors.accent} />
+                          <Clock size={14} color={colors.accent} />
                           <h3
                             style={{
                               fontFamily: "'Rajdhani', sans-serif",
-                              fontSize: '16px',
+                              fontSize: '13px',
                               fontWeight: 700,
                               color: colors.text,
                               letterSpacing: '1px',
@@ -637,7 +646,7 @@ export function KnowledgeBasePage() {
                             background: 'none',
                             border: 'none',
                             color: colors.accent,
-                            fontSize: '12px',
+                            fontSize: '11px',
                             fontWeight: 600,
                             fontFamily: "'Rajdhani', sans-serif",
                             letterSpacing: '0.5px',
@@ -647,105 +656,114 @@ export function KnowledgeBasePage() {
                           VIEW ALL
                         </button>
                       </div>
-                      {recentDocuments.map((doc, idx) => (
-                        <div
-                          key={doc.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            padding: isMobile ? '12px 16px' : '12px 24px',
-                            borderBottom:
-                              idx < recentDocuments.length - 1
-                                ? `1px solid ${colors.border}`
-                                : 'none',
-                            cursor: 'pointer',
-                            transition: 'background-color 0.15s',
-                          }}
-                          onClick={() => handleViewDocument(doc)}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                              colors.hoverBg)
-                          }
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                              'transparent')
-                          }
-                        >
+                      {recentDocuments.map((doc, idx) => {
+                        const cc = catColors[doc.category] || catColors.general;
+                        return (
                           <div
+                            key={doc.id}
                             style={{
-                              width: '36px',
-                              height: '36px',
-                              borderRadius: '8px',
-                              backgroundColor: isDark ? '#2A2A2A' : '#F0F0F0',
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
+                              gap: '12px',
+                              padding: isMobile ? '10px 16px' : '10px 20px',
+                              borderBottom:
+                                idx < recentDocuments.length - 1
+                                  ? `1px solid ${colors.border}`
+                                  : 'none',
+                              cursor: 'pointer',
+                              transition: 'background-color 0.15s',
                             }}
+                            onClick={() => handleViewDocument(doc)}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.backgroundColor =
+                                colors.hoverBg)
+                            }
+                            onMouseLeave={(e) =>
+                              (e.currentTarget.style.backgroundColor =
+                                'transparent')
+                            }
                           >
-                            <FileText size={18} color={colors.accent} />
-                          </div>
-                          <div
-                            style={{
-                              flex: 1,
-                              minWidth: 0,
-                            }}
-                          >
-                            <p
+                            <div
                               style={{
-                                color: colors.text,
-                                fontSize: '13px',
-                                fontWeight: 600,
-                                margin: 0,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
+                                width: '34px',
+                                height: '34px',
+                                borderRadius: '8px',
+                                backgroundColor: isDark ? '#2A2A2A' : '#F0F0F0',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
                               }}
                             >
-                              {doc.filename}
-                            </p>
-                            <span
-                              style={{
-                                color: colors.textMuted,
-                                fontSize: '11px',
-                              }}
-                            >
-                              {new Date(doc.created_at).toLocaleDateString()}
-                            </span>
+                              <FileText size={16} color={colors.accent} />
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p
+                                style={{
+                                  color: colors.text,
+                                  fontSize: '13px',
+                                  fontWeight: 600,
+                                  margin: 0,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {doc.filename}
+                              </p>
+                              <span
+                                style={{
+                                  color: colors.textMuted,
+                                  fontSize: '11px',
+                                }}
+                              >
+                                {new Date(doc.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                              <span
+                                style={{
+                                  fontSize: '9px',
+                                  padding: '2px 7px',
+                                  borderRadius: '4px',
+                                  backgroundColor: cc.bg,
+                                  color: cc.text,
+                                  fontWeight: 700,
+                                  fontFamily: "'Rajdhani', sans-serif",
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.3px',
+                                }}
+                              >
+                                {doc.category}
+                              </span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleBookmark(doc.id);
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: bookmarkedIds.has(doc.id)
+                                    ? colors.accent
+                                    : colors.textMuted,
+                                  padding: '2px',
+                                  display: 'flex',
+                                  opacity: bookmarkedIds.has(doc.id) ? 1 : 0.4,
+                                  transition: 'all 0.2s',
+                                }}
+                              >
+                                {bookmarkedIds.has(doc.id) ? (
+                                  <BookmarkCheck size={13} />
+                                ) : (
+                                  <Bookmark size={13} />
+                                )}
+                              </button>
+                            </div>
                           </div>
-                          <span
-                            style={{
-                              fontSize: '10px',
-                              padding: '2px 8px',
-                              borderRadius: '5px',
-                              backgroundColor: (
-                                {
-                                  afl: 'rgba(254, 192, 15, 0.12)',
-                                  strategy: 'rgba(34, 197, 94, 0.12)',
-                                  indicator: 'rgba(99, 102, 241, 0.12)',
-                                  documentation: 'rgba(59, 130, 246, 0.12)',
-                                } as Record<string, string>
-                              )[doc.category] || 'rgba(156, 163, 175, 0.12)',
-                              color: (
-                                {
-                                  afl: '#FEC00F',
-                                  strategy: '#22c55e',
-                                  indicator: '#818cf8',
-                                  documentation: '#3b82f6',
-                                } as Record<string, string>
-                              )[doc.category] || '#9ca3af',
-                              fontWeight: 600,
-                              fontFamily: "'Rajdhani', sans-serif",
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.3px',
-                              flexShrink: 0,
-                            }}
-                          >
-                            {doc.category}
-                          </span>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
 
@@ -761,18 +779,18 @@ export function KnowledgeBasePage() {
                     >
                       <div
                         style={{
-                          padding: isMobile ? '16px' : '20px 24px',
+                          padding: isMobile ? '14px 16px' : '16px 20px',
                           borderBottom: `1px solid ${colors.border}`,
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '10px',
+                          gap: '8px',
                         }}
                       >
-                        <BookOpen size={16} color="#818cf8" />
+                        <BookOpen size={14} color="#818cf8" />
                         <h3
                           style={{
                             fontFamily: "'Rajdhani', sans-serif",
-                            fontSize: '16px',
+                            fontSize: '13px',
                             fontWeight: 700,
                             color: colors.text,
                             letterSpacing: '1px',
@@ -783,12 +801,13 @@ export function KnowledgeBasePage() {
                         </h3>
                         <span
                           style={{
-                            fontSize: '11px',
-                            padding: '2px 8px',
-                            borderRadius: '6px',
+                            fontSize: '10px',
+                            padding: '2px 7px',
+                            borderRadius: '4px',
                             backgroundColor: 'rgba(99, 102, 241, 0.12)',
                             color: '#818cf8',
-                            fontWeight: 600,
+                            fontWeight: 700,
+                            fontFamily: "'Rajdhani', sans-serif",
                           }}
                         >
                           {bookmarkedDocuments.length}
@@ -800,8 +819,8 @@ export function KnowledgeBasePage() {
                           style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '12px',
-                            padding: isMobile ? '12px 16px' : '12px 24px',
+                            gap: '10px',
+                            padding: isMobile ? '10px 16px' : '10px 20px',
                             borderBottom:
                               idx < bookmarkedDocuments.length - 1
                                 ? `1px solid ${colors.border}`
@@ -819,7 +838,7 @@ export function KnowledgeBasePage() {
                               'transparent')
                           }
                         >
-                          <FileText size={16} color="#818cf8" />
+                          <FileText size={14} color="#818cf8" />
                           <span
                             style={{
                               color: colors.text,
@@ -833,18 +852,27 @@ export function KnowledgeBasePage() {
                           >
                             {doc.filename}
                           </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleBookmark(doc.id);
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: colors.accent,
+                              padding: '2px',
+                              display: 'flex',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <BookmarkCheck size={13} />
+                          </button>
                         </div>
                       ))}
                     </div>
                   )}
-
-                  {/* Comments Section */}
-                  <KBCommentSection
-                    documentId="global"
-                    isDark={isDark}
-                    colors={colors}
-                    isMobile={isMobile}
-                  />
                 </div>
 
                 {/* Sidebar */}
@@ -852,7 +880,7 @@ export function KnowledgeBasePage() {
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '24px',
+                    gap: '16px',
                   }}
                 >
                   <KBTagCloud
@@ -866,6 +894,7 @@ export function KnowledgeBasePage() {
                     isDark={isDark}
                     colors={colors}
                     isMobile={isMobile}
+                    totalBookmarks={bookmarkedIds.size}
                   />
 
                   {/* Quick Upload */}
@@ -889,8 +918,8 @@ export function KnowledgeBasePage() {
                     ? '1fr'
                     : isTablet
                     ? '1fr'
-                    : '1fr 280px',
-                  gap: '24px',
+                    : '1fr 260px',
+                  gap: '20px',
                 }}
               >
                 <KBDocumentGrid
@@ -916,6 +945,7 @@ export function KnowledgeBasePage() {
                     isDark={isDark}
                     colors={colors}
                     isMobile={isMobile}
+                    totalBookmarks={bookmarkedIds.size}
                   />
                 )}
 
@@ -935,8 +965,8 @@ export function KnowledgeBasePage() {
                         key={cat}
                         onClick={() => setActiveCategory(cat)}
                         style={{
-                          padding: '6px 14px',
-                          borderRadius: '8px',
+                          padding: '5px 12px',
+                          borderRadius: '6px',
                           border: `1px solid ${
                             activeCategory === cat
                               ? colors.accent
@@ -950,7 +980,7 @@ export function KnowledgeBasePage() {
                             activeCategory === cat
                               ? colors.accent
                               : colors.textMuted,
-                          fontSize: '12px',
+                          fontSize: '11px',
                           fontWeight: 600,
                           fontFamily: "'Rajdhani', sans-serif",
                           letterSpacing: '0.5px',
@@ -974,7 +1004,7 @@ export function KnowledgeBasePage() {
                   margin: '0 auto',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '24px',
+                  gap: '20px',
                 }}
               >
                 <KBUploadPanel
@@ -991,22 +1021,23 @@ export function KnowledgeBasePage() {
                     backgroundColor: colors.cardBg,
                     border: `1px solid ${colors.border}`,
                     borderRadius: '16px',
-                    padding: isMobile ? '16px' : '24px',
+                    overflow: 'hidden',
                   }}
                 >
                   <div
                     style={{
+                      padding: isMobile ? '14px 16px' : '16px 20px',
+                      borderBottom: `1px solid ${colors.border}`,
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
-                      marginBottom: '16px',
+                      gap: '8px',
                     }}
                   >
-                    <TrendingUp size={16} color={colors.accent} />
+                    <TrendingUp size={14} color={colors.accent} />
                     <h3
                       style={{
                         fontFamily: "'Rajdhani', sans-serif",
-                        fontSize: '16px',
+                        fontSize: '13px',
                         fontWeight: 700,
                         color: colors.text,
                         letterSpacing: '1px',
@@ -1016,54 +1047,60 @@ export function KnowledgeBasePage() {
                       UPLOAD TIPS
                     </h3>
                   </div>
-                  {[
-                    {
-                      title: 'Supported Formats',
-                      desc: 'PDF, TXT, DOC, and DOCX files are supported for upload.',
-                    },
-                    {
-                      title: 'Categorization',
-                      desc: 'Documents are automatically categorized based on content. You can filter by category later.',
-                    },
-                    {
-                      title: 'Search Integration',
-                      desc: 'Uploaded documents become searchable immediately through the knowledge base search.',
-                    },
-                    {
-                      title: 'Batch Upload',
-                      desc: 'Select multiple files at once or drag them into the upload area for batch processing.',
-                    },
-                  ].map((tip, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        padding: '12px 0',
-                        borderBottom:
-                          i < 3 ? `1px solid ${colors.border}` : 'none',
-                      }}
-                    >
-                      <p
+                  <div style={{ padding: isMobile ? '16px' : '20px' }}>
+                    {[
+                      {
+                        title: 'Expanded Format Support',
+                        desc: 'Upload PDF, TXT, DOC, DOCX, CSV, MD, JSON, XML, HTML, XLSX, and RTF files to accommodate diverse content types.',
+                      },
+                      {
+                        title: 'Auto-Categorization',
+                        desc: 'Documents are automatically categorized based on content analysis. Filter by category later for quick retrieval.',
+                      },
+                      {
+                        title: 'Instant Search',
+                        desc: 'Uploaded documents become searchable immediately through the advanced search with filters, tags, and file type options.',
+                      },
+                      {
+                        title: 'Batch Upload',
+                        desc: 'Select multiple files at once or drag them into the upload area for efficient batch processing.',
+                      },
+                      {
+                        title: 'Bookmarking',
+                        desc: 'Bookmark important documents for quick access from the Discover tab. Bookmarks persist across sessions.',
+                      },
+                    ].map((tip, i) => (
+                      <div
+                        key={i}
                         style={{
-                          color: colors.text,
-                          fontSize: '13px',
-                          fontWeight: 600,
-                          margin: '0 0 4px 0',
+                          padding: '10px 0',
+                          borderBottom:
+                            i < 4 ? `1px solid ${colors.border}` : 'none',
                         }}
                       >
-                        {tip.title}
-                      </p>
-                      <p
-                        style={{
-                          color: colors.textMuted,
-                          fontSize: '12px',
-                          lineHeight: 1.6,
-                          margin: 0,
-                        }}
-                      >
-                        {tip.desc}
-                      </p>
-                    </div>
-                  ))}
+                        <p
+                          style={{
+                            color: colors.text,
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            margin: '0 0 3px 0',
+                          }}
+                        >
+                          {tip.title}
+                        </p>
+                        <p
+                          style={{
+                            color: colors.textMuted,
+                            fontSize: '12px',
+                            lineHeight: 1.6,
+                            margin: 0,
+                          }}
+                        >
+                          {tip.desc}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -1083,6 +1120,8 @@ export function KnowledgeBasePage() {
           }}
           isDark={isDark}
           colors={colors}
+          isBookmarked={bookmarkedIds.has(viewerDoc.id)}
+          onBookmark={() => handleBookmark(viewerDoc.id)}
         />
       )}
 

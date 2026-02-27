@@ -8,9 +8,15 @@ import {
   HardDrive,
   Loader2,
   AlertCircle,
-  Tag,
   Copy,
   CheckCircle,
+  Bookmark,
+  BookmarkCheck,
+  FileCode,
+  FileSpreadsheet,
+  File,
+  FileImage,
+  ExternalLink,
 } from 'lucide-react';
 import { Document } from '@/types/api';
 
@@ -28,6 +34,49 @@ const catColors: Record<string, { bg: string; text: string }> = {
   general: { bg: 'rgba(156, 163, 175, 0.12)', text: '#9ca3af' },
 };
 
+function getFileIcon(filename: string) {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  switch (ext) {
+    case 'pdf':
+      return { Icon: FileText, color: '#ef4444' };
+    case 'doc':
+    case 'docx':
+      return { Icon: FileText, color: '#3b82f6' };
+    case 'txt':
+    case 'md':
+      return { Icon: FileCode, color: '#22c55e' };
+    case 'csv':
+    case 'xlsx':
+    case 'xls':
+      return { Icon: FileSpreadsheet, color: '#22c55e' };
+    case 'png':
+    case 'jpg':
+    case 'jpeg':
+    case 'gif':
+    case 'svg':
+      return { Icon: FileImage, color: '#a855f7' };
+    case 'json':
+    case 'xml':
+    case 'html':
+      return { Icon: FileCode, color: '#f59e0b' };
+    default:
+      return { Icon: File, color: '#9ca3af' };
+  }
+}
+
+function generateSummary(content: string, filename: string): string {
+  const sentences = content.split(/[.!?]+/).filter((s) => s.trim().length > 20);
+  if (sentences.length === 0) return `Preview of ${filename}`;
+  const summary = sentences.slice(0, 3).join('. ').trim();
+  return summary.length > 250 ? summary.substring(0, 250) + '...' : summary + '.';
+}
+
+function estimateReadTime(content: string): string {
+  const words = content.split(/\s+/).length;
+  const mins = Math.max(1, Math.ceil(words / 200));
+  return `${mins} min read`;
+}
+
 interface KBArticlePreviewProps {
   doc: Document;
   content: string | null;
@@ -35,6 +84,8 @@ interface KBArticlePreviewProps {
   onClose: () => void;
   isDark: boolean;
   colors: Record<string, string>;
+  isBookmarked?: boolean;
+  onBookmark?: () => void;
 }
 
 export default function KBArticlePreview({
@@ -44,9 +95,13 @@ export default function KBArticlePreview({
   onClose,
   isDark,
   colors,
+  isBookmarked,
+  onBookmark,
 }: KBArticlePreviewProps) {
   const [copied, setCopied] = React.useState(false);
   const c = catColors[doc.category] || catColors.general;
+  const { Icon: FIcon, color: fColor } = getFileIcon(doc.filename);
+  const ext = doc.filename.split('.').pop()?.toUpperCase() || 'FILE';
 
   const handleCopy = () => {
     if (content) {
@@ -65,7 +120,7 @@ export default function KBArticlePreview({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '24px',
+        padding: '20px',
       }}
     >
       {/* Backdrop */}
@@ -84,11 +139,11 @@ export default function KBArticlePreview({
         style={{
           position: 'relative',
           width: '100%',
-          maxWidth: '860px',
-          maxHeight: '88vh',
+          maxWidth: '900px',
+          maxHeight: '90vh',
           backgroundColor: colors.cardBg,
           border: `1px solid ${colors.border}`,
-          borderRadius: '20px',
+          borderRadius: '16px',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
@@ -98,7 +153,7 @@ export default function KBArticlePreview({
         {/* Header */}
         <div
           style={{
-            padding: '24px',
+            padding: '20px 24px',
             borderBottom: `1px solid ${colors.border}`,
             display: 'flex',
             alignItems: 'flex-start',
@@ -111,30 +166,51 @@ export default function KBArticlePreview({
             style={{
               display: 'flex',
               alignItems: 'flex-start',
-              gap: '16px',
+              gap: '14px',
               flex: 1,
               minWidth: 0,
             }}
           >
+            {/* File Type Icon */}
             <div
               style={{
-                width: '52px',
-                height: '52px',
-                borderRadius: '14px',
-                backgroundColor: `${colors.accent}14`,
+                width: '48px',
+                height: '48px',
+                borderRadius: '12px',
+                backgroundColor: `${fColor}14`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
+                position: 'relative',
               }}
             >
-              <FileText size={26} color={colors.accent} />
+              <FIcon size={24} color={fColor} />
+              <span
+                style={{
+                  position: 'absolute',
+                  bottom: '-3px',
+                  right: '-6px',
+                  fontSize: '8px',
+                  padding: '1px 5px',
+                  borderRadius: '3px',
+                  backgroundColor: fColor,
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontFamily: "'Rajdhani', sans-serif",
+                  letterSpacing: '0.3px',
+                  lineHeight: '14px',
+                }}
+              >
+                {ext}
+              </span>
             </div>
+
             <div style={{ flex: 1, minWidth: 0 }}>
               <p
                 style={{
                   fontFamily: "'Rajdhani', sans-serif",
-                  fontSize: '20px',
+                  fontSize: '18px',
                   fontWeight: 700,
                   color: colors.text,
                   margin: 0,
@@ -150,19 +226,19 @@ export default function KBArticlePreview({
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '12px',
+                  gap: '10px',
                   marginTop: '8px',
                   flexWrap: 'wrap',
                 }}
               >
                 <span
                   style={{
-                    fontSize: '11px',
-                    padding: '3px 12px',
-                    borderRadius: '6px',
+                    fontSize: '10px',
+                    padding: '3px 10px',
+                    borderRadius: '4px',
                     backgroundColor: c.bg,
                     color: c.text,
-                    fontWeight: 600,
+                    fontWeight: 700,
                     fontFamily: "'Rajdhani', sans-serif",
                     letterSpacing: '0.5px',
                     textTransform: 'uppercase',
@@ -173,45 +249,80 @@ export default function KBArticlePreview({
                 <span
                   style={{
                     color: colors.textMuted,
-                    fontSize: '12px',
+                    fontSize: '11px',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '4px',
                   }}
                 >
-                  <HardDrive size={12} />
+                  <HardDrive size={11} />
                   {formatFileSize(doc.size)}
                 </span>
                 <span
                   style={{
                     color: colors.textMuted,
-                    fontSize: '12px',
+                    fontSize: '11px',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '4px',
                   }}
                 >
-                  <Clock size={12} />
+                  <Clock size={11} />
                   {new Date(doc.created_at).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'short',
                     day: 'numeric',
                   })}
                 </span>
+                {content && (
+                  <span
+                    style={{
+                      color: colors.textMuted,
+                      fontSize: '11px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <ExternalLink size={11} />
+                    {estimateReadTime(content)}
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+            {onBookmark && (
+              <button
+                onClick={onBookmark}
+                style={{
+                  width: '34px',
+                  height: '34px',
+                  backgroundColor: isDark ? '#2A2A2A' : '#EEEEEE',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: isBookmarked ? colors.accent : colors.textMuted,
+                  transition: 'all 0.2s',
+                }}
+                title={isBookmarked ? 'Remove bookmark' : 'Bookmark'}
+              >
+                {isBookmarked ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}
+              </button>
+            )}
             {content && (
               <button
                 onClick={handleCopy}
                 style={{
-                  width: '36px',
-                  height: '36px',
+                  width: '34px',
+                  height: '34px',
                   backgroundColor: isDark ? '#2A2A2A' : '#EEEEEE',
                   border: 'none',
-                  borderRadius: '10px',
+                  borderRadius: '8px',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -221,17 +332,17 @@ export default function KBArticlePreview({
                 }}
                 title={copied ? 'Copied!' : 'Copy content'}
               >
-                {copied ? <CheckCircle size={16} /> : <Copy size={16} />}
+                {copied ? <CheckCircle size={15} /> : <Copy size={15} />}
               </button>
             )}
             <button
               onClick={onClose}
               style={{
-                width: '36px',
-                height: '36px',
+                width: '34px',
+                height: '34px',
                 backgroundColor: isDark ? '#2A2A2A' : '#EEEEEE',
                 border: 'none',
-                borderRadius: '10px',
+                borderRadius: '8px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -240,19 +351,13 @@ export default function KBArticlePreview({
                 transition: 'all 0.2s',
               }}
             >
-              <X size={18} />
+              <X size={16} />
             </button>
           </div>
         </div>
 
         {/* Content */}
-        <div
-          style={{
-            flex: 1,
-            overflow: 'auto',
-            padding: '24px',
-          }}
-        >
+        <div style={{ flex: 1, overflow: 'auto', padding: '24px' }}>
           {loading ? (
             <div
               style={{
@@ -261,47 +366,64 @@ export default function KBArticlePreview({
                 alignItems: 'center',
                 justifyContent: 'center',
                 padding: '60px',
-                gap: '16px',
+                gap: '14px',
               }}
             >
               <Loader2
-                size={32}
+                size={28}
                 color={colors.accent}
                 style={{ animation: 'spin 1s linear infinite' }}
               />
-              <p
-                style={{
-                  color: colors.textMuted,
-                  fontSize: '14px',
-                }}
-              >
+              <p style={{ color: colors.textMuted, fontSize: '13px' }}>
                 Loading document content...
               </p>
             </div>
           ) : content ? (
             <div>
-              {/* Summary / Preview */}
+              {/* Auto-Generated Summary */}
               <div
                 style={{
-                  padding: '16px 20px',
+                  padding: '16px 18px',
                   backgroundColor: `${colors.accent}08`,
-                  borderRadius: '12px',
+                  borderRadius: '10px',
                   border: `1px solid ${colors.accent}20`,
                   marginBottom: '20px',
                 }}
               >
-                <p
+                <div
                   style={{
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    color: colors.accent,
-                    fontFamily: "'Rajdhani', sans-serif",
-                    letterSpacing: '0.5px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
                     marginBottom: '8px',
                   }}
                 >
-                  DOCUMENT PREVIEW
-                </p>
+                  <div
+                    style={{
+                      width: '20px',
+                      height: '20px',
+                      borderRadius: '4px',
+                      backgroundColor: `${colors.accent}20`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <FileText size={11} color={colors.accent} />
+                  </div>
+                  <p
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      color: colors.accent,
+                      fontFamily: "'Rajdhani', sans-serif",
+                      letterSpacing: '0.5px',
+                      margin: 0,
+                    }}
+                  >
+                    SUMMARY
+                  </p>
+                </div>
                 <p
                   style={{
                     color: isDark ? '#C8C8C8' : '#555',
@@ -310,25 +432,47 @@ export default function KBArticlePreview({
                     margin: 0,
                   }}
                 >
-                  {content.substring(0, 300)}
-                  {content.length > 300 ? '...' : ''}
+                  {generateSummary(content, doc.filename)}
                 </p>
+              </div>
+
+              {/* Metadata Bar */}
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '12px',
+                  marginBottom: '16px',
+                  padding: '10px 14px',
+                  backgroundColor: isDark ? '#161616' : '#FAFAFA',
+                  borderRadius: '8px',
+                  border: `1px solid ${colors.border}`,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <span style={{ color: colors.textMuted, fontSize: '11px' }}>
+                  Words: {content.split(/\s+/).length.toLocaleString()}
+                </span>
+                <span style={{ color: colors.textMuted, fontSize: '11px' }}>
+                  Characters: {content.length.toLocaleString()}
+                </span>
+                <span style={{ color: colors.textMuted, fontSize: '11px' }}>
+                  Lines: {content.split('\n').length.toLocaleString()}
+                </span>
               </div>
 
               {/* Full Content */}
               <pre
                 style={{
-                  fontFamily:
-                    "'Quicksand', 'Consolas', 'Monaco', monospace",
-                  fontSize: '14px',
+                  fontFamily: "'Quicksand', 'Consolas', 'Monaco', monospace",
+                  fontSize: '13px',
                   lineHeight: 1.7,
                   color: colors.text,
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
                   margin: 0,
                   backgroundColor: isDark ? '#161616' : '#FAFAFA',
-                  borderRadius: '12px',
-                  padding: '24px',
+                  borderRadius: '10px',
+                  padding: '20px',
                   border: `1px solid ${colors.border}`,
                 }}
               >
@@ -347,21 +491,21 @@ export default function KBArticlePreview({
               }}
             >
               <AlertCircle
-                size={36}
+                size={32}
                 color={colors.textMuted}
                 style={{ opacity: 0.5 }}
               />
               <p
                 style={{
                   color: colors.textMuted,
-                  fontSize: '14px',
+                  fontSize: '13px',
                   textAlign: 'center',
-                  maxWidth: '400px',
+                  maxWidth: '380px',
                   lineHeight: 1.6,
                 }}
               >
-                Unable to load document content. The document may be in a
-                binary format (PDF, DOC) that cannot be displayed as text.
+                Unable to load document content. The document may be in a binary
+                format that cannot be displayed as text.
               </p>
             </div>
           )}

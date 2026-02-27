@@ -441,14 +441,8 @@ export function ChatPage() {
     toast.success('Document generated!');
   }, []);
 
-  // NOTE: renderMessage below is DEAD CODE — kept temporarily for reference.
-  // Message rendering now uses the memoized <MessageRenderer> component.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const renderMessage = (message: any, idx: number) => {
-    const parts = message.parts || [];
-    const isLast = idx === lastIdx;
-    const msgIsStreaming = isStreaming && isLast && message.role === 'assistant';
-    const fullText = parts.filter((p: any) => p.type === 'text').map((p: any) => p.text || '').join('');
+  // Message rendering has been extracted to <MessageRenderer> component
+  // (see src/components/chat/MessageRenderer.tsx)
     // Detect multi-tool sequences for ChainOfThought display
     const toolParts = parts.filter((p: any) => p.type?.startsWith('tool-') || p.type === 'dynamic-tool');
     const hasMultipleTools = toolParts.length >= 2;

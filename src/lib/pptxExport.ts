@@ -7,11 +7,17 @@ import type { SlideLayout } from '@/components/content/SlideEditor';
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
+export type SlideContentType = 'text' | 'image' | 'video' | 'animated';
+
 export interface ParsedSlide {
   title: string;
   bullets: string[];
   notes?: string;
   layout?: SlideLayout;
+  contentType?: SlideContentType;
+  mediaUrl?: string;
+  mediaCaption?: string;
+  animationType?: 'fade-in' | 'slide-up' | 'zoom-in' | 'typewriter' | 'stagger';
 }
 
 /* ------------------------------------------------------------------ */
@@ -44,6 +50,26 @@ export function parseMarkdownToSlides(content: string): ParsedSlide[] {
     const layoutMatch = section.match(/<!--\s*layout:\s*(\S+)\s*-->/);
     if (layoutMatch) layout = layoutMatch[1] as SlideLayout;
 
+    // Extract content type
+    let contentType: SlideContentType | undefined;
+    const ctMatch = section.match(/<!--\s*contentType:\s*(\S+)\s*-->/);
+    if (ctMatch) contentType = ctMatch[1] as SlideContentType;
+
+    // Extract media URL
+    let mediaUrl: string | undefined;
+    const muMatch = section.match(/<!--\s*mediaUrl:\s*([\s\S]*?)\s*-->/);
+    if (muMatch) mediaUrl = muMatch[1].trim();
+
+    // Extract media caption
+    let mediaCaption: string | undefined;
+    const mcMatch = section.match(/<!--\s*mediaCaption:\s*([\s\S]*?)\s*-->/);
+    if (mcMatch) mediaCaption = mcMatch[1].trim();
+
+    // Extract animation type
+    let animationType: ParsedSlide['animationType'];
+    const anMatch = section.match(/<!--\s*animationType:\s*(\S+)\s*-->/);
+    if (anMatch) animationType = anMatch[1] as ParsedSlide['animationType'];
+
     const bodyLines = lines.slice(1).filter(l => l.trim() && !l.trim().startsWith('<!--'));
 
     const bullets: string[] = [];
@@ -59,7 +85,7 @@ export function parseMarkdownToSlides(content: string): ParsedSlide[] {
       if (cleaned) bullets.push(cleaned);
     }
 
-    return { title, bullets, notes, layout };
+    return { title, bullets, notes, layout, contentType, mediaUrl, mediaCaption, animationType };
   });
 }
 
@@ -305,6 +331,180 @@ export async function generatePptx(
             },
           }));
           s.addText(rows, { x: 7.0, y: 1.5, w: 5.5, h: 5.2, valign: 'top' });
+        }
+        break;
+      }
+
+      case 'full-image': {
+        // Full-bleed image placeholder with title overlay
+        s.addShape('rect' as PptxGenJS.ShapeType, {
+          x: 0, y: 0, w: '100%', h: '100%',
+          fill: { color: BRAND.darkGray },
+        });
+        s.addText('FULL IMAGE', {
+          x: 4.5, y: 2.8, w: 4.5, h: 0.6,
+          fontSize: 18, fontFace: BRAND.fontTitle,
+          color: BRAND.midGray, align: 'center', bold: true, charSpacing: 3,
+        });
+        // Gradient-like overlay at bottom
+        s.addShape('rect' as PptxGenJS.ShapeType, {
+          x: 0, y: 5.0, w: '100%', h: 1.95,
+          fill: { color: BRAND.darkBg },
+        });
+        s.addText(slide.title.toUpperCase(), {
+          x: 0.8, y: 5.2, w: 11.7, h: 0.8,
+          fontSize: 24, fontFace: BRAND.fontTitle,
+          color: BRAND.white, bold: true, charSpacing: 2,
+        });
+        if (slide.mediaCaption) {
+          s.addText(slide.mediaCaption, {
+            x: 0.8, y: 6.0, w: 11.7, h: 0.5,
+            fontSize: 11, fontFace: BRAND.fontBody, color: BRAND.lightGray,
+          });
+        }
+        break;
+      }
+
+      case 'image-grid': {
+        s.addText(slide.title.toUpperCase(), {
+          x: 0.8, y: 0.4, w: 11.7, h: 0.8,
+          fontSize: 22, fontFace: BRAND.fontTitle,
+          color: BRAND.yellow, bold: true, charSpacing: 2,
+        });
+        // 2x2 grid of placeholders
+        const gridPositions = [
+          { x: 0.8, y: 1.4, w: 5.7, h: 2.6 },
+          { x: 6.7, y: 1.4, w: 5.7, h: 2.6 },
+          { x: 0.8, y: 4.2, w: 5.7, h: 2.6 },
+          { x: 6.7, y: 4.2, w: 5.7, h: 2.6 },
+        ];
+        gridPositions.forEach((pos, i) => {
+          s.addShape('rect' as PptxGenJS.ShapeType, {
+            ...pos, fill: { color: BRAND.darkGray },
+          });
+          s.addText(`Image ${i + 1}`, {
+            x: pos.x, y: pos.y + (pos.h / 2) - 0.2, w: pos.w, h: 0.4,
+            fontSize: 11, fontFace: BRAND.fontTitle,
+            color: BRAND.midGray, align: 'center', charSpacing: 2,
+          });
+        });
+        break;
+      }
+
+      case 'video-embed': {
+        // Video placeholder
+        s.addShape('rect' as PptxGenJS.ShapeType, {
+          x: 1.5, y: 1.0, w: 10.3, h: 4.0,
+          fill: { color: BRAND.darkGray },
+        });
+        // Play button circle
+        s.addShape('ellipse' as PptxGenJS.ShapeType, {
+          x: 5.9, y: 2.4, w: 1.5, h: 1.2,
+          fill: { color: BRAND.yellow + '44' },
+        });
+        s.addText('\u25B6', {
+          x: 5.9, y: 2.4, w: 1.5, h: 1.2,
+          fontSize: 28, fontFace: BRAND.fontTitle,
+          color: BRAND.yellow, align: 'center', valign: 'middle',
+        });
+        s.addText(slide.title.toUpperCase(), {
+          x: 1.5, y: 5.2, w: 10.3, h: 0.6,
+          fontSize: 20, fontFace: BRAND.fontTitle,
+          color: BRAND.yellow, bold: true, charSpacing: 2, align: 'center',
+        });
+        if (slide.mediaCaption) {
+          s.addText(slide.mediaCaption, {
+            x: 2.5, y: 5.8, w: 8.3, h: 0.5,
+            fontSize: 12, fontFace: BRAND.fontBody,
+            color: BRAND.lightGray, align: 'center',
+          });
+        }
+        break;
+      }
+
+      case 'animated-intro': {
+        // Animated slides export as static in PPTX
+        s.addText(slide.title.toUpperCase(), {
+          x: 1, y: 2.0, w: 11.3, h: 1.5,
+          fontSize: 30, fontFace: BRAND.fontTitle,
+          color: BRAND.yellow, bold: true,
+          charSpacing: 3, align: 'center',
+        });
+        if (slide.bullets[0]?.trim()) {
+          s.addText(slide.bullets[0], {
+            x: 2, y: 3.8, w: 9.3, h: 1.0,
+            fontSize: 14, fontFace: BRAND.fontBody,
+            color: BRAND.white, align: 'center', lineSpacing: 24,
+          });
+        }
+        // Small animation type badge
+        const animLabel = (slide.animationType || 'fade-in').replace('-', ' ').toUpperCase();
+        s.addText(`\u2728 ${animLabel}`, {
+          x: 4.5, y: 5.2, w: 4.3, h: 0.4,
+          fontSize: 9, fontFace: BRAND.fontTitle,
+          color: BRAND.midGray, align: 'center', charSpacing: 1,
+        });
+        break;
+      }
+
+      case 'comparison': {
+        s.addText(slide.title.toUpperCase(), {
+          x: 0.8, y: 0.4, w: 11.7, h: 0.8,
+          fontSize: 22, fontFace: BRAND.fontTitle,
+          color: BRAND.yellow, bold: true, charSpacing: 2, align: 'center',
+        });
+        s.addShape('rect' as PptxGenJS.ShapeType, {
+          x: 0.8, y: 1.25, w: 11.7, h: 0.015, fill: { color: '333333' },
+        });
+        // Left column
+        s.addShape('rect' as PptxGenJS.ShapeType, {
+          x: 0.8, y: 1.5, w: 5.5, h: 5.2,
+          fill: { color: '1A1A1A' },
+        });
+        s.addText('OPTION A', {
+          x: 0.8, y: 1.6, w: 5.5, h: 0.4,
+          fontSize: 10, fontFace: BRAND.fontTitle,
+          color: BRAND.yellow, bold: true, charSpacing: 2,
+        });
+        // Vertical divider
+        s.addShape('rect' as PptxGenJS.ShapeType, {
+          x: 6.5, y: 1.5, w: 0.03, h: 5.2, fill: { color: BRAND.yellow + '44' },
+        });
+        // Right column
+        s.addShape('rect' as PptxGenJS.ShapeType, {
+          x: 7.0, y: 1.5, w: 5.5, h: 5.2,
+          fill: { color: '1A1A1A' },
+        });
+        s.addText('OPTION B', {
+          x: 7.0, y: 1.6, w: 5.5, h: 0.4,
+          fontSize: 10, fontFace: BRAND.fontTitle,
+          color: BRAND.turquoise, bold: true, charSpacing: 2,
+        });
+        // Bullets
+        const cmpMid = Math.ceil(slide.bullets.length / 2);
+        const leftB = slide.bullets.slice(0, cmpMid);
+        const rightB = slide.bullets.slice(cmpMid);
+        if (leftB.length > 0) {
+          const rows: PptxGenJS.TextProps[] = leftB.map(b => ({
+            text: b,
+            options: {
+              fontSize: 12, fontFace: BRAND.fontBody, color: BRAND.white,
+              bullet: { code: '25CF', color: BRAND.yellow } as never,
+              lineSpacing: 22, paraSpaceBefore: 2, paraSpaceAfter: 2, indentLevel: 0,
+            },
+          }));
+          s.addText(rows, { x: 1.0, y: 2.1, w: 5.0, h: 4.3, valign: 'top' });
+        }
+        if (rightB.length > 0) {
+          const rows: PptxGenJS.TextProps[] = rightB.map(b => ({
+            text: b,
+            options: {
+              fontSize: 12, fontFace: BRAND.fontBody, color: BRAND.white,
+              bullet: { code: '25CF', color: BRAND.turquoise } as never,
+              lineSpacing: 22, paraSpaceBefore: 2, paraSpaceAfter: 2, indentLevel: 0,
+            },
+          }));
+          s.addText(rows, { x: 7.2, y: 2.1, w: 5.0, h: 4.3, valign: 'top' });
         }
         break;
       }

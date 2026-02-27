@@ -4,7 +4,7 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import {
   ChevronLeft, ChevronRight, Maximize2, Minimize2,
   Download, Grid, Layers, Play, X, StickyNote,
-  ImageIcon, Columns2, Quote, Minus, AlignCenter, Film, Wand2,
+  ImageIcon, Columns2, Quote, Minus, AlignCenter,
 } from 'lucide-react';
 import { parseMarkdownToSlides, downloadSlidesAsPptx, type ParsedSlide } from '@/lib/pptxExport';
 import { useResponsive } from '@/hooks/useResponsive';
@@ -945,6 +945,21 @@ function ToolbarButton({ onClick, active, children, colors, isDark, title }: {
       {children}
     </button>
   );
+}
+
+/* Inject animation keyframes */
+if (typeof document !== 'undefined') {
+  const KEYFRAMES_ID = 'slide-preview-anims';
+  if (!document.getElementById(KEYFRAMES_ID)) {
+    const style = document.createElement('style');
+    style.id = KEYFRAMES_ID;
+    style.textContent = `
+      @keyframes previewFadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes previewSlideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes previewZoomIn { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+    `;
+    document.head.appendChild(style);
+  }
 }
 
 export default SlidePreview;

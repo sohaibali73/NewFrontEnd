@@ -1225,45 +1225,47 @@ export function SettingsPage() {
             )}
 
             {/* ─── Save Footer ──────────────────────────────────────────────── */}
-            <div
-              style={{
-                marginTop: '32px',
-                paddingTop: '20px',
-                borderTop: `1px solid ${colors.border}`,
-                display: 'flex',
-                justifyContent: 'flex-end',
-              }}
-            >
-              <button
-                onClick={handleSave}
+            {activeSection !== 'about' && (
+              <div
                 style={{
-                  padding: '12px 28px',
-                  backgroundColor: saved ? '#22c55e' : colors.accent,
-                  border: 'none',
-                  borderRadius: '10px',
-                  color: saved ? '#FFFFFF' : '#212121',
-                  fontSize: '0.875rem',
-                  fontFamily: "'Rajdhani', sans-serif",
-                  fontWeight: 600,
-                  cursor: 'pointer',
+                  marginTop: '32px',
+                  paddingTop: '20px',
+                  borderTop: `1px solid ${colors.border}`,
                   display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  letterSpacing: '0.5px',
-                  transition: 'all 0.2s ease',
-                  boxShadow: saved ? 'none' : '0 2px 8px rgba(254, 192, 15, 0.25)',
-                }}
-                onMouseEnter={(e) => {
-                  if (!saved) e.currentTarget.style.opacity = '0.9';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.opacity = '1';
+                  justifyContent: 'flex-end',
                 }}
               >
-                {saved ? <Check size={17} /> : <Save size={17} />}
-                {saved ? 'SAVED!' : 'SAVE CHANGES'}
-              </button>
-            </div>
+                <button
+                  onClick={handleSave}
+                  style={{
+                    padding: '12px 28px',
+                    backgroundColor: saved ? '#22c55e' : colors.accent,
+                    border: 'none',
+                    borderRadius: '10px',
+                    color: saved ? '#FFFFFF' : '#212121',
+                    fontSize: '0.875rem',
+                    fontFamily: "'Rajdhani', sans-serif",
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    letterSpacing: '0.5px',
+                    transition: 'all 0.2s ease',
+                    boxShadow: saved ? 'none' : '0 2px 8px rgba(254, 192, 15, 0.25)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!saved) e.currentTarget.style.opacity = '0.9';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                  }}
+                >
+                  {saved ? <Check size={17} /> : <Save size={17} />}
+                  {saved ? 'SAVED!' : 'SAVE CHANGES'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

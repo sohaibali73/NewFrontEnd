@@ -178,8 +178,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               minWidth: '48px',
               minHeight: '48px',
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.hoverBg; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+            className="hover-bg-subtle"
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -284,8 +283,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                 minWidth: '40px',
                 minHeight: '40px',
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.hoverBg; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+              className="hover-bg-subtle"
               aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
@@ -328,22 +326,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                   minHeight: isMobile ? '52px' : '48px',
                   position: 'relative',
                 }}
-                onMouseEnter={(e) => {
-                  if (!active) {
-                    e.currentTarget.style.backgroundColor = colors.hoverBg;
-                    e.currentTarget.style.color = colors.text;
-                    if (!collapsed || isMobile) {
-                      e.currentTarget.style.transform = 'translateX(4px)';
-                    }
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!active) {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = colors.textMuted;
-                    e.currentTarget.style.transform = 'translateX(0)';
-                  }
-                }}
+                className={active ? '' : 'hover-nav-item'}
                 title={collapsed && !isMobile ? item.name : undefined}
               >
                 <Icon size={isMobile ? 22 : 20} style={{ flexShrink: 0 }} />
@@ -454,14 +437,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               transition: 'all 0.2s ease',
               minHeight: isMobile ? '52px' : '48px',
             }}
-            onMouseEnter={(e) => { 
-              e.currentTarget.style.backgroundColor = 'rgba(220, 38, 38, 0.1)';
-              e.currentTarget.style.borderColor = '#DC2626';
-            }}
-            onMouseLeave={(e) => { 
-              e.currentTarget.style.backgroundColor = 'transparent';
-              e.currentTarget.style.borderColor = colors.border;
-            }}
+            className="hover:!bg-red-500/10 hover:!border-red-600"
           >
             <LogOut size={isMobile ? 18 : 16} />
             {(!collapsed || isMobile) && 'LOGOUT'}

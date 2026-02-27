@@ -39,20 +39,24 @@ export default function DashboardPage() {
     accent: '#FEC00F',
   };
 
-  // Load recent conversations and stats
+  // Load recent conversations and stats in parallel (was sequential)
   useEffect(() => {
-    (async () => {
-      try {
-        const convs = await apiClient.getConversations();
-        const agentChats = (convs || []).filter((c: any) => !c.conversation_type || c.conversation_type === 'agent');
+    const ctrl = new AbortController();
+    Promise.allSettled([
+      apiClient.getConversations(),
+      apiClient.getDocuments(),
+    ]).then(([convsResult, docsResult]) => {
+      if (ctrl.signal.aborted) return;
+      if (convsResult.status === 'fulfilled') {
+        const agentChats = (convsResult.value || []).filter((c: any) => !c.conversation_type || c.conversation_type === 'agent');
         setRecentChats(agentChats.slice(0, 5));
         setStats(prev => ({ ...prev, conversations: agentChats.length }));
-      } catch {}
-      try {
-        const docs = await apiClient.getDocuments();
-        setStats(prev => ({ ...prev, documents: (docs || []).length }));
-      } catch {}
-    })();
+      }
+      if (docsResult.status === 'fulfilled') {
+        setStats(prev => ({ ...prev, documents: (docsResult.value || []).length }));
+      }
+    });
+    return () => ctrl.abort();
   }, []);
 
   const features = [
@@ -155,14 +159,7 @@ export default function DashboardPage() {
               boxShadow: '0 4px 12px rgba(254, 192, 15, 0.3)',
               minHeight: '52px',
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 6px 16px rgba(254, 192, 15, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(254, 192, 15, 0.3)';
-            }}
+            className="hover-btn-accent"
           >
             <Sparkles size={20} />
             START GENERATING CODE
@@ -185,6 +182,7 @@ export default function DashboardPage() {
         }}>
           <div
             onClick={() => router.push('/chat')}
+            className="hover-card"
             style={{
               backgroundColor: colors.cardBg,
               border: `1px solid ${colors.border}`,
@@ -196,8 +194,6 @@ export default function DashboardPage() {
               alignItems: 'center',
               gap: '14px',
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.accent; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = colors.border; e.currentTarget.style.transform = 'translateY(0)'; }}
           >
             <div style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'rgba(139, 92, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Plus size={22} color="#8B5CF6" />
@@ -257,8 +253,7 @@ export default function DashboardPage() {
               alignItems: 'center',
               gap: '14px',
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.accent; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = colors.border; e.currentTarget.style.transform = 'translateY(0)'; }}
+            className="hover-card"
           >
             <div style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Code2 size={22} color="#3B82F6" />
@@ -306,8 +301,7 @@ export default function DashboardPage() {
                     borderBottom: idx < recentChats.length - 1 ? `1px solid ${colors.border}` : 'none',
                     transition: 'background-color 0.15s ease',
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = isDark ? '#262626' : '#f0f0f0'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  className="hover-bg-subtle"
                 >
                   <MessageSquare size={18} color={colors.accent} style={{ flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -368,16 +362,7 @@ export default function DashboardPage() {
                     cursor: 'pointer',
                     transition: 'all 0.3s ease',
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = colors.accent;
-                    e.currentTarget.style.transform = 'translateY(-4px)';
-                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.12)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = colors.border;
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
+                  className="hover-card"
                 >
                   <div style={{
                     width: '56px',

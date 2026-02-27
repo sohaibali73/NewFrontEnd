@@ -132,6 +132,56 @@
   }
 }
 
+/* ==============================
+   Performance: CSS hover utilities
+   Replaces onMouseEnter/onMouseLeave JS handlers with CSS transitions
+   to avoid re-renders and layout thrashing.
+   ============================== */
+
+/* Sidebar / nav link hover */
+.hover-nav-item {
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+.dark .hover-nav-item:hover {
+  background-color: rgba(254, 192, 15, 0.08);
+}
+.hover-nav-item:hover {
+  background-color: rgba(254, 192, 15, 0.06);
+}
+
+/* Card hover (dashboard, features) */
+.hover-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.hover-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+.dark .hover-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  border-color: rgba(254, 192, 15, 0.3);
+}
+
+/* Button hover (primary accent) */
+.hover-btn-accent {
+  transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+.hover-btn-accent:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 4px 12px rgba(254, 192, 15, 0.3);
+}
+
+/* Subtle background hover */
+.hover-bg-subtle {
+  transition: background-color 0.15s ease;
+}
+.dark .hover-bg-subtle:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+.hover-bg-subtle:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
 /* Custom scrollbar styles */
 ::-webkit-scrollbar {
   width: 10px;

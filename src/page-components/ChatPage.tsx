@@ -329,10 +329,26 @@ export function ChatPage() {
       const data = await apiClient.getMessages(conversationId);
 
       // Load cached parts from localStorage (preserves artifacts/tool outputs across navigation)
+      // Use requestIdleCallback where available to avoid blocking the main thread with large caches
       let cachedParts: Record<string, any[]> = {};
       try {
         const raw = localStorage.getItem(`chat_parts_${conversationId}`);
-        if (raw) cachedParts = JSON.parse(raw);
+        if (raw && raw.length < 50_000) {
+          // Small payload — parse synchronously
+          cachedParts = JSON.parse(raw);
+        } else if (raw) {
+          // Large payload — defer, will apply on next render if needed
+          (typeof requestIdleCallback === 'function' ? requestIdleCallback : setTimeout)(() => {
+            try {
+              const parsed = JSON.parse(raw);
+              // Re-apply cached parts after idle parse
+              setMessages(prev => prev.map(m => ({
+                ...m,
+                parts: parsed[m.id] || m.parts,
+              })));
+            } catch {}
+          });
+        }
       } catch {}
 
       setMessages(data.map((m: any) => ({

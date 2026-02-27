@@ -17,12 +17,13 @@ export function useConnectionStatus(options: UseConnectionStatusOptions = {}) {
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const inFlightRef = useRef(false); // Prevent overlapping health checks
 
   const check = useCallback(async () => {
+    if (inFlightRef.current) return; // Skip if a check is already running
+    inFlightRef.current = true;
     setStatus('checking');
     try {
-      // Use Next.js proxy to avoid CORS preflight (OPTIONS 400) on direct backend calls.
-      // /api/backend/health is rewritten to ${BACKEND_URL}/health by next.config.js
       const res = await fetch('/api/backend/health', { method: 'GET' });
       if (res.ok) {
         setStatus('connected');
@@ -34,6 +35,8 @@ export function useConnectionStatus(options: UseConnectionStatusOptions = {}) {
     } catch (err) {
       setStatus('disconnected');
       setError(err instanceof Error ? err.message : 'Connection failed');
+    } finally {
+      inFlightRef.current = false;
     }
     setLastChecked(new Date());
   }, []);

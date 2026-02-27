@@ -22,7 +22,8 @@ import { WritingStyleSettings } from '@/components/content/WritingStyleSettings'
 import SkillsTab from '@/components/content/SkillsTab';
 import { GlobalSearch } from '@/components/content/GlobalSearch';
 import { TemplatesPanel, type Template } from '@/components/content/TemplatesPanel';
-import { LayoutTemplate } from 'lucide-react';
+import { ContentAnalytics } from '@/components/content/ContentAnalytics';
+import { LayoutTemplate, Activity } from 'lucide-react';
 import { useResponsive } from '@/hooks/useResponsive';
 
 export function ContentPage() {
@@ -236,6 +237,7 @@ export function ContentPage() {
                 { value: 'documents', label: 'DOCUMENTS', icon: File },
                 { value: 'dashboards', label: 'DASHBOARDS', icon: BarChart3 },
                 { value: 'skills', label: 'AI SKILLS', icon: BrainCircuit },
+                { value: 'analytics', label: 'ANALYTICS', icon: Activity },
               ].map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.value;
@@ -321,6 +323,14 @@ export function ContentPage() {
               style={{ height: '100%', overflowY: 'auto', padding: '20px' }}
             >
               <SkillsTab />
+            </TabsContent>
+
+            <TabsContent
+              value="analytics"
+              className="m-0 h-full"
+              style={{ height: '100%' }}
+            >
+              <ContentAnalytics colors={colors} isDark={isDark} />
             </TabsContent>
           </div>
         </Tabs>

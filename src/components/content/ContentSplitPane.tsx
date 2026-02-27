@@ -12,6 +12,7 @@ import { apiClient } from '@/lib/api';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import { SlidePreview } from './SlidePreview';
 import { SlideEditor } from './SlideEditor';
+import { RichEditor } from './RichEditor';
 import { downloadSlidesAsPptx } from '@/lib/pptxExport';
 import { ArrowLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -115,6 +116,51 @@ export function ContentSplitPane({
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
+  };
+
+  // Bulk selection state
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+
+  const toggleBulkItem = (id: string) => {
+    setBulkSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllBulk = () => {
+    setBulkSelected(new Set(filtered.map(i => i.id)));
+  };
+
+  const clearBulk = () => {
+    setBulkSelected(new Set());
+    setBulkMode(false);
+  };
+
+  const handleBulkDelete = async () => {
+    for (const id of bulkSelected) {
+      await onDelete(id);
+    }
+    clearBulk();
+  };
+
+  const handleBulkExport = () => {
+    const selectedItems = items.filter(i => bulkSelected.has(i.id));
+    const exportData = selectedItems.map(i => ({
+      title: i.title,
+      content: i.content,
+      created_at: i.created_at,
+      tags: i.tags,
+    }));
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${contentType}-export-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Navigate to item from global search
@@ -337,6 +383,10 @@ export function ContentSplitPane({
             activeFilterCount={activeFilterCount}
             favorites={favorites} onToggleFavorite={toggleFavorite}
             isMobile={true}
+            bulkMode={bulkMode} onToggleBulkMode={() => setBulkMode(p => !p)}
+            bulkSelected={bulkSelected} onToggleBulkItem={toggleBulkItem}
+            onSelectAll={selectAllBulk} onClearBulk={clearBulk}
+            onBulkDelete={handleBulkDelete} onBulkExport={handleBulkExport}
           />
         )}
         <style>{`
@@ -371,6 +421,10 @@ export function ContentSplitPane({
         showFilters={showFilters} onToggleFilters={() => setShowFilters(p => !p)}
         activeFilterCount={activeFilterCount}
         favorites={favorites} onToggleFavorite={toggleFavorite}
+        bulkMode={bulkMode} onToggleBulkMode={() => setBulkMode(p => !p)}
+        bulkSelected={bulkSelected} onToggleBulkItem={toggleBulkItem}
+        onSelectAll={selectAllBulk} onClearBulk={clearBulk}
+        onBulkDelete={handleBulkDelete} onBulkExport={handleBulkExport}
       />
 
       {/* ========== RIGHT PANEL ========== */}
@@ -418,6 +472,10 @@ interface LeftPanelProps {
   activeFilterCount: number;
   favorites: Set<string>; onToggleFavorite: (id: string) => void;
   isMobile?: boolean;
+  bulkMode: boolean; onToggleBulkMode: () => void;
+  bulkSelected: Set<string>; onToggleBulkItem: (id: string) => void;
+  onSelectAll: () => void; onClearBulk: () => void;
+  onBulkDelete: () => Promise<void>; onBulkExport: () => void;
 }
 
 function LeftPanel({
@@ -428,6 +486,8 @@ function LeftPanel({
   sortBy, onSortChange, statusFilter, onStatusFilterChange,
   dateFilter, onDateFilterChange, showFilters, onToggleFilters,
   activeFilterCount, favorites, onToggleFavorite, isMobile,
+  bulkMode, onToggleBulkMode, bulkSelected, onToggleBulkItem,
+  onSelectAll, onClearBulk, onBulkDelete, onBulkExport,
 }: LeftPanelProps) {
   const border = `1px solid ${colors.border}`;
   const activeJobs = jobs.filter(j => j.status !== 'complete' && j.status !== 'failed');
@@ -462,11 +522,19 @@ function LeftPanel({
           </span>
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
-          <button onClick={() => onRefresh()} style={{
+          <button onClick={() => onRefresh()} title="Refresh" style={{
             padding: '7px', background: 'none', border, borderRadius: '8px',
             color: colors.textMuted, cursor: 'pointer', display: 'flex',
             alignItems: 'center', justifyContent: 'center',
           }}><RefreshCw size={13} /></button>
+          <button onClick={onToggleBulkMode} title="Bulk select" style={{
+            padding: '7px', background: bulkMode ? `${colors.primaryYellow}18` : 'none',
+            border: bulkMode ? `1px solid ${colors.primaryYellow}40` : border,
+            borderRadius: '8px',
+            color: bulkMode ? colors.primaryYellow : colors.textMuted,
+            cursor: 'pointer', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+          }}><CheckCircle2 size={13} /></button>
           <button onClick={onToggleNew} style={{
             display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px',
             backgroundColor: showNewForm ? 'transparent' : colors.primaryYellow,
@@ -480,6 +548,60 @@ function LeftPanel({
           </button>
         </div>
       </div>
+
+      {/* -- Bulk action bar -- */}
+      {bulkMode && (
+        <div style={{
+          padding: '8px 16px', borderBottom: border,
+          display: 'flex', alignItems: 'center', gap: '8px',
+          backgroundColor: isDark ? 'rgba(254,192,15,0.04)' : 'rgba(254,192,15,0.06)',
+          animation: 'fadeIn 0.15s ease',
+        }}>
+          <span style={{
+            fontSize: '11px', fontFamily: "'Rajdhani', sans-serif",
+            fontWeight: 600, color: colors.textSecondary,
+            letterSpacing: '0.3px',
+          }}>
+            {bulkSelected.size} SELECTED
+          </span>
+          <button onClick={onSelectAll} style={{
+            padding: '3px 8px', borderRadius: '5px', fontSize: '10px',
+            fontFamily: "'Rajdhani', sans-serif", fontWeight: 600,
+            letterSpacing: '0.3px', cursor: 'pointer', border: `1px solid ${colors.borderSubtle}`,
+            backgroundColor: 'transparent', color: colors.textMuted,
+          }}>SELECT ALL</button>
+          {bulkSelected.size > 0 && (
+            <>
+              <button onClick={onBulkExport} style={{
+                padding: '3px 8px', borderRadius: '5px', fontSize: '10px',
+                fontFamily: "'Rajdhani', sans-serif", fontWeight: 600,
+                letterSpacing: '0.3px', cursor: 'pointer',
+                border: `1px solid ${colors.primaryYellow}40`,
+                backgroundColor: `${colors.primaryYellow}10`,
+                color: colors.primaryYellow,
+                display: 'flex', alignItems: 'center', gap: '4px',
+              }}><Download size={10} /> EXPORT</button>
+              <button onClick={onBulkDelete} style={{
+                padding: '3px 8px', borderRadius: '5px', fontSize: '10px',
+                fontFamily: "'Rajdhani', sans-serif", fontWeight: 600,
+                letterSpacing: '0.3px', cursor: 'pointer',
+                border: '1px solid rgba(239,68,68,0.3)',
+                backgroundColor: 'rgba(239,68,68,0.08)',
+                color: '#ef4444',
+                display: 'flex', alignItems: 'center', gap: '4px',
+              }}><Trash2 size={10} /> DELETE</button>
+            </>
+          )}
+          <button onClick={onClearBulk} style={{
+            marginLeft: 'auto',
+            padding: '3px 8px', borderRadius: '5px', fontSize: '10px',
+            fontFamily: "'Rajdhani', sans-serif", fontWeight: 600,
+            letterSpacing: '0.3px', cursor: 'pointer', border: `1px solid ${colors.borderSubtle}`,
+            backgroundColor: 'transparent', color: colors.textMuted,
+            display: 'flex', alignItems: 'center', gap: '4px',
+          }}><X size={9} /> DONE</button>
+        </div>
+      )}
 
       {/* -- New creation form (inline) -- */}
       {showNewForm && (
@@ -772,15 +894,36 @@ function LeftPanel({
             return (
               <div key={item.id} style={{ position: 'relative', marginBottom: '2px' }}>
                 <button
-                  onClick={() => onSelect(item.id)}
+                  onClick={() => bulkMode ? onToggleBulkItem(item.id) : onSelect(item.id)}
                   style={{
                     width: '100%', display: 'flex', alignItems: 'center', gap: '12px',
                     padding: '12px 12px', textAlign: 'left', cursor: 'pointer',
-                    backgroundColor: isActive ? (isDark ? '#252525' : '#eef0f2') : 'transparent',
-                    border: isActive ? `1px solid ${colors.primaryYellow}30` : '1px solid transparent',
+                    backgroundColor: bulkMode && bulkSelected.has(item.id)
+                      ? (isDark ? `${colors.primaryYellow}10` : `${colors.primaryYellow}08`)
+                      : isActive ? (isDark ? '#252525' : '#eef0f2') : 'transparent',
+                    border: bulkMode && bulkSelected.has(item.id)
+                      ? `1px solid ${colors.primaryYellow}40`
+                      : isActive ? `1px solid ${colors.primaryYellow}30` : '1px solid transparent',
                     borderRadius: '10px', transition: 'all 0.15s ease',
                   }}
                 >
+                  {/* Bulk checkbox */}
+                  {bulkMode && (
+                    <div style={{
+                      width: '20px', height: '20px', borderRadius: '5px', flexShrink: 0,
+                      border: bulkSelected.has(item.id)
+                        ? `2px solid ${colors.primaryYellow}`
+                        : `2px solid ${colors.borderSubtle}`,
+                      backgroundColor: bulkSelected.has(item.id)
+                        ? colors.primaryYellow : 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'all 0.15s ease',
+                    }}>
+                      {bulkSelected.has(item.id) && (
+                        <CheckCircle2 size={12} color={colors.darkGray} />
+                      )}
+                    </div>
+                  )}
                   <div style={{
                     width: '36px', height: '36px', borderRadius: '8px', flexShrink: 0,
                     backgroundColor: isActive
@@ -1046,17 +1189,14 @@ function RightPanel({
           />
         </div>
 
-        {/* Content editor */}
+        {/* Rich Content Editor */}
         <div style={{ flex: 1, padding: '12px 20px 20px', overflow: 'hidden' }}>
-          <textarea
-            value={editContent} onChange={e => onEditContent(e.target.value)}
-            style={{
-              width: '100%', height: '100%', padding: '14px',
-              backgroundColor: colors.inputBg, border: `1px solid ${colors.borderSubtle}`,
-              borderRadius: '10px', color: colors.text, fontSize: '13px',
-              fontFamily: "'Quicksand', sans-serif", outline: 'none',
-              lineHeight: 1.7, resize: 'none',
-            }}
+          <RichEditor
+            content={editContent}
+            onChange={onEditContent}
+            colors={colors}
+            isDark={isDark}
+            onAutoSave={onSaveEdit}
           />
         </div>
       </div>

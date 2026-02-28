@@ -199,7 +199,7 @@ export function ContentAnalytics({ colors, isDark }: ContentAnalyticsProps) {
       setLoading(true);
       try {
         const [slides, articles, documents, dashboards] = await Promise.all([
-          apiClient.getSlideDecks().catch(() => []),
+          apiClient.getSlides().catch(() => []),
           apiClient.getArticles().catch(() => []),
           apiClient.getDocuments().catch(() => []),
           apiClient.getDashboards().catch(() => []),

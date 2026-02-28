@@ -204,7 +204,18 @@ export function ContentAnalytics({ colors, isDark }: ContentAnalyticsProps) {
           apiClient.getDocuments().catch(() => []),
           apiClient.getDashboards().catch(() => []),
         ]);
-        setData({ slides, articles, documents, dashboards });
+        // Transform documents to ensure all have a required title field
+        const documentsWithTitle = documents
+          .filter((doc: any): doc is any => doc.title !== undefined)
+          .map((doc: any) => ({
+            id: doc.id,
+            title: doc.title,
+            content: doc.filename,
+            status: doc.category,
+            created_at: doc.created_at,
+            updated_at: doc.updated_at,
+          }));
+        setData({ slides, articles, documents: documentsWithTitle, dashboards });
       } catch {
         // fail silently
       } finally {

@@ -237,15 +237,6 @@ public class LoginViewModel : INotifyPropertyChanged
 - `BacktestCharts` - Visualization
 - `BacktestMetricsGrid` - Statistics
 
-#### Autopilot Page (`/autopilot`)
-**Purpose:** Automated trading strategy execution
-
-**Features:**
-- Real-time monitoring
-- Trade execution controls
-- Performance tracking
-- Risk management settings
-
 #### Researcher Page (`/researcher`)
 **Purpose:** Market and company research terminal
 
@@ -267,15 +258,6 @@ public class LoginViewModel : INotifyPropertyChanged
 
 #### Reverse Engineer (`/reverse-engineer`)
 **Purpose:** Code and strategy analysis
-
-#### Deck Generator (`/deck-generator`)
-**Purpose:** Automated presentation creation
-
-**Features:**
-- Template selection
-- Content input
-- Slide preview
-- Export options
 
 #### Settings Page (`/settings`)
 **Purpose:** User preferences and configuration
@@ -541,11 +523,9 @@ PotomacAnalyst.WinUI/
 │   │   │   ├── AFLGeneratorPage.xaml
 │   │   │   └── AFLGeneratorPage.xaml.cs
 │   │   ├── Backtest/
-│   │   ├── Autopilot/
 │   │   ├── Researcher/
 │   │   ├── Knowledge/
 │   │   ├── ReverseEngineer/
-│   │   ├── DeckGenerator/
 │   │   └── Settings/
 │   └── Controls/
 │       ├── NavigationView.xaml
@@ -1125,9 +1105,10 @@ public class LoginViewModel : ViewModelBase
                     <NavigationViewItem Content="Chat" Tag="Chat" Icon="Message"/>
                     <NavigationViewItem Content="AFL Generator" Tag="AFL" Icon="Code"/>
                     <NavigationViewItem Content="Backtest" Tag="Backtest" Icon="TrendingUp"/>
-                    <NavigationViewItem Content="Autopilot" Tag="Autopilot" Icon="Automation"/>
                     <NavigationViewItem Content="Researcher" Tag="Researcher" Icon="Find"/>
                     <NavigationViewItem Content="Knowledge" Tag="Knowledge" Icon="Library"/>
+                    <NavigationViewItem Content="Reverse Engineer" Tag="ReverseEngineer" Icon="Plug"/>
+                    <NavigationViewItem Content="Settings" Tag="Settings" Icon="Setting"/>
                 </NavigationView.MenuItems>
             </NavigationView>
 
@@ -1332,9 +1313,9 @@ public class FeatureModule
 ### Phase 8: Advanced Features (3-4 weeks)
 - [ ] AFL Generator page
 - [ ] Backtest analyzer
-- [ ] Autopilot monitoring
 - [ ] Researcher terminal
-- [ ] Deck generator
+- [ ] Knowledge Base
+- [ ] Reverse Engineer
 
 ### Phase 9: Settings and Polish (1-2 weeks)
 - [ ] Settings page

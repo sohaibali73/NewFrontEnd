@@ -159,26 +159,22 @@ User Sees Result
 │  │  ├─ Chat                                           │  │
 │  │  ├─ AFL Generator                                  │  │
 │  │  ├─ Backtest                                       │  │
-│  │  ├─ Autopilot                                      │  │
 │  │  ├─ Researcher                                     │  │
 │  │  ├─ Knowledge Base                                 │  │
 │  │  ├─ Reverse Engineer                               │  │
-│  │  ├─ Deck Generator                                 │  │
 │  │  └─ Settings                                       │  │
 │  └────────────────────────────────────────────────────┘  │
 │  ┌────────────────────────────────────────────────────┐  │
-│  │ Frame (ContentFrame)                               │  │
-│  │ ├─ DashboardPage                                   │  │
-│  │ ├─ ContentPage                                     │  │
-│  │ ├─ ChatPage                                        │  │
-│  │ ├─ AFLGeneratorPage                                │  │
-│  │ ├─ BacktestPage                                    │  │
-│  │ ├─ AutopilotPage                                   │  │
-│  │ ├─ ResearcherPage                                  │  │
-│  │ ├─ KnowledgeBasePage                               │  │
-│  │ ├─ ReverseEngineerPage                             │  │
-│  │ ├─ DeckGeneratorPage                               │  │
-│  │ └─ SettingsPage                                    │  │
+        │  │ Frame (ContentFrame)                               │  │
+        │  │ ├─ DashboardPage                                   │  │
+        │  │ ├─ ContentPage                                     │  │
+        │  │ ├─ ChatPage                                        │  │
+        │  │ ├─ AFLGeneratorPage                                │  │
+        │  │ ├─ BacktestPage                                    │  │
+        │  │ ├─ ResearcherPage                                  │  │
+        │  │ ├─ KnowledgeBasePage                               │  │
+        │  │ ├─ ReverseEngineerPage                             │  │
+        │  │ └─ SettingsPage                                    │  │
 │  └────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -244,7 +240,7 @@ User Sees Result
 │  │ ┌──────────────────────────────────────┐ │ │
 │  │ │ Slide Decks Tab                      │ │ │
 │  │ │ ├─ SlideDecksView                    │ │ │
-│  │ │ └─ SlideEditor                       │ │ │
+│  │ │ └─ SlideEditor                       │ ��� │
 │  │ └──────────────────────────────────────┘ │ │
 │  │                                          │ │
 │  │ ┌──────────────────────────────────────┐ │ │
@@ -478,7 +474,7 @@ Finally
 └──────────────────────────────────────────────┘
                     │
                     ▼
-        ┌────────────────────────────┐
+        ┌────────────────────────────��
         │ StorageService.cs          │
         │ ├─ SaveAsync()             │
         │ ├─ LoadAsync()             │
@@ -544,7 +540,7 @@ Finally
         └────────────┬───────────────┘
                      │
                      ▼
-        ┌────────────────────────────┐
+        ┌────────────��───────────────┐
         │ Run Tests                  │
         │ • Unit Tests               │
         │ • Integration Tests        │

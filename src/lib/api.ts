@@ -43,7 +43,12 @@ import {
   SkillExecuteResponse,
   MultiSkillRequest,
   MultiSkillResponse,
+  YFinanceDataRequest,
+  YFinanceDataResponse,
+  YFinanceSummary,
+  YFinanceHistory,
 } from '@/types/api';
+
 import { getApiUrl } from './env';
 import { storage } from './storage';
 import { logger } from './logger';
@@ -1379,6 +1384,56 @@ class APIClient {
     return `${API_BASE_URL}/api/skills/${slug}/stream`;
   }
 
+  // ==================== YFINANCE ENDPOINTS ====================
+
+  /**
+   * Get comprehensive YFinance data for a ticker symbol
+   */
+  async getYFinanceData(
+    ticker: string,
+    options?: {
+      include?: string;
+      exclude?: string;
+      history_period?: string;
+      history_interval?: string;
+      options_date?: string;
+    }
+  ) {
+    const params = new URLSearchParams({ ticker });
+    if (options?.include) params.append('include', options.include);
+    if (options?.exclude) params.append('exclude', options.exclude);
+    if (options?.history_period) params.append('history_period', options.history_period);
+    if (options?.history_interval) params.append('history_interval', options.history_interval);
+    if (options?.options_date) params.append('options_date', options.options_date);
+    
+    return this.request<YFinanceDataResponse>(`/yfinance/${ticker}?${params.toString()}`);
+  }
+
+  /**
+   * Get a quick summary of key financial data for a ticker
+   */
+  async getYFinanceSummary(ticker: string) {
+    return this.request<YFinanceSummary>(`/yfinance/${ticker}/summary`);
+  }
+
+  /**
+   * Get historical price data for a ticker
+   */
+  async getYFinanceHistory(
+    ticker: string,
+    options?: {
+      period?: string;
+      interval?: string;
+    }
+  ) {
+    const params = new URLSearchParams();
+    if (options?.period) params.append('period', options.period);
+    if (options?.interval) params.append('interval', options.interval);
+    
+    const qs = params.toString();
+    return this.request<YFinanceHistory>(`/yfinance/${ticker}/history${qs ? '?' + qs : ''}`);
+  }
+
   // ==================== UTILITY ENDPOINTS ====================
 
   async checkHealth() {
@@ -1388,6 +1443,7 @@ class APIClient {
   async getRoutes() {
     return this.request<string[]>('/routes');
   }
+
 }
 
 export const apiClient = new APIClient();
@@ -1534,4 +1590,11 @@ export const api = {
     executeMulti: (request: MultiSkillRequest) => apiClient.executeMultiSkills(request),
     getStreamEndpoint: (slug: string) => apiClient.getSkillStreamEndpoint(slug),
   },
+  // NEW: Added YFinance endpoints for financial data
+  yfinance: {
+    getData: (ticker: string, options?: any) => apiClient.getYFinanceData(ticker, options),
+    getSummary: (ticker: string) => apiClient.getYFinanceSummary(ticker),
+    getHistory: (ticker: string, options?: any) => apiClient.getYFinanceHistory(ticker, options),
+  },
 };
+

@@ -347,7 +347,8 @@ export function ChatPage() {
   const loadConversations = async () => {
     try {
       const allData = await apiClient.getConversations();
-      const data = allData.filter((c: any) => !c.conversation_type || c.conversation_type === 'agent');
+      // FIXED: Explicitly filter for 'agent' type conversations (not default/afl/other types)
+      const data = allData.filter((c: any) => c.conversation_type === 'agent' || !c.conversation_type);
       setConversations(data);
 
       // Auto-select first conversation if none is selected
@@ -404,7 +405,8 @@ export function ChatPage() {
   const handleNewConversation = async () => {
     try {
       skipNextLoadRef.current = true; // Prevent loadPreviousMessages from running
-      const newConv = await apiClient.createConversation();
+      // FIXED: Always specify 'agent' as conversation type
+      const newConv = await apiClient.createConversation('New Conversation', 'agent');
       setConversations(prev => [newConv, ...prev]);
       setSelectedConversation(newConv);
       conversationIdRef.current = newConv.id; // Sync ref immediately
@@ -436,7 +438,8 @@ export function ChatPage() {
     if (!convId) {
       try {
         skipNextLoadRef.current = true; // Prevent loadPreviousMessages from clearing stream
-        const conv = await apiClient.createConversation();
+        // FIXED: Always specify 'agent' as conversation type
+        const conv = await apiClient.createConversation('New Conversation', 'agent');
         setConversations(prev => [conv, ...prev]);
         setSelectedConversation(conv);
         // Update ref SYNCHRONOUSLY so body() callback gets it immediately
@@ -1150,9 +1153,9 @@ export function ChatPage() {
   };
 
   return (
-    <div style={{ height: '100dvh', maxHeight: '100vh', backgroundColor: colors.background, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+    <div style={{ height: '100%', backgroundColor: colors.background, display: 'flex', overflow: 'hidden', position: 'relative' }}>
       {/* Sidebar */}
-      <div style={{ width: sidebarCollapsed ? '0px' : '280px', backgroundColor: colors.sidebar, borderRight: sidebarCollapsed ? 'none' : `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', height: '100dvh', maxHeight: '100vh', overflow: 'hidden', transition: 'width 0.3s ease', flexShrink: 0 }}>
+      <div style={{ width: sidebarCollapsed ? '0px' : '280px', backgroundColor: colors.sidebar, borderRight: sidebarCollapsed ? 'none' : `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', transition: 'width 0.3s ease', flexShrink: 0 }}>
         <div style={{ padding: '24px 20px', borderBottom: `2px solid ${colors.primaryYellow}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: isDark ? 'rgba(254, 192, 15, 0.05)' : 'rgba(254, 192, 15, 0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <img src={logo} alt="Logo" style={{ width: '32px', height: '32px' }} />
@@ -1201,7 +1204,7 @@ export function ChatPage() {
             )}
           </div>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px', maxHeight: 'calc(100vh - 140px)' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px', minHeight: 0 }}>
           {loadingConversations ? (
             <div className="space-y-3 px-2 py-4">
               {/* AI Elements: Shimmer skeleton for conversation list loading */}
@@ -1399,7 +1402,8 @@ export function ChatPage() {
                   if (!convId) {
                     try {
                       skipNextLoadRef.current = true;
-                      const conv = await apiClient.createConversation();
+                      // FIXED: Always specify 'agent' as conversation type
+                      const conv = await apiClient.createConversation('New Conversation', 'agent');
                       setConversations(prev => [conv, ...prev]);
                       setSelectedConversation(conv);
                       conversationIdRef.current = conv.id;
@@ -1567,7 +1571,8 @@ export function ChatPage() {
           if (!convId) {
             try {
               skipNextLoadRef.current = true;
-              const conv = await apiClient.createConversation();
+              // FIXED: Always specify 'agent' as conversation type
+              const conv = await apiClient.createConversation('New Conversation', 'agent');
               setConversations(prev => [conv, ...prev]);
               setSelectedConversation(conv);
               conversationIdRef.current = conv.id;

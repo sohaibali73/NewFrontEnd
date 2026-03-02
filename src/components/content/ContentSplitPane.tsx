@@ -5,13 +5,18 @@ import {
   Search, Plus, Loader2, RefreshCw, Pencil, Trash2, Copy,
   Download, MoreVertical, X, Save, Clock,
   CheckCircle2, AlertCircle, ChevronRight, FileDown,
+  SlidersHorizontal, ArrowUpDown, Star, ClipboardCopy,
+  FileText, FileCode, Globe,
 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import { SlidePreview } from './SlidePreview';
 import { SlideEditor } from './SlideEditor';
+import { RichEditor } from './RichEditor';
 import { downloadSlidesAsPptx } from '@/lib/pptxExport';
+import { ArrowLeft } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useResponsive } from '@/hooks/useResponsive';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -36,6 +41,10 @@ interface GeneratingJob {
   status: 'pending' | 'running' | 'complete' | 'failed';
 }
 
+type SortOption = 'newest' | 'oldest' | 'title-az' | 'title-za' | 'updated';
+type StatusFilter = 'all' | 'complete' | 'generating' | 'draft';
+type DateFilter = 'all' | 'today' | 'week' | 'month';
+
 export interface ContentSplitPaneProps {
   colors: Record<string, string>;
   isDark: boolean;
@@ -51,6 +60,8 @@ export interface ContentSplitPaneProps {
   onDuplicate: (item: ContentItem) => Promise<void>;
   extraActions?: (item: ContentItem) => React.ReactNode;
   metaLine?: (item: ContentItem) => React.ReactNode;
+  navigateToItemId?: string | null;
+  extraToolbar?: React.ReactNode;
 }
 
 /* ------------------------------------------------------------------ */
@@ -60,7 +71,7 @@ export interface ContentSplitPaneProps {
 export function ContentSplitPane({
   colors, isDark, contentType, icon: Icon, label, items, loading,
   onRefresh, onGenerate, onDelete, onUpdate, onDuplicate,
-  extraActions, metaLine,
+  extraActions, metaLine, navigateToItemId, extraToolbar,
 }: ContentSplitPaneProps) {
 
   const isSlide = contentType === 'slide';
@@ -80,12 +91,148 @@ export function ContentSplitPane({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Filter & Sort state
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [showFilters, setShowFilters] = useState(false);
+  const [favorites, setFavorites] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set<string>();
+    try {
+      const saved = localStorage.getItem(`content-favorites-${contentType}`);
+      return saved ? new Set(JSON.parse(saved)) : new Set<string>();
+    } catch { return new Set<string>(); }
+  });
+
+  // Persist favorites
+  useEffect(() => {
+    try {
+      localStorage.setItem(`content-favorites-${contentType}`, JSON.stringify([...favorites]));
+    } catch { /* noop */ }
+  }, [favorites, contentType]);
+
+  const toggleFavorite = (id: string) => {
+    setFavorites(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  // Bulk selection state
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
+
+  const toggleBulkItem = (id: string) => {
+    setBulkSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllBulk = () => {
+    setBulkSelected(new Set(filtered.map(i => i.id)));
+  };
+
+  const clearBulk = () => {
+    setBulkSelected(new Set());
+    setBulkMode(false);
+  };
+
+  const handleBulkDelete = async () => {
+    for (const id of bulkSelected) {
+      await onDelete(id);
+    }
+    clearBulk();
+  };
+
+  const handleBulkExport = () => {
+    const selectedItems = items.filter(i => bulkSelected.has(i.id));
+    const exportData = selectedItems.map(i => ({
+      title: i.title,
+      content: i.content,
+      created_at: i.created_at,
+      tags: i.tags,
+    }));
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${contentType}-export-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Navigate to item from global search
+  useEffect(() => {
+    if (navigateToItemId) {
+      setSelectedId(navigateToItemId);
+    }
+  }, [navigateToItemId]);
+
   const selected = items.find(i => i.id === selectedId) || null;
   const border = `1px solid ${colors.border}`;
 
-  const filtered = items.filter(i =>
-    !searchQuery || i.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Advanced filtering & sorting
+  const filtered = React.useMemo(() => {
+    let result = [...items];
+
+    // Text search (title + content + tags)
+    if (searchQuery) {
+      const lower = searchQuery.toLowerCase();
+      result = result.filter(i =>
+        i.title.toLowerCase().includes(lower) ||
+        (i.content && i.content.toLowerCase().includes(lower)) ||
+        (i.tags || []).some(t => t.toLowerCase().includes(lower))
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      result = result.filter(i => {
+        if (statusFilter === 'draft') return !i.status || i.status === 'draft';
+        return i.status === statusFilter;
+      });
+    }
+
+    // Date filter
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      const cutoff = new Date();
+      if (dateFilter === 'today') cutoff.setHours(0, 0, 0, 0);
+      else if (dateFilter === 'week') cutoff.setDate(now.getDate() - 7);
+      else if (dateFilter === 'month') cutoff.setMonth(now.getMonth() - 1);
+      result = result.filter(i => i.created_at && new Date(i.created_at) >= cutoff);
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      // Favorites always first
+      const aFav = favorites.has(a.id) ? 1 : 0;
+      const bFav = favorites.has(b.id) ? 1 : 0;
+      if (aFav !== bFav) return bFav - aFav;
+
+      switch (sortBy) {
+        case 'newest':
+          return (new Date(b.created_at || 0)).getTime() - (new Date(a.created_at || 0)).getTime();
+        case 'oldest':
+          return (new Date(a.created_at || 0)).getTime() - (new Date(b.created_at || 0)).getTime();
+        case 'title-az':
+          return a.title.localeCompare(b.title);
+        case 'title-za':
+          return b.title.localeCompare(a.title);
+        case 'updated':
+          return (new Date(b.updated_at || b.created_at || 0)).getTime() - (new Date(a.updated_at || a.created_at || 0)).getTime();
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [items, searchQuery, statusFilter, dateFilter, sortBy, favorites]);
+
+  const activeFilterCount = (statusFilter !== 'all' ? 1 : 0) + (dateFilter !== 'all' ? 1 : 0);
 
   // Auto-select first item
   useEffect(() => {
@@ -165,7 +312,94 @@ export function ContentSplitPane({
   const wordCount = (s: string) => s ? s.split(/\s+/).filter(Boolean).length : 0;
   const readTime = (s: string) => { const w = wordCount(s); return w < 200 ? '< 1 min' : `${Math.ceil(w / 200)} min`; };
 
+  // ---------- RESPONSIVE ----------
+  const { isMobile } = useResponsive();
+  const [mobileShowDetail, setMobileShowDetail] = useState(false);
+
+  const handleMobileSelect = (id: string) => {
+    setSelectedId(id);
+    if (isMobile) setMobileShowDetail(true);
+  };
+
+  const handleMobileBack = () => {
+    setMobileShowDetail(false);
+  };
+
   // ---------- RENDER ----------
+  // Mobile: single panel mode
+  if (isMobile) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', backgroundColor: colors.background }}>
+        {mobileShowDetail && selected ? (
+          <>
+            {/* Mobile back bar */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '10px 12px', borderBottom: `1px solid ${colors.border}`,
+              backgroundColor: colors.surface,
+            }}>
+              <button onClick={handleMobileBack} style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '6px 12px', background: 'none',
+                border: `1px solid ${colors.border}`, borderRadius: '8px',
+                color: colors.textMuted, cursor: 'pointer',
+                fontFamily: "'Rajdhani', sans-serif", fontWeight: 600,
+                fontSize: '12px', letterSpacing: '0.3px',
+              }}>
+                <ArrowLeft size={14} /> BACK TO LIST
+              </button>
+            </div>
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+              <RightPanel
+                colors={colors} isDark={isDark} label={label} isSlide={isSlide} isDashboard={isDashboard}
+                selected={selected} isEditing={isEditing} editContent={editContent}
+                editTitle={editTitle} icon={Icon}
+                onEditContent={setEditContent} onEditTitle={setEditTitle}
+                onStartEdit={handleStartEdit} onSaveEdit={handleSaveEdit}
+                onCancelEdit={() => setIsEditing(false)} onDownload={handleDownload}
+                onDuplicate={onDuplicate} onDelete={onDelete}
+                extraActions={extraActions} wordCount={wordCount} readTime={readTime}
+                formatDate={formatDate} onRefresh={onRefresh} selectedId={selectedId}
+                setSelectedId={setSelectedId}
+              />
+            </div>
+          </>
+        ) : (
+          <LeftPanel
+            colors={colors} isDark={isDark} icon={Icon} label={label} isSlide={isSlide}
+            items={filtered} jobs={jobs} loading={loading} selectedId={selectedId}
+            searchQuery={searchQuery} showNewForm={showNewForm} newPrompt={newPrompt}
+            newTitle={newTitle} generating={generating} menuOpenId={menuOpenId}
+            confirmDeleteId={confirmDeleteId} metaLine={metaLine} extraToolbar={extraToolbar}
+            onSelect={handleMobileSelect} onSearch={setSearchQuery}
+            onToggleNew={() => setShowNewForm(p => !p)} onNewPrompt={setNewPrompt}
+            onNewTitle={setNewTitle} onGenerate={handleGenerate}
+            onRefresh={onRefresh} onMenuToggle={setMenuOpenId}
+            onDelete={async (id) => { await onDelete(id); if (selectedId === id) setSelectedId(null); setConfirmDeleteId(null); }}
+            onDuplicate={onDuplicate} onConfirmDelete={setConfirmDeleteId}
+            sortBy={sortBy} onSortChange={setSortBy}
+            statusFilter={statusFilter} onStatusFilterChange={setStatusFilter}
+            dateFilter={dateFilter} onDateFilterChange={setDateFilter}
+            showFilters={showFilters} onToggleFilters={() => setShowFilters(p => !p)}
+            activeFilterCount={activeFilterCount}
+            favorites={favorites} onToggleFavorite={toggleFavorite}
+            isMobile={true}
+            bulkMode={bulkMode} onToggleBulkMode={() => setBulkMode(p => !p)}
+            bulkSelected={bulkSelected} onToggleBulkItem={toggleBulkItem}
+            onSelectAll={selectAllBulk} onClearBulk={clearBulk}
+            onBulkDelete={handleBulkDelete} onBulkExport={handleBulkExport}
+          />
+        )}
+        <style>{`
+          @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+          @keyframes progressPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+          @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        `}</style>
+      </div>
+    );
+  }
+
+  // Desktop: split pane mode
   return (
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden', backgroundColor: colors.background }}>
 
@@ -175,13 +409,23 @@ export function ContentSplitPane({
         items={filtered} jobs={jobs} loading={loading} selectedId={selectedId}
         searchQuery={searchQuery} showNewForm={showNewForm} newPrompt={newPrompt}
         newTitle={newTitle} generating={generating} menuOpenId={menuOpenId}
-        confirmDeleteId={confirmDeleteId} metaLine={metaLine}
+        confirmDeleteId={confirmDeleteId} metaLine={metaLine} extraToolbar={extraToolbar}
         onSelect={setSelectedId} onSearch={setSearchQuery}
         onToggleNew={() => setShowNewForm(p => !p)} onNewPrompt={setNewPrompt}
         onNewTitle={setNewTitle} onGenerate={handleGenerate}
         onRefresh={onRefresh} onMenuToggle={setMenuOpenId}
         onDelete={async (id) => { await onDelete(id); if (selectedId === id) setSelectedId(null); setConfirmDeleteId(null); }}
         onDuplicate={onDuplicate} onConfirmDelete={setConfirmDeleteId}
+        sortBy={sortBy} onSortChange={setSortBy}
+        statusFilter={statusFilter} onStatusFilterChange={setStatusFilter}
+        dateFilter={dateFilter} onDateFilterChange={setDateFilter}
+        showFilters={showFilters} onToggleFilters={() => setShowFilters(p => !p)}
+        activeFilterCount={activeFilterCount}
+        favorites={favorites} onToggleFavorite={toggleFavorite}
+        bulkMode={bulkMode} onToggleBulkMode={() => setBulkMode(p => !p)}
+        bulkSelected={bulkSelected} onToggleBulkItem={toggleBulkItem}
+        onSelectAll={selectAllBulk} onClearBulk={clearBulk}
+        onBulkDelete={handleBulkDelete} onBulkExport={handleBulkExport}
       />
 
       {/* ========== RIGHT PANEL ========== */}
@@ -217,26 +461,46 @@ interface LeftPanelProps {
   searchQuery: string; showNewForm: boolean; newPrompt: string; newTitle: string;
   generating: boolean; menuOpenId: string | null; confirmDeleteId: string | null;
   metaLine?: (item: ContentItem) => React.ReactNode;
+  extraToolbar?: React.ReactNode;
   onSelect: (id: string) => void; onSearch: (q: string) => void;
   onToggleNew: () => void; onNewPrompt: (v: string) => void; onNewTitle: (v: string) => void;
   onGenerate: () => void; onRefresh: () => Promise<void>; onMenuToggle: (id: string | null) => void;
   onDelete: (id: string) => Promise<void>; onDuplicate: (item: ContentItem) => Promise<void>;
   onConfirmDelete: (id: string | null) => void;
+  sortBy: SortOption; onSortChange: (s: SortOption) => void;
+  statusFilter: StatusFilter; onStatusFilterChange: (s: StatusFilter) => void;
+  dateFilter: DateFilter; onDateFilterChange: (d: DateFilter) => void;
+  showFilters: boolean; onToggleFilters: () => void;
+  activeFilterCount: number;
+  favorites: Set<string>; onToggleFavorite: (id: string) => void;
+  isMobile?: boolean;
+  bulkMode: boolean; onToggleBulkMode: () => void;
+  bulkSelected: Set<string>; onToggleBulkItem: (id: string) => void;
+  onSelectAll: () => void; onClearBulk: () => void;
+  onBulkDelete: () => Promise<void>; onBulkExport: () => void;
 }
 
 function LeftPanel({
   colors, isDark, icon: Icon, label, isSlide, items, jobs, loading, selectedId,
   searchQuery, showNewForm, newPrompt, newTitle, generating, menuOpenId, confirmDeleteId,
-  metaLine, onSelect, onSearch, onToggleNew, onNewPrompt, onNewTitle,
+  metaLine, extraToolbar, onSelect, onSearch, onToggleNew, onNewPrompt, onNewTitle,
   onGenerate, onRefresh, onMenuToggle, onDelete, onDuplicate, onConfirmDelete,
+  sortBy, onSortChange, statusFilter, onStatusFilterChange,
+  dateFilter, onDateFilterChange, showFilters, onToggleFilters,
+  activeFilterCount, favorites, onToggleFavorite, isMobile,
+  bulkMode, onToggleBulkMode, bulkSelected, onToggleBulkItem,
+  onSelectAll, onClearBulk, onBulkDelete, onBulkExport,
 }: LeftPanelProps) {
   const border = `1px solid ${colors.border}`;
   const activeJobs = jobs.filter(j => j.status !== 'complete' && j.status !== 'failed');
 
   return (
     <div style={{
-      width: '40%', minWidth: '320px', maxWidth: '480px',
-      borderRight: border, display: 'flex', flexDirection: 'column',
+      width: isMobile ? '100%' : '40%',
+      minWidth: isMobile ? undefined : '320px',
+      maxWidth: isMobile ? undefined : '480px',
+      borderRight: isMobile ? 'none' : border,
+      display: 'flex', flexDirection: 'column',
       backgroundColor: colors.surface, flexShrink: 0,
     }}>
       {/* -- Top bar: title + new button -- */}
@@ -260,11 +524,19 @@ function LeftPanel({
           </span>
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
-          <button onClick={() => onRefresh()} style={{
+          <button onClick={() => onRefresh()} title="Refresh" style={{
             padding: '7px', background: 'none', border, borderRadius: '8px',
             color: colors.textMuted, cursor: 'pointer', display: 'flex',
             alignItems: 'center', justifyContent: 'center',
           }}><RefreshCw size={13} /></button>
+          <button onClick={onToggleBulkMode} title="Bulk select" style={{
+            padding: '7px', background: bulkMode ? `${colors.primaryYellow}18` : 'none',
+            border: bulkMode ? `1px solid ${colors.primaryYellow}40` : border,
+            borderRadius: '8px',
+            color: bulkMode ? colors.primaryYellow : colors.textMuted,
+            cursor: 'pointer', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+          }}><CheckCircle2 size={13} /></button>
           <button onClick={onToggleNew} style={{
             display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px',
             backgroundColor: showNewForm ? 'transparent' : colors.primaryYellow,
@@ -276,8 +548,63 @@ function LeftPanel({
             {showNewForm ? <X size={13} /> : <Plus size={13} />}
             {showNewForm ? 'CANCEL' : 'NEW'}
           </button>
+          {extraToolbar}
         </div>
       </div>
+
+      {/* -- Bulk action bar -- */}
+      {bulkMode && (
+        <div style={{
+          padding: '8px 16px', borderBottom: border,
+          display: 'flex', alignItems: 'center', gap: '8px',
+          backgroundColor: isDark ? 'rgba(254,192,15,0.04)' : 'rgba(254,192,15,0.06)',
+          animation: 'fadeIn 0.15s ease',
+        }}>
+          <span style={{
+            fontSize: '11px', fontFamily: "'Rajdhani', sans-serif",
+            fontWeight: 600, color: colors.textSecondary,
+            letterSpacing: '0.3px',
+          }}>
+            {bulkSelected.size} SELECTED
+          </span>
+          <button onClick={onSelectAll} style={{
+            padding: '3px 8px', borderRadius: '5px', fontSize: '10px',
+            fontFamily: "'Rajdhani', sans-serif", fontWeight: 600,
+            letterSpacing: '0.3px', cursor: 'pointer', border: `1px solid ${colors.borderSubtle}`,
+            backgroundColor: 'transparent', color: colors.textMuted,
+          }}>SELECT ALL</button>
+          {bulkSelected.size > 0 && (
+            <>
+              <button onClick={onBulkExport} style={{
+                padding: '3px 8px', borderRadius: '5px', fontSize: '10px',
+                fontFamily: "'Rajdhani', sans-serif", fontWeight: 600,
+                letterSpacing: '0.3px', cursor: 'pointer',
+                border: `1px solid ${colors.primaryYellow}40`,
+                backgroundColor: `${colors.primaryYellow}10`,
+                color: colors.primaryYellow,
+                display: 'flex', alignItems: 'center', gap: '4px',
+              }}><Download size={10} /> EXPORT</button>
+              <button onClick={onBulkDelete} style={{
+                padding: '3px 8px', borderRadius: '5px', fontSize: '10px',
+                fontFamily: "'Rajdhani', sans-serif", fontWeight: 600,
+                letterSpacing: '0.3px', cursor: 'pointer',
+                border: '1px solid rgba(239,68,68,0.3)',
+                backgroundColor: 'rgba(239,68,68,0.08)',
+                color: '#ef4444',
+                display: 'flex', alignItems: 'center', gap: '4px',
+              }}><Trash2 size={10} /> DELETE</button>
+            </>
+          )}
+          <button onClick={onClearBulk} style={{
+            marginLeft: 'auto',
+            padding: '3px 8px', borderRadius: '5px', fontSize: '10px',
+            fontFamily: "'Rajdhani', sans-serif", fontWeight: 600,
+            letterSpacing: '0.3px', cursor: 'pointer', border: `1px solid ${colors.borderSubtle}`,
+            backgroundColor: 'transparent', color: colors.textMuted,
+            display: 'flex', alignItems: 'center', gap: '4px',
+          }}><X size={9} /> DONE</button>
+        </div>
+      )}
 
       {/* -- New creation form (inline) -- */}
       {showNewForm && (
@@ -328,7 +655,7 @@ function LeftPanel({
         </div>
       )}
 
-      {/* -- Search bar -- */}
+      {/* -- Search bar + Filter/Sort controls -- */}
       <div style={{ padding: '10px 16px', borderBottom: border }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px',
@@ -338,7 +665,7 @@ function LeftPanel({
           <Search size={14} color={colors.textSecondary} />
           <input
             value={searchQuery} onChange={e => onSearch(e.target.value)}
-            placeholder="Search..." style={{
+            placeholder="Search title, content, tags..." style={{
               flex: 1, background: 'none', border: 'none', outline: 'none',
               color: colors.text, fontSize: '13px', fontFamily: "'Quicksand', sans-serif",
             }}
@@ -350,6 +677,154 @@ function LeftPanel({
             }}><X size={12} /></button>
           )}
         </div>
+
+        {/* Filter & Sort row */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px',
+        }}>
+          {/* Filter toggle */}
+          <button
+            onClick={onToggleFilters}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '5px',
+              padding: '5px 10px', borderRadius: '6px', fontSize: '11px',
+              fontFamily: "'Rajdhani', sans-serif", fontWeight: 600,
+              letterSpacing: '0.3px', cursor: 'pointer',
+              backgroundColor: showFilters || activeFilterCount > 0
+                ? `${colors.primaryYellow}18` : 'transparent',
+              border: `1px solid ${showFilters || activeFilterCount > 0
+                ? colors.primaryYellow + '40' : colors.borderSubtle}`,
+              color: showFilters || activeFilterCount > 0
+                ? colors.primaryYellow : colors.textMuted,
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <SlidersHorizontal size={11} />
+            FILTERS
+            {activeFilterCount > 0 && (
+              <span style={{
+                minWidth: '16px', height: '16px', borderRadius: '8px',
+                backgroundColor: colors.primaryYellow,
+                color: colors.darkGray,
+                fontSize: '9px', fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>{activeFilterCount}</span>
+            )}
+          </button>
+
+          {/* Sort dropdown */}
+          <div style={{ position: 'relative', marginLeft: 'auto' }}>
+            <select
+              value={sortBy}
+              onChange={(e) => onSortChange(e.target.value as SortOption)}
+              style={{
+                appearance: 'none',
+                padding: '5px 24px 5px 8px',
+                borderRadius: '6px', fontSize: '11px',
+                fontFamily: "'Rajdhani', sans-serif", fontWeight: 600,
+                letterSpacing: '0.3px', cursor: 'pointer',
+                backgroundColor: 'transparent',
+                border: `1px solid ${colors.borderSubtle}`,
+                color: colors.textMuted,
+                outline: 'none',
+              }}
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="title-az">Title A-Z</option>
+              <option value="title-za">Title Z-A</option>
+              <option value="updated">Last Updated</option>
+            </select>
+            <ArrowUpDown size={10} color={colors.textSecondary} style={{
+              position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)',
+              pointerEvents: 'none',
+            }} />
+          </div>
+        </div>
+
+        {/* Expanded filter chips */}
+        {showFilters && (
+          <div style={{
+            marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px',
+            animation: 'fadeIn 0.15s ease',
+          }}>
+            {/* Status filter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{
+                fontSize: '10px', fontFamily: "'Rajdhani', sans-serif",
+                fontWeight: 600, color: colors.textSecondary, minWidth: '42px',
+                letterSpacing: '0.3px',
+              }}>STATUS</span>
+              {(['all', 'complete', 'generating', 'draft'] as StatusFilter[]).map(s => (
+                <button
+                  key={s}
+                  onClick={() => onStatusFilterChange(s)}
+                  style={{
+                    padding: '3px 8px', borderRadius: '5px', fontSize: '10px',
+                    fontFamily: "'Rajdhani', sans-serif", fontWeight: 600,
+                    letterSpacing: '0.3px', cursor: 'pointer',
+                    textTransform: 'uppercase',
+                    backgroundColor: statusFilter === s
+                      ? `${colors.primaryYellow}20` : 'transparent',
+                    border: `1px solid ${statusFilter === s
+                      ? colors.primaryYellow + '50' : colors.borderSubtle}`,
+                    color: statusFilter === s ? colors.primaryYellow : colors.textSecondary,
+                    transition: 'all 0.15s ease',
+                  }}
+                >{s}</button>
+              ))}
+            </div>
+
+            {/* Date filter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{
+                fontSize: '10px', fontFamily: "'Rajdhani', sans-serif",
+                fontWeight: 600, color: colors.textSecondary, minWidth: '42px',
+                letterSpacing: '0.3px',
+              }}>DATE</span>
+              {(['all', 'today', 'week', 'month'] as DateFilter[]).map(d => (
+                <button
+                  key={d}
+                  onClick={() => onDateFilterChange(d)}
+                  style={{
+                    padding: '3px 8px', borderRadius: '5px', fontSize: '10px',
+                    fontFamily: "'Rajdhani', sans-serif", fontWeight: 600,
+                    letterSpacing: '0.3px', cursor: 'pointer',
+                    textTransform: 'uppercase',
+                    backgroundColor: dateFilter === d
+                      ? `${colors.primaryYellow}20` : 'transparent',
+                    border: `1px solid ${dateFilter === d
+                      ? colors.primaryYellow + '50' : colors.borderSubtle}`,
+                    color: dateFilter === d ? colors.primaryYellow : colors.textSecondary,
+                    transition: 'all 0.15s ease',
+                  }}
+                >{d === 'all' ? 'All' : d === 'today' ? 'Today' : d === 'week' ? 'This Week' : 'This Month'}</button>
+              ))}
+            </div>
+
+            {/* Clear filters */}
+            {activeFilterCount > 0 && (
+              <button
+                onClick={() => {
+                  onStatusFilterChange('all');
+                  onDateFilterChange('all');
+                }}
+                style={{
+                  alignSelf: 'flex-start',
+                  padding: '3px 8px', borderRadius: '5px', fontSize: '10px',
+                  fontFamily: "'Rajdhani', sans-serif", fontWeight: 600,
+                  letterSpacing: '0.3px', cursor: 'pointer',
+                  backgroundColor: 'transparent',
+                  border: `1px solid ${colors.borderSubtle}`,
+                  color: colors.textMuted,
+                  display: 'flex', alignItems: 'center', gap: '4px',
+                }}
+              >
+                <X size={9} /> CLEAR FILTERS
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* -- Active jobs -- */}
@@ -422,15 +897,36 @@ function LeftPanel({
             return (
               <div key={item.id} style={{ position: 'relative', marginBottom: '2px' }}>
                 <button
-                  onClick={() => onSelect(item.id)}
+                  onClick={() => bulkMode ? onToggleBulkItem(item.id) : onSelect(item.id)}
                   style={{
                     width: '100%', display: 'flex', alignItems: 'center', gap: '12px',
                     padding: '12px 12px', textAlign: 'left', cursor: 'pointer',
-                    backgroundColor: isActive ? (isDark ? '#252525' : '#eef0f2') : 'transparent',
-                    border: isActive ? `1px solid ${colors.primaryYellow}30` : '1px solid transparent',
+                    backgroundColor: bulkMode && bulkSelected.has(item.id)
+                      ? (isDark ? `${colors.primaryYellow}10` : `${colors.primaryYellow}08`)
+                      : isActive ? (isDark ? '#252525' : '#eef0f2') : 'transparent',
+                    border: bulkMode && bulkSelected.has(item.id)
+                      ? `1px solid ${colors.primaryYellow}40`
+                      : isActive ? `1px solid ${colors.primaryYellow}30` : '1px solid transparent',
                     borderRadius: '10px', transition: 'all 0.15s ease',
                   }}
                 >
+                  {/* Bulk checkbox */}
+                  {bulkMode && (
+                    <div style={{
+                      width: '20px', height: '20px', borderRadius: '5px', flexShrink: 0,
+                      border: bulkSelected.has(item.id)
+                        ? `2px solid ${colors.primaryYellow}`
+                        : `2px solid ${colors.borderSubtle}`,
+                      backgroundColor: bulkSelected.has(item.id)
+                        ? colors.primaryYellow : 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'all 0.15s ease',
+                    }}>
+                      {bulkSelected.has(item.id) && (
+                        <CheckCircle2 size={12} color={colors.darkGray} />
+                      )}
+                    </div>
+                  )}
                   <div style={{
                     width: '36px', height: '36px', borderRadius: '8px', flexShrink: 0,
                     backgroundColor: isActive
@@ -474,6 +970,22 @@ function LeftPanel({
                   )}
                 </button>
 
+                {/* Favorite star */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); onToggleFavorite(item.id); }}
+                  title={favorites.has(item.id) ? 'Remove from favorites' : 'Add to favorites'}
+                  style={{
+                    position: 'absolute', top: '10px', right: '28px', padding: '4px',
+                    background: 'none', border: 'none',
+                    color: favorites.has(item.id) ? colors.primaryYellow : colors.textSecondary,
+                    cursor: 'pointer',
+                    opacity: favorites.has(item.id) || isActive ? 1 : 0,
+                    transition: 'opacity 0.15s ease', borderRadius: '4px',
+                  }}
+                >
+                  <Star size={13} fill={favorites.has(item.id) ? colors.primaryYellow : 'none'} />
+                </button>
+
                 {/* Context menu trigger */}
                 <button
                   onClick={(e) => { e.stopPropagation(); onMenuToggle(isMenuOpen ? null : item.id); }}
@@ -496,16 +1008,18 @@ function LeftPanel({
                   }}>
                     {[
                       { icon: Copy, text: 'Duplicate', action: () => { onDuplicate(item); onMenuToggle(null); } },
-                      { icon: Download, text: isSlide ? 'Download .pptx' : 'Download', action: async () => {
-                        if (isSlide) {
-                          await downloadSlidesAsPptx(item.title, item.content);
-                        } else {
-                          const blob = new Blob([`${item.title}\n${'='.repeat(50)}\n\n${item.content}`], { type: 'text/plain' });
-                          const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-                          a.download = `${item.title.replace(/[^a-zA-Z0-9 ]/g, '')}.txt`; a.click();
+                      {
+                        icon: Download, text: isSlide ? 'Download .pptx' : 'Download', action: async () => {
+                          if (isSlide) {
+                            await downloadSlidesAsPptx(item.title, item.content);
+                          } else {
+                            const blob = new Blob([`${item.title}\n${'='.repeat(50)}\n\n${item.content}`], { type: 'text/plain' });
+                            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+                            a.download = `${item.title.replace(/[^a-zA-Z0-9 ]/g, '')}.txt`; a.click();
+                          }
+                          onMenuToggle(null);
                         }
-                        onMenuToggle(null);
-                      }},
+                      },
                       { icon: Trash2, text: 'Delete', action: () => { onConfirmDelete(item.id); onMenuToggle(null); }, danger: true },
                     ].map(({ icon: MI, text, action, danger }) => (
                       <button key={text} onClick={action} style={{
@@ -680,17 +1194,14 @@ function RightPanel({
           />
         </div>
 
-        {/* Content editor */}
+        {/* Rich Content Editor */}
         <div style={{ flex: 1, padding: '12px 20px 20px', overflow: 'hidden' }}>
-          <textarea
-            value={editContent} onChange={e => onEditContent(e.target.value)}
-            style={{
-              width: '100%', height: '100%', padding: '14px',
-              backgroundColor: colors.inputBg, border: `1px solid ${colors.borderSubtle}`,
-              borderRadius: '10px', color: colors.text, fontSize: '13px',
-              fontFamily: "'Quicksand', sans-serif", outline: 'none',
-              lineHeight: 1.7, resize: 'none',
-            }}
+          <RichEditor
+            content={editContent}
+            onChange={onEditContent}
+            colors={colors}
+            isDark={isDark}
+            onAutoSave={onSaveEdit}
           />
         </div>
       </div>
@@ -757,6 +1268,11 @@ function RightPanel({
           {extraActions && extraActions(selected)}
           {[
             { icon: Pencil, tip: 'Edit', action: () => onStartEdit(selected) },
+            {
+              icon: ClipboardCopy, tip: 'Copy to Clipboard', action: () => {
+                navigator.clipboard.writeText(selected.content || '').catch(() => { });
+              }
+            },
             { icon: Download, tip: 'Download', action: () => onDownload(selected) },
             { icon: Copy, tip: 'Duplicate', action: () => onDuplicate(selected) },
           ].map(({ icon: AI, tip, action }) => (

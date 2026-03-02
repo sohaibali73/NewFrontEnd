@@ -526,7 +526,100 @@ export interface MultiSkillResponse {
   total_execution_time: number;
 }
 
+// ==================== YFINANCE TYPES ====================
+
+export interface YFinanceDataRequest {
+  ticker: string;
+  include?: string;
+  exclude?: string;
+  history_period?: string;
+  history_interval?: string;
+  options_date?: string;
+}
+
+export interface YFinanceDataResponse {
+  ticker: string;
+  timestamp: string;
+  data: Record<string, any>;
+  metadata: {
+    requested_categories: string[];
+    history_period: string;
+    history_interval: string;
+    options_date?: string;
+  };
+  summary: {
+    total_categories_requested: number;
+    categories_successfully_fetched: number;
+    categories_with_errors: number;
+  };
+}
+
+export interface YFinanceSummary {
+  ticker: string;
+  timestamp: string;
+  company: {
+    name: string;
+    symbol: string;
+    currency: string;
+    exchange: string;
+    sector: string;
+    industry: string;
+    website: string;
+  };
+  market_data: {
+    current_price: number;
+    previous_close: number;
+    day_open: number;
+    day_high: number;
+    day_low: number;
+    volume: number;
+    market_cap: number;
+    year_high: number;
+    year_low: number;
+    year_change: number;
+  };
+  key_metrics: {
+    pe_ratio: number;
+    forward_pe: number;
+    eps: number;
+    forward_eps: number;
+    dividend_yield: number;
+    dividend_rate: number;
+    payout_ratio: number;
+    beta: number;
+    shares_outstanding: number;
+  };
+  financials: {
+    revenue: number;
+    gross_profit: number;
+    net_income: number;
+    operating_cashflow: number;
+    free_cashflow: number;
+  };
+}
+
+export interface YFinanceHistory {
+  ticker: string;
+  period: string;
+  interval: string;
+  timestamp: string;
+  data: Array<{
+    Open?: number;
+    High?: number;
+    Low?: number;
+    Close?: number;
+    Volume?: number;
+    [key: string]: any;
+  }>;
+  summary: {
+    total_records: number;
+    start_date: string | null;
+    end_date: string | null;
+  };
+}
+
 // ==================== GENERAL API TYPES ====================
+
 
 export interface ApiError {
   detail: string;

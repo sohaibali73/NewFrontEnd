@@ -14,9 +14,6 @@ import {
   ExternalLink,
   ChevronRight,
   ChevronLeft,
-  Zap,
-  Shield,
-  BarChart3,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -250,19 +247,20 @@ export function RegisterPage() {
     }}>
       {/* Left Side - Form */}
       <div style={{
-        width: isMobile ? '100%' : '550px',
+        flex: isMobile ? undefined : 1,
+        width: isMobile ? '100%' : undefined,
         backgroundColor: isDark ? '#121212' : '#ffffff',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
+        alignItems: 'center',
         padding: isSmallMobile ? '32px 24px' : '60px',
         borderRight: isMobile ? 'none' : `1px solid ${isDark ? '#2A2A2A' : '#e0e0e0'}`,
-        borderTop: isMobile ? `1px solid ${isDark ? '#2A2A2A' : '#e0e0e0'}` : 'none',
         overflowY: 'auto',
         minHeight: isMobile ? 'auto' : '100dvh',
         paddingBottom: isSmallMobile ? 'max(60px, env(safe-area-inset-bottom))' : '60px',
       }}>
-        <div style={{ maxWidth: '400px', margin: '0 auto', width: '100%' }}>
+        <div style={{ maxWidth: '440px', margin: '0 auto', width: '100%' }}>
           {/* Logo */}
           <div style={{
             display: 'flex',
@@ -718,12 +716,10 @@ export function RegisterPage() {
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: isSmallMobile ? '40px 24px' : '60px',
+        padding: '60px',
         position: 'relative',
         overflow: 'hidden',
-        minHeight: isMobile ? 'auto' : '100dvh',
-        paddingTop: isMobile ? '40px' : '60px',
-        paddingBottom: isSmallMobile ? 'max(60px, env(safe-area-inset-bottom))' : '60px',
+        minHeight: '100dvh',
       }}>
         {/* Background Effects */}
         <div style={{
@@ -756,13 +752,13 @@ export function RegisterPage() {
         {/* Content */}
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: '500px' }}>
           <div style={{
-            width: '120px',
-            height: '120px',
+            width: '100px',
+            height: '100px',
             borderRadius: '24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            margin: '0 auto 40px',
+            margin: '0 auto 32px',
             overflow: 'hidden',
           }}>
             <img 
@@ -778,7 +774,7 @@ export function RegisterPage() {
 
           <h1 style={{
             fontFamily: "'Rajdhani', sans-serif",
-            fontSize: '56px',
+            fontSize: '48px',
             fontWeight: 700,
             color: isDark ? '#FFFFFF' : '#1a1a1a',
             letterSpacing: '6px',
@@ -788,7 +784,7 @@ export function RegisterPage() {
           </h1>
           <p style={{
             fontFamily: "'Rajdhani', sans-serif",
-            fontSize: '18px',
+            fontSize: '16px',
             fontWeight: 500,
             color: '#FEC00F',
             letterSpacing: '10px',
@@ -797,31 +793,44 @@ export function RegisterPage() {
             BY POTOMAC
           </p>
 
-          {/* Features */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left' }}>
-            {[ 
-              { icon: Zap, text: 'AI-Powered AFL Code Generation' },
-              { icon: BarChart3, text: 'Advanced Backtest Analysis' },
-              { icon: Shield, text: 'Enterprise-Grade Security' },
-            ].map((feature, index) => (
-              <div
-                key={index}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '16px',
-                  padding: '16px 24px',
-                  backgroundColor: 'rgba(254, 192, 15, 0.05)',
-                  border: '1px solid rgba(254, 192, 15, 0.1)',
-                  borderRadius: '12px',
-                }}
-              >
-                <feature.icon size={24} color="#FEC00F" />
-                <span style={{ color: isDark ? '#E0E0E0' : '#444444', fontSize: '14px', fontWeight: 500 }}>
-                  {feature.text}
-                </span>
-              </div>
-            ))}
+          {/* Tagline */}
+          <div style={{
+            position: 'relative',
+            padding: '28px 40px',
+          }}>
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '60px',
+              height: '2px',
+              background: 'linear-gradient(90deg, transparent, #FEC00F, transparent)',
+            }} />
+            <h2
+              className="tagline-glow"
+              style={{
+                fontFamily: "'Rajdhani', sans-serif",
+                fontSize: '28px',
+                fontWeight: 700,
+                color: '#FEC00F',
+                letterSpacing: '6px',
+                textTransform: 'uppercase',
+                margin: 0,
+                lineHeight: 1.4,
+              }}
+            >
+              Break the Status Quo
+            </h2>
+            <div style={{
+              position: 'absolute',
+              bottom: 0,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '60px',
+              height: '2px',
+              background: 'linear-gradient(90deg, transparent, #FEC00F, transparent)',
+            }} />
           </div>
         </div>
 
@@ -831,8 +840,7 @@ export function RegisterPage() {
           color: '#757575',
           fontSize: '12px',
         }}>
-          © 2026 Potomac Fund Management. All rights reserved.
-          Developed by Sohaib Ali.
+          {'© 2026 Potomac Fund Management. All rights reserved.'}
         </p>
       </div>
 
@@ -841,6 +849,31 @@ export function RegisterPage() {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        @keyframes taglinePulse {
+          0%, 100% {
+            text-shadow:
+              0 0 10px  #FEC00F,
+              0 0 20px  #FEC00F,
+              0 0 40px  rgba(254, 192, 15, 0.85),
+              0 0 70px  rgba(254, 192, 15, 0.65),
+              0 0 110px rgba(254, 192, 15, 0.45),
+              0 0 160px rgba(254, 192, 15, 0.25);
+            opacity: 0.95;
+          }
+          50% {
+            text-shadow:
+              0 0 15px  #FEC00F,
+              0 0 30px  #FEC00F,
+              0 0 60px  rgba(254, 192, 15, 1),
+              0 0 100px rgba(254, 192, 15, 0.9),
+              0 0 150px rgba(254, 192, 15, 0.7),
+              0 0 200px rgba(254, 192, 15, 0.4);
+            opacity: 1;
+          }
+        }
+        .tagline-glow {
+          animation: taglinePulse 3.5s ease-in-out infinite;
         }
       `}</style>
     </div>

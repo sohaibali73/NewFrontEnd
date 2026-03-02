@@ -9,9 +9,6 @@ import {
   LogIn, 
   Loader2, 
   AlertCircle,
-  Zap,
-  BarChart3,
-  Shield,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -87,12 +84,10 @@ export function LoginPage() {
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: isSmallMobile ? '40px 24px' : '60px',
+        padding: isSmallMobile ? '48px 24px' : '60px',
         position: 'relative',
         overflow: 'hidden',
         minHeight: isMobile ? 'auto' : '100dvh',
-        paddingTop: isMobile ? '20px' : '60px',
-        paddingBottom: isMobile ? '30px' : '0',
       }}>
         {/* Background Pattern */}
         <div style={{
@@ -127,8 +122,8 @@ export function LoginPage() {
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: '500px' }}>
           {/* Logo */}
           <div style={{
-            width: '100px',
-            height: '100px',
+            width: isSmallMobile ? '80px' : '100px',
+            height: isSmallMobile ? '80px' : '100px',
             borderRadius: '24px',
             display: 'flex',
             alignItems: 'center',
@@ -149,7 +144,7 @@ export function LoginPage() {
 
           <h1 style={{
             fontFamily: "'Rajdhani', sans-serif",
-            fontSize: '48px',
+            fontSize: isSmallMobile ? '40px' : '48px',
             fontWeight: 700,
             color: isDark ? '#FFFFFF' : '#1a1a1a',
             letterSpacing: '4px',
@@ -159,62 +154,56 @@ export function LoginPage() {
           </h1>
           <p style={{
             fontFamily: "'Rajdhani', sans-serif",
-            fontSize: '16px',
+            fontSize: isSmallMobile ? '13px' : '16px',
             fontWeight: 500,
             color: '#FEC00F',
             letterSpacing: '8px',
-            marginBottom: '24px',
+            marginBottom: isSmallMobile ? '32px' : '48px',
           }}>
             BY POTOMAC
           </p>
-          <p style={{
-            color: isDark ? '#9E9E9E' : '#666666',
-            fontSize: '16px',
-            lineHeight: 1.7,
-            marginBottom: '48px',
-          }}>
-            Break the status quo<br />
-            Generate, analyze, and optimize AFL code with ease.
-          </p>
 
-          {/* Features */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {[
-              { icon: Zap, text: 'AI-Powered Code Generation' },
-              { icon: BarChart3, text: 'Advanced Backtest Analysis' },
-              { icon: Shield, text: 'Enterprise-Grade Security' },
-            ].map((feature, index) => (
-              <div
-                key={index}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '16px',
-                  padding: '16px 24px',
-                  backgroundColor: isDark ? 'rgba(254, 192, 15, 0.05)' : 'rgba(255, 255, 255, 0.8)',
-                  border: `1px solid ${isDark ? 'rgba(254, 192, 15, 0.1)' : 'rgba(254, 192, 15, 0.2)'}`,
-                  borderRadius: '12px',
-                  boxShadow: isDark ? 'none' : '0 2px 8px rgba(0,0,0,0.04)',
-                }}
-              >
-                <feature.icon size={24} color={isDark ? '#FEC00F' : '#d4a00a'} />
-                <span style={{ color: isDark ? '#E0E0E0' : '#333333', fontSize: '14px', fontWeight: 600 }}>
-                  {feature.text}
-                </span>
-              </div>
-            ))}
+          {/* Tagline - Sleek & Prominent */}
+          <div style={{
+            position: 'relative',
+            padding: isSmallMobile ? '20px 24px' : '28px 40px',
+            marginBottom: '0',
+          }}>
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '60px',
+              height: '2px',
+              background: 'linear-gradient(90deg, transparent, #FEC00F, transparent)',
+            }} />
+            <h2
+              className="tagline-glow"
+              style={{
+                fontFamily: "'Rajdhani', sans-serif",
+                fontSize: isSmallMobile ? '22px' : '28px',
+                fontWeight: 700,
+                color: '#FEC00F',
+                letterSpacing: '6px',
+                textTransform: 'uppercase',
+                margin: 0,
+                lineHeight: 1.4,
+              }}
+            >
+              Break the Status Quo
+            </h2>
+            <div style={{
+              position: 'absolute',
+              bottom: 0,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '60px',
+              height: '2px',
+              background: 'linear-gradient(90deg, transparent, #FEC00F, transparent)',
+            }} />
           </div>
         </div>
-
-        {/* Bottom Text */}
-        <p style={{
-          position: 'absolute',
-          bottom: '32px',
-          color: '#757575',
-          fontSize: '12px',
-        }}>
-          © 2026 Potomac Fund Management. All rights reserved.
-        </p>
       </div>
 
       {/* Right Side - Login Form */}
@@ -229,7 +218,7 @@ export function LoginPage() {
         borderTop: isMobile ? `1px solid ${isDark ? '#2A2A2A' : '#e8e0d0'}` : 'none',
         boxShadow: isDark ? 'none' : '-8px 0 30px rgba(0,0,0,0.06)',
         minHeight: isMobile ? 'auto' : '100dvh',
-        paddingBottom: isSmallMobile ? 'max(32px, env(safe-area-inset-bottom))' : '60px',
+        paddingBottom: isSmallMobile ? 'max(60px, env(safe-area-inset-bottom))' : '80px',
       }}>
         <div style={{ maxWidth: '360px', margin: '0 auto', width: '100%' }}>
           <h2 style={{
@@ -471,11 +460,60 @@ export function LoginPage() {
         </div>
       </div>
 
+      {/* Fixed Copyright Footer */}
+      <div style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        textAlign: 'center',
+        padding: '12px 16px',
+        backgroundColor: isDark ? 'rgba(10, 10, 11, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        borderTop: `1px solid ${isDark ? 'rgba(42, 42, 42, 0.5)' : 'rgba(0,0,0,0.06)'}`,
+        zIndex: 50,
+      }}>
+        <p style={{
+          color: '#757575',
+          fontSize: '12px',
+          margin: 0,
+          fontFamily: "'Quicksand', sans-serif",
+        }}>
+          {'© 2026 Potomac Fund Management. All rights reserved.'}
+        </p>
+      </div>
+
       {/* CSS Animation */}
       <style>{`
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        @keyframes taglinePulse {
+          0%, 100% {
+            text-shadow:
+              0 0 10px  #FEC00F,
+              0 0 20px  #FEC00F,
+              0 0 40px  rgba(254, 192, 15, 0.85),
+              0 0 70px  rgba(254, 192, 15, 0.65),
+              0 0 110px rgba(254, 192, 15, 0.45),
+              0 0 160px rgba(254, 192, 15, 0.25);
+            opacity: 0.95;
+          }
+          50% {
+            text-shadow:
+              0 0 15px  #FEC00F,
+              0 0 30px  #FEC00F,
+              0 0 60px  rgba(254, 192, 15, 1),
+              0 0 100px rgba(254, 192, 15, 0.9),
+              0 0 150px rgba(254, 192, 15, 0.7),
+              0 0 200px rgba(254, 192, 15, 0.4);
+            opacity: 1;
+          }
+        }
+        .tagline-glow {
+          animation: taglinePulse 3.5s ease-in-out infinite;
         }
       `}</style>
     </div>

@@ -1,178 +1,99 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL ||
+  'https://potomac-analyst-workbench-production.up.railway.app').replace(/\/+$/, '');
+
 /**
- * Next.js API Route: /api/upload
+ * Proxy route for File Upload
  * 
- * Proxies file upload requests to the backend.
- * Properly reconstructs FormData for the backend fetch.
+ * Proxies requests to backend: POST /chat/conversations/{conversation_id}/upload
+ * Supports file uploads with optional conversation context
+ * 
+ * Query params:
+ * - conversationId: The conversation to attach the file to (required)
+ * 
+ * Request body: multipart/form-data
+ * - file: binary file data
+ * 
+ * Response:
+ * {
+ *   file_id: string,
+ *   filename: string,
+ *   template_id?: string (if PPTX template),
+ *   template_layouts?: number,
+ *   is_template?: boolean
+ * }
  */
-
-import { NextRequest } from 'next/server';
-
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 
-  (process.env.NODE_ENV === 'development' 
-    ? 'http://localhost:8000' 
-    : 'https://potomac-analyst-workbench-production.up.railway.app')).replace(/\/+$/, '');
-
 export async function POST(req: NextRequest) {
-  const startTime = Date.now();
-  
   try {
-    // Get conversation ID from query params
-    const conversationId = req.nextUrl.searchParams.get('conversationId');
-    
+    // Get conversationId from query params
+    const { searchParams } = new URL(req.url);
+    const conversationId = searchParams.get('conversationId');
+
     if (!conversationId) {
-      return new Response(
-        JSON.stringify({ error: 'conversationId is required' }), 
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      return NextResponse.json(
+        { detail: 'conversationId query parameter is required' },
+        { status: 400 }
       );
     }
 
-    // Get auth token
-    const authToken = req.headers.get('authorization') || '';
+    // Read the multipart form data
+    const formData = await req.formData();
 
-    // Validate request content-length to prevent oversized uploads
-    const contentLength = req.headers.get('content-length');
-    if (contentLength && parseInt(contentLength) > 52428800) { // 50MB
-      return new Response(
-        JSON.stringify({ error: 'File is too large (max 50MB)' }), 
-        { status: 413, headers: { 'Content-Type': 'application/json' } }
+    if (!formData.has('file')) {
+      return NextResponse.json(
+        { detail: 'File is required in form data' },
+        { status: 400 }
       );
     }
 
-    // Get the raw form data from the request
-    let incomingFormData;
+    // Get auth token from request headers
+    const authHeader = req.headers.get('authorization');
+
+    let response: Response;
     try {
-      incomingFormData = await req.formData();
-    } catch (err) {
-      console.error('[v0] FormData parse error:', err);
-      return new Response(
-        JSON.stringify({ error: 'Failed to parse request data' }), 
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const file = incomingFormData.get('file') || incomingFormData.get('audio');
-    
-    if (!file || !(file instanceof File)) {
-      return new Response(
-        JSON.stringify({ error: 'No file provided or invalid file format' }), 
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`[v0] Processing upload: ${file.name} (${file.size} bytes, ${file.type})`);
-
-    // Handle audio transcription for SpeechInput fallback
-    if (file.type.startsWith('audio/')) {
-      try {
-        // Reconstruct FormData for transcription endpoint
-        const transcribeFormData = new FormData();
-        transcribeFormData.append('audio', file, file.name);
-
-        const transcribeResponse = await fetch(
-          `${API_BASE_URL}/chat/conversations/${conversationId}/transcribe`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': authToken,
-            },
-            body: transcribeFormData,
-          }
-        );
-
-        if (transcribeResponse.ok) {
-          const transcribeData = await transcribeResponse.json();
-          return new Response(JSON.stringify({
-            transcript: transcribeData.transcript || transcribeData.text || '',
-            success: true,
-          }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          });
-        } else {
-          // Fallback: return empty transcript if transcription fails
-          return new Response(JSON.stringify({
-            transcript: '',
-            success: false,
-            error: 'Transcription service unavailable',
-          }), {
-            status: 200, // Return 200 so SpeechInput doesn't error
-            headers: { 'Content-Type': 'application/json' },
-          });
+      response = await fetch(
+        `${BACKEND_URL}/chat/conversations/${conversationId}/upload`,
+        {
+          method: 'POST',
+          headers: {
+            ...(authHeader && { 'Authorization': authHeader }),
+          },
+          body: formData,
         }
-      } catch {
-        return new Response(JSON.stringify({
-          transcript: '',
-          success: false,
-          error: 'Transcription failed',
-        }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-    }
-
-    // Regular file upload (documents, images, etc.)
-    // Route to /chat/conversations/{id}/upload — the actual backend endpoint
-    const backendFormData = new FormData();
-    backendFormData.append('file', file, file.name);
-
-    const backendResponse = await fetch(
-      `${API_BASE_URL}/chat/conversations/${conversationId}/upload`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': authToken,
-          // Don't set Content-Type — let fetch set it with boundary automatically
-        },
-        body: backendFormData,
-      }
-    );
-
-    if (!backendResponse.ok) {
-      let errorDetail = `Upload failed with status ${backendResponse.status}`;
-      try {
-        const errorBody = await backendResponse.json();
-        errorDetail = errorBody.detail || errorBody.error || errorDetail;
-      } catch {
-        // Response may not be JSON
-        try {
-          errorDetail = await backendResponse.text();
-        } catch {}
-      }
-      
-      const duration = Date.now() - startTime;
-      console.error(`[v0] Upload proxy error (${duration}ms): ${backendResponse.status} - ${errorDetail}`);
-      
-      return new Response(
-        JSON.stringify({ 
-          error: errorDetail,
-          status: backendResponse.status,
-          file: file.name
-        }), 
-        { status: backendResponse.status, headers: { 'Content-Type': 'application/json' } }
+      );
+    } catch (fetchErr) {
+      return NextResponse.json(
+        { detail: 'Cannot connect to the backend upload service. Please try again later.' },
+        { status: 502 }
       );
     }
 
-    const data = await backendResponse.json();
-    const duration = Date.now() - startTime;
-    console.log(`[v0] Upload successful (${duration}ms): ${file.name}`);
-
-    // If backend auto-registered a .pptx as template, include that info
-    // so the frontend can show a toast about it
-    if (data.is_template && data.template_id) {
-      data.message = `📎 Uploaded ${file.name} — also registered as presentation template (${data.template_layouts} layouts). Say "use my template" when creating presentations.`;
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({
+        detail: `Upload failed: ${response.status}`,
+      }));
+      return NextResponse.json(error, { status: response.status });
     }
 
-    return new Response(JSON.stringify(data), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-
+    // Return the backend response (file metadata)
+    const data = await response.json();
+    return NextResponse.json(data, { status: 200 });
   } catch (error) {
-    console.error('Upload API route error:', error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Upload failed' }), 
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    console.error('[API/upload]', error);
+    return NextResponse.json(
+      { detail: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
     );
   }
+}
+
+/**
+ * Support GET for status/test
+ */
+export async function GET(req: NextRequest) {
+  return NextResponse.json(
+    { message: 'Upload endpoint is ready. Use POST to upload files.' },
+    { status: 200 }
+  );
 }

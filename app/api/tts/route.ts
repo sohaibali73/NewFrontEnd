@@ -1,59 +1,65 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL ||
+  'https://potomac-analyst-workbench-production.up.railway.app').replace(/\/+$/, '');
+
 /**
- * Next.js API Route: /api/tts
- * Proxies TTS requests to the backend's edge-tts endpoint.
+ * Proxy route for Text-to-Speech
+ * 
+ * Proxies requests to backend: POST /chat/tts
+ * Supports edge-tts voice synthesis
+ * 
+ * Request body:
+ * {
+ *   text: string,
+ *   voice?: string (e.g., 'en-US-AriaNeural')
+ * }
+ * 
+ * Returns: MP3 audio stream (audio/mpeg)
  */
-import { NextRequest } from 'next/server';
-
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 
-  (process.env.NODE_ENV === 'development' 
-    ? 'http://localhost:8000' 
-    : 'https://potomac-analyst-workbench-production.up.railway.app')).replace(/\/+$/, '');
-
-export const maxDuration = 30;
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const authToken = req.headers.get('authorization') || '';
+    const { text, voice = 'en-US-AriaNeural' } = body;
 
-    // Add timeout for TTS generation (15s should be plenty)
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+      return NextResponse.json(
+        { detail: 'Text is required and must not be empty' },
+        { status: 400 }
+      );
+    }
+
+    // Get auth token from request headers
+    const authHeader = req.headers.get('authorization');
 
     let response: Response;
     try {
-      response = await fetch(`${API_BASE_URL}/chat/tts`, {
+      response = await fetch(`${BACKEND_URL}/chat/tts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': authToken,
+          ...(authHeader && { 'Authorization': authHeader }),
         },
-        body: JSON.stringify({
-          text: body.text || '',
-          voice: body.voice || 'en-US-AriaNeural',
-        }),
-        signal: controller.signal,
+        body: JSON.stringify({ text, voice }),
       });
     } catch (fetchErr) {
-      clearTimeout(timeoutId);
-      const isTimeout = fetchErr instanceof Error && fetchErr.name === 'AbortError';
-      return new Response(
-        JSON.stringify({ error: isTimeout ? 'TTS generation timed out' : 'Cannot reach TTS service' }),
-        { status: isTimeout ? 504 : 502, headers: { 'Content-Type': 'application/json' } }
+      return NextResponse.json(
+        { detail: 'Cannot connect to the backend TTS service. Please try again later.' },
+        { status: 502 }
       );
     }
-    clearTimeout(timeoutId);
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: `TTS error: ${response.status}` }));
-      return new Response(JSON.stringify({ error: error.detail }), { 
-        status: response.status, 
-        headers: { 'Content-Type': 'application/json' } 
-      });
+      const error = await response.json().catch(() => ({
+        detail: `TTS Error: ${response.status}`,
+      }));
+      return NextResponse.json(error, { status: response.status });
     }
 
-    // Stream the audio back
-    return new Response(response.body, {
+    // TTS returns audio/mpeg stream
+    const audioBuffer = await response.arrayBuffer();
+
+    return new NextResponse(audioBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'audio/mpeg',
@@ -61,9 +67,23 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'TTS failed' }), 
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    console.error('[API/tts]', error);
+    return NextResponse.json(
+      { detail: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
     );
   }
+}
+
+/**
+ * HEAD request support for TTS endpoint
+ */
+export async function HEAD(req: NextRequest) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Content-Type': 'audio/mpeg',
+      'Accept': 'POST',
+    },
+  });
 }

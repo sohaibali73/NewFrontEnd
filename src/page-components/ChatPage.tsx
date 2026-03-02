@@ -284,7 +284,7 @@ export function ChatPage() {
         duration: 8000,
       });
     },
-    experimental_throttle: 50, // Throttle UI updates for smoother streaming
+    // experimental_throttle removed — v5-only option, not supported in AI SDK v6
   });
 
   const isStreaming = status === 'streaming' || status === 'submitted';

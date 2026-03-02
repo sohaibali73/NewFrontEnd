@@ -25,8 +25,11 @@ const UI_MESSAGE_STREAM_HEADERS = {
   'x-vercel-ai-ui-message-stream': 'v1',
 };
 
-// Increase to 300s for Vercel Pro (skills/tool calls can take 60-120s).
-// On Hobby plan this caps at 60s — upgrade to Pro for full skill support.
+// Edge runtime: CPU-time billing (not wall-clock), so I/O-heavy streaming
+// proxying doesn't count against the limit. On Vercel Hobby this gives
+// effectively unlimited streaming time for responses (30s CPU budget).
+export const runtime = 'edge';
+// maxDuration is ignored on Hobby but documents intent for Pro upgrade.
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
@@ -80,7 +83,7 @@ export async function POST(req: NextRequest) {
       const formattingInstruction = '\n\n[FORMATTING: Do not use any emojis whatsoever in your response. Use clear, professional formatting with proper markdown headings, bullet points, and structured sections. Keep responses concise and data-driven.]';
       const enhancedMessage = messageText + formattingInstruction;
 
-      backendResponse = await fetch(`${API_BASE_URL}/chat/stream`, {
+      backendResponse = await fetch(`${API_BASE_URL}/chat/v6`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

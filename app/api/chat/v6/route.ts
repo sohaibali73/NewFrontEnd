@@ -12,6 +12,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ||
     ? 'http://localhost:8000' 
     : 'https://potomac-analyst-workbench-production.up.railway.app');
 
+// Edge runtime: CPU-time billing prevents wall-clock timeouts during long streams.
+export const runtime = 'edge';
 // 300s for Vercel Pro (skills/tool calls can take 60-120s)
 export const maxDuration = 300;
 

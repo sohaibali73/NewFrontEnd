@@ -143,6 +143,8 @@ export async function POST(req: NextRequest) {
 
     // Process the backend stream in the background
     (async () => {
+      // Hoist keepaliveTimer so it's accessible in the finally block
+      let keepaliveTimer: ReturnType<typeof setInterval> | null = null;
       try {
         if (!backendResponse.body) {
           await writeSSE({ type: 'start', messageId: `msg-${Date.now()}` });
@@ -168,7 +170,7 @@ export async function POST(req: NextRequest) {
 
         // Keepalive: send SSE comments periodically to prevent proxy/CDN/Vercel timeouts
         // SSE comments (lines starting with ':') are ignored by EventSource clients
-        const keepaliveTimer = setInterval(async () => {
+        keepaliveTimer = setInterval(async () => {
           try {
             if (Date.now() - lastActivity > KEEPALIVE_INTERVAL) {
               await writer.write(encoder.encode(': keepalive\n\n'));
@@ -355,7 +357,7 @@ export async function POST(req: NextRequest) {
           await writer.write(encoder.encode('data: [DONE]\n\n'));
         } catch { /* writer may be closed */ }
       } finally {
-        clearInterval(keepaliveTimer);
+        if (keepaliveTimer) clearInterval(keepaliveTimer);
         try { await writer.close(); } catch { /* already closed */ }
       }
     })();

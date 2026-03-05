@@ -30,7 +30,10 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
   const [downloading, setDownloading] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
 
-  if (!output || !output.success) {
+  // Handle various success indicators from different tool implementations
+  const isSuccess = output?.success === true || output?.download_url || output?.document_id || output?.presentation_id || output?.filename;
+
+  if (!output || (!isSuccess && output?.error)) {
     return (
       <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 my-3">
         <div className="flex items-center gap-2 text-red-400">
@@ -42,12 +45,15 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
     );
   }
 
-  const isDocx = output.tool === 'create_word_document';
-  const isPptx = output.tool === 'create_pptx_with_skill' || output.tool === 'create_presentation';
-  const Icon = isDocx ? FileText : Presentation;
-  const fileType = isDocx ? 'Word Document' : 'PowerPoint Presentation';
-  const extension = isDocx ? '.docx' : '.pptx';
-  const accentColor = isDocx ? 'blue' : 'amber';
+  // Detect file type from tool name or filename
+  const toolName = output.tool || '';
+  const fileName = output.filename || '';
+  const isDocx = toolName.includes('word') || toolName.includes('docx') || toolName.includes('document') || fileName.endsWith('.docx') || fileName.endsWith('.doc');
+  const isPptx = toolName.includes('pptx') || toolName.includes('presentation') || toolName.includes('powerpoint') || fileName.endsWith('.pptx') || fileName.endsWith('.ppt') || !!output.slide_count || !!output.presentation_id;
+  const Icon = isPptx ? Presentation : FileText;
+  const fileType = isPptx ? 'PowerPoint Presentation' : 'Word Document';
+  const extension = isPptx ? '.pptx' : '.docx';
+  const accentColor = isPptx ? 'amber' : 'blue';
 
   const handleDownload = async () => {
     setDownloading(true);

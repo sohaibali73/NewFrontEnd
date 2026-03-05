@@ -32,6 +32,9 @@ export const runtime = 'edge';
 // maxDuration is ignored on Hobby but documents intent for Pro upgrade.
 export const maxDuration = 300;
 
+// Keepalive interval (ms) — send SSE comments to prevent proxy/CDN timeouts
+const KEEPALIVE_INTERVAL = 15000; // 15 seconds
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -161,12 +164,25 @@ export async function POST(req: NextRequest) {
         // Track tool calls to prevent duplicate input-start events
         const toolInputStartedSet = new Set<string>();
         let finishSent = false;
+        let lastActivity = Date.now();
+
+        // Keepalive: send SSE comments periodically to prevent proxy/CDN/Vercel timeouts
+        // SSE comments (lines starting with ':') are ignored by EventSource clients
+        const keepaliveTimer = setInterval(async () => {
+          try {
+            if (Date.now() - lastActivity > KEEPALIVE_INTERVAL) {
+              await writer.write(encoder.encode(': keepalive\n\n'));
+            }
+          } catch { /* writer closed, timer will be cleared */ }
+        }, KEEPALIVE_INTERVAL);
 
         await writeSSE({ type: 'start', messageId });
+        lastActivity = Date.now();
         
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+          lastActivity = Date.now();
 
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
@@ -339,6 +355,7 @@ export async function POST(req: NextRequest) {
           await writer.write(encoder.encode('data: [DONE]\n\n'));
         } catch { /* writer may be closed */ }
       } finally {
+        clearInterval(keepaliveTimer);
         try { await writer.close(); } catch { /* already closed */ }
       }
     })();

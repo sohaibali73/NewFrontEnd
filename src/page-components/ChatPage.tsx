@@ -376,8 +376,32 @@ export function ChatPage() {
       justFinishedStreamRef.current = null;
       return;
     }
+
+    // === INSTANT CACHE LOAD ===
+    // Show cached messages IMMEDIATELY to prevent blank screen during API fetch
+    const memCached = messageCacheRef.current[conversationId];
+    if (memCached && memCached.length > 0) {
+      setMessages(memCached);
+    } else {
+      // Try sessionStorage as fallback
+      try {
+        const sessionRaw = sessionStorage.getItem(`chat_msgs_${conversationId}`);
+        if (sessionRaw) {
+          const sessionCached = JSON.parse(sessionRaw);
+          if (sessionCached.length > 0) {
+            setMessages(sessionCached);
+            messageCacheRef.current[conversationId] = sessionCached;
+          }
+        }
+      } catch { /* ignore */ }
+    }
+
+    // === BACKGROUND REFRESH from backend ===
     try {
       const data = await apiClient.getMessages(conversationId);
+      
+      // If conversation changed while we were fetching, discard stale results
+      if (conversationIdRef.current !== conversationId) return;
 
       // Load cached parts from localStorage (preserves artifacts/tool outputs across navigation)
       let cachedParts: Record<string, any[]> = {};
@@ -386,15 +410,27 @@ export function ChatPage() {
         if (raw) cachedParts = JSON.parse(raw);
       } catch {}
 
-      setMessages(data.map((m: any) => ({
+      const newMessages = data.map((m: any) => ({
         id: m.id,
         role: m.role,
         content: m.content || '',
         // Priority: 1) cached parts from localStorage, 2) backend metadata.parts, 3) plain text fallback
         parts: cachedParts[m.id] || m.metadata?.parts || [{ type: 'text', text: m.content || '' }],
         createdAt: m.created_at ? new Date(m.created_at) : new Date(),
-      })));
-    } catch { setMessages([]); }
+      }));
+
+      // Only update if we got data (don't clear existing cache with empty result)
+      if (newMessages.length > 0) {
+        setMessages(newMessages);
+        messageCacheRef.current[conversationId] = newMessages;
+      }
+    } catch {
+      // Don't clear messages on error — keep showing cached data
+      if (!memCached || memCached.length === 0) {
+        // Only clear if we had nothing cached either
+        setMessages([]);
+      }
+    }
   };
 
   // Track whether we just created a new conversation (to skip re-loading messages)
@@ -402,6 +438,28 @@ export function ChatPage() {
   // Track which conversation just finished streaming — prevents loadPreviousMessages from wiping tool UI parts
   // Stores the conversationId (not boolean) so it's scoped to the right conversation
   const justFinishedStreamRef = useRef<string | null>(null);
+
+  // === FULL MESSAGE CACHE ===
+  // Cache complete message arrays per conversation to prevent blank screen on switch
+  const messageCacheRef = useRef<Record<string, any[]>>({});
+
+  // Save current messages to cache whenever they change (debounced via conversation ID)
+  useEffect(() => {
+    const convId = conversationIdRef.current;
+    if (convId && streamMessages.length > 0) {
+      messageCacheRef.current[convId] = streamMessages.map((m: any) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content || '',
+        parts: m.parts || [{ type: 'text', text: m.content || '' }],
+        createdAt: m.createdAt,
+      }));
+      // Also persist to sessionStorage for tab-level persistence
+      try {
+        sessionStorage.setItem(`chat_msgs_${convId}`, JSON.stringify(messageCacheRef.current[convId]));
+      } catch { /* storage full, ignore */ }
+    }
+  }, [streamMessages]);
 
   const handleNewConversation = async () => {
     try {
@@ -934,6 +992,44 @@ export function ChatPage() {
                   case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="create_presentation" input={part.input} />;
                   case 'output-available': return <PresentationCard key={pIdx} {...(typeof part.output === 'object' ? part.output : {})} />;
                   case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Presentation error: {part.errorText}</div>;
+                  default: return null;
+                }
+
+              // ===== SKILL TOOL ALIASES =====
+              // Catch alternate tool names the backend/Claude skills might use for document creation
+              case 'tool-create_document':
+              case 'tool-create_docx':
+              case 'tool-generate_document':
+              case 'tool-generate_docx':
+              case 'tool-create_word_doc':
+                switch (part.state) {
+                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName={part.type?.replace('tool-', '') || 'create_document'} input={part.input} />;
+                  case 'output-available': return <DocumentDownloadCard key={pIdx} output={typeof part.output === 'object' ? part.output : {}} />;
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Document error: {part.errorText}</div>;
+                  default: return null;
+                }
+
+              // PPTX alternate names
+              case 'tool-create_pptx':
+              case 'tool-generate_pptx':
+              case 'tool-generate_presentation':
+              case 'tool-create_powerpoint':
+                switch (part.state) {
+                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName={part.type?.replace('tool-', '') || 'create_pptx'} input={part.input} />;
+                  case 'output-available': return <DocumentDownloadCard key={pIdx} output={typeof part.output === 'object' ? part.output : {}} />;
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Presentation error: {part.errorText}</div>;
+                  default: return null;
+                }
+
+              // Web search alternate names (brave_search, search_web, etc.)
+              case 'tool-brave_search':
+              case 'tool-search_web':
+              case 'tool-web_search_tool':
+              case 'tool-internet_search':
+                switch (part.state) {
+                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="web_search" input={part.input} />;
+                  case 'output-available': return <WebSearchResults key={pIdx} {...(typeof part.output === 'object' ? part.output : {})} />;
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Search error: {part.errorText}</div>;
                   default: return null;
                 }
 

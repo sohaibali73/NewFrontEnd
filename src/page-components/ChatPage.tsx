@@ -28,6 +28,7 @@ import { Attachments, Attachment, AttachmentPreview, AttachmentInfo, AttachmentR
 import { Sources, SourcesTrigger, SourcesContent, Source } from '@/components/ai-elements/sources';
 import { Artifact, ArtifactHeader, ArtifactTitle, ArtifactContent, ArtifactActions, ArtifactAction } from '@/components/ai-elements/artifact';
 import { DocumentGenerator } from '@/components/ai-elements/document-generator';
+import DocumentDownloadCard from '@/components/ai-elements/document-download-card';
 import { ChainOfThought, ChainOfThoughtHeader, ChainOfThoughtContent, ChainOfThoughtStep } from '@/components/ai-elements/chain-of-thought';
 import { SpeechInput } from '@/components/ai-elements/speech-input';
 import { WebPreview, WebPreviewNavigation, WebPreviewNavigationButton, WebPreviewBody, WebPreviewConsole } from '@/components/ai-elements/web-preview';
@@ -906,6 +907,24 @@ export function ChatPage() {
                   case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="get_options_snapshot" input={part.input} />;
                   case 'output-available': return <OptionsSnapshot key={pIdx} {...(typeof part.output === 'object' ? part.output : {})} />;
                   case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Options error: {part.errorText}</div>;
+                  default: return null;
+                }
+
+              // Create Word Document (DOCX)
+              case 'tool-create_word_document':
+                switch (part.state) {
+                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="create_word_document" input={part.input} />;
+                  case 'output-available': return <DocumentDownloadCard key={pIdx} output={typeof part.output === 'object' ? part.output : {}} />;
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Document generation error: {part.errorText}</div>;
+                  default: return null;
+                }
+
+              // Create PPTX with Skill (Enhanced Presentation)
+              case 'tool-create_pptx_with_skill':
+                switch (part.state) {
+                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="create_pptx_with_skill" input={part.input} />;
+                  case 'output-available': return <DocumentDownloadCard key={pIdx} output={typeof part.output === 'object' ? part.output : {}} />;
+                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Presentation generation error: {part.errorText}</div>;
                   default: return null;
                 }
 

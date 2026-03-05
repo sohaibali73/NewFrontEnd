@@ -1225,6 +1225,48 @@ class APIClient {
     return response.blob();
   }
 
+  // ==================== DOCUMENT GENERATION ENDPOINTS ====================
+
+  /**
+   * Download a generated Word document (.docx) by document ID
+   */
+  async downloadDocument(documentId: string): Promise<Blob> {
+    const token = this.getToken();
+    const headers: HeadersInit = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE_URL}/chat/document/${documentId}`, { headers, mode: 'cors', credentials: 'omit' });
+    if (!response.ok) throw new Error(`Document download failed: ${response.status}`);
+    return response.blob();
+  }
+
+  /**
+   * Download a generated presentation (.pptx) by presentation ID from chat
+   */
+  async downloadChatPresentation(presentationId: string): Promise<Blob> {
+    const token = this.getToken();
+    const headers: HeadersInit = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${API_BASE_URL}/chat/presentation/${presentationId}`, { headers, mode: 'cors', credentials: 'omit' });
+    if (!response.ok) throw new Error(`Presentation download failed: ${response.status}`);
+    return response.blob();
+  }
+
+  /**
+   * Get the download URL for a generated document
+   */
+  getDocumentDownloadUrl(documentId: string): string {
+    return `${API_BASE_URL}/chat/document/${documentId}`;
+  }
+
+  /**
+   * Get the download URL for a chat-generated presentation
+   */
+  getChatPresentationDownloadUrl(presentationId: string): string {
+    return `${API_BASE_URL}/chat/presentation/${presentationId}`;
+  }
+
   async deletePresentation(id: string) {
     return this.request<{ success: boolean }>(`/presentations/${id}`, 'DELETE');
   }

@@ -1107,6 +1107,20 @@ export function ChatPage() {
               // v6: Dynamic tools — use AI Elements Tool composable
               case 'dynamic-tool': {
                 const dynToolName = part.toolName || 'unknown';
+                // Smart detection: If tool output looks like a document, render DocumentDownloadCard
+                if (part.state === 'output-available' && typeof part.output === 'object' && part.output) {
+                  const out = part.output as any;
+                  if (out.download_url || out.document_id || out.presentation_id ||
+                      dynToolName.includes('document') || dynToolName.includes('docx') || dynToolName.includes('pptx') ||
+                      dynToolName.includes('word') || dynToolName.includes('presentation') || dynToolName.includes('powerpoint')) {
+                    return <DocumentDownloadCard key={pIdx} output={out} />;
+                  }
+                  // If output looks like web search results
+                  if (out.results && Array.isArray(out.results) && out.results[0]?.url &&
+                      (dynToolName.includes('search') || dynToolName.includes('web'))) {
+                    return <WebSearchResults key={pIdx} {...out} />;
+                  }
+                }
                 switch (part.state) {
                   case 'input-streaming':
                   case 'input-available':
@@ -1138,6 +1152,15 @@ export function ChatPage() {
               default:
                 if (part.type?.startsWith('tool-')) {
                   const toolName = part.type.replace('tool-', '');
+                  // Smart detection: If tool output contains document/download data, use DocumentDownloadCard
+                  if (part.state === 'output-available' && typeof part.output === 'object' && part.output) {
+                    const out = part.output as any;
+                    if (out.download_url || out.document_id || out.presentation_id ||
+                        toolName.includes('document') || toolName.includes('docx') || toolName.includes('pptx') ||
+                        toolName.includes('word') || toolName.includes('presentation')) {
+                      return <DocumentDownloadCard key={pIdx} output={out} />;
+                    }
+                  }
                   switch (part.state) {
                     case 'input-streaming':
                     case 'input-available':

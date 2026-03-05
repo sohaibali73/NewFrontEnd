@@ -2,8 +2,7 @@
 
 import React, { useState } from 'react';
 import { FileText, Presentation, Download, CheckCircle, Loader2, FileIcon, ExternalLink } from 'lucide-react';
-import { apiClient } from '@/lib/api';
-import { getApiUrl } from '@/lib/env';
+import { getApiUrl, getProxyUrl } from '@/lib/env';
 
 interface DocumentDownloadCardProps {
   output: {
@@ -58,23 +57,34 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const API_BASE = getApiUrl();
       const downloadUrl = output.download_url;
       
       if (!downloadUrl) {
         throw new Error('No download URL available');
       }
 
-      // Build full URL
-      const fullUrl = downloadUrl.startsWith('http') ? downloadUrl : `${API_BASE}${downloadUrl}`;
-      
-      // Fetch the file
+      // Fetch the file - use Next.js proxy to avoid CORS issues
+      // Backend returns relative paths like /chat/document/<id> or /chat/presentation/<id>
+      // Route through /api/backend/* proxy (configured in next.config.js)
+      let fetchUrl: string;
+      if (downloadUrl.startsWith('http')) {
+        // Already a full URL — use directly
+        fetchUrl = downloadUrl;
+      } else {
+        // Relative path — use the Next.js proxy to avoid CORS
+        fetchUrl = getProxyUrl(downloadUrl);
+      }
+
       const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
       const headers: HeadersInit = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const response = await fetch(fullUrl, { headers, mode: 'cors', credentials: 'omit' });
-      if (!response.ok) throw new Error(`Download failed: ${response.status}`);
+      console.log('[DocumentDownload] Fetching:', fetchUrl);
+      const response = await fetch(fetchUrl, { headers });
+      if (!response.ok) {
+        const errText = await response.text().catch(() => `HTTP ${response.status}`);
+        throw new Error(`Download failed (${response.status}): ${errText.substring(0, 200)}`);
+      }
       
       const blob = await response.blob();
       
@@ -91,7 +101,34 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
       setDownloaded(true);
       setTimeout(() => setDownloaded(false), 3000);
     } catch (error) {
-      console.error('Download error:', error);
+      console.error('[DocumentDownload] Error:', error);
+      // Also try direct backend URL as fallback
+      try {
+        const API_BASE = getApiUrl();
+        const downloadUrl = output.download_url;
+        if (downloadUrl && !downloadUrl.startsWith('http')) {
+          const directUrl = `${API_BASE}${downloadUrl}`;
+          console.log('[DocumentDownload] Retrying with direct URL:', directUrl);
+          const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+          const headers: HeadersInit = {};
+          if (token) headers['Authorization'] = `Bearer ${token}`;
+          const response = await fetch(directUrl, { headers, mode: 'cors', credentials: 'omit' });
+          if (response.ok) {
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = output.filename || `document${extension}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            setDownloaded(true);
+            setTimeout(() => setDownloaded(false), 3000);
+            return;
+          }
+        }
+      } catch { /* fallback also failed */ }
       alert(`Download failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setDownloading(false);

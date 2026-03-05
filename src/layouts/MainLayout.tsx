@@ -376,7 +376,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                         lineHeight: 1.4,
                         flexShrink: 0,
                       }}>
-                        {item.badge}
+                        {item.badge as React.ReactNode}
                       </span>
                     )}
                   </>

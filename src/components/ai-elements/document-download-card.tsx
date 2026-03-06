@@ -1,28 +1,62 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FileText, Presentation, Download, CheckCircle, Loader2, FileIcon, ExternalLink } from 'lucide-react';
+import { FileText, Presentation, Download, CheckCircle, Loader2, FileIcon, ExternalLink, File as FileIconGeneric } from 'lucide-react';
 import { getApiUrl, getProxyUrl } from '@/lib/env';
 
+/**
+ * Shared interface for file download data — used by both tool outputs and
+ * the new `file_download` stream events from the backend.
+ */
+export interface FileDownloadData {
+  success?: boolean;
+  tool?: string;
+  tool_name?: string;
+  title?: string;
+  subtitle?: string;
+  filename?: string;
+  doc_type?: string;
+  document_id?: string;
+  presentation_id?: string;
+  file_id?: string;
+  download_url?: string;
+  file_type?: string;
+  file_size_kb?: number;
+  size_kb?: number;
+  slide_count?: number;
+  skill_used?: string;
+  execution_time?: number;
+  method?: string;
+  content_preview?: string;
+  error?: string;
+}
+
 interface DocumentDownloadCardProps {
-  output: {
-    success?: boolean;
-    tool?: string;
-    title?: string;
-    subtitle?: string;
-    filename?: string;
-    doc_type?: string;
-    document_id?: string;
-    presentation_id?: string;
-    download_url?: string;
-    file_size_kb?: number;
-    slide_count?: number;
-    skill_used?: string;
-    execution_time?: number;
-    method?: string;
-    content_preview?: string;
-    error?: string;
-  };
+  output: FileDownloadData;
+}
+
+/**
+ * Build the best download URL from available data.
+ * Priority: 1) unified /files/{id}/download  2) explicit download_url  3) legacy endpoints
+ */
+function resolveDownloadUrl(data: FileDownloadData): string | null {
+  const API_BASE = getApiUrl();
+  const fileId = data.file_id || data.document_id || data.presentation_id;
+
+  // 1) Unified endpoint (new backend)
+  if (fileId) {
+    const base = `/files/${fileId}/download`;
+    const filename = data.filename;
+    const qs = filename ? `?filename=${encodeURIComponent(filename)}` : '';
+    return base + qs;
+  }
+
+  // 2) Explicit download_url from tool output
+  if (data.download_url) {
+    return data.download_url;
+  }
+
+  return null;
 }
 
 export default function DocumentDownloadCard({ output }: DocumentDownloadCardProps) {
@@ -30,7 +64,7 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
   const [downloaded, setDownloaded] = useState(false);
 
   // Handle various success indicators from different tool implementations
-  const isSuccess = output?.success === true || output?.download_url || output?.document_id || output?.presentation_id || output?.filename;
+  const isSuccess = output?.success === true || output?.download_url || output?.document_id || output?.presentation_id || output?.file_id || output?.filename;
 
   if (!output || (!isSuccess && output?.error)) {
     return (
@@ -44,35 +78,79 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
     );
   }
 
-  // Detect file type from tool name or filename
-  const toolName = output.tool || '';
+  // Detect file type from tool name, file_type field, or filename
+  const toolName = output.tool || output.tool_name || '';
   const fileName = output.filename || '';
-  const isDocx = toolName.includes('word') || toolName.includes('docx') || toolName.includes('document') || fileName.endsWith('.docx') || fileName.endsWith('.doc');
-  const isPptx = toolName.includes('pptx') || toolName.includes('presentation') || toolName.includes('powerpoint') || fileName.endsWith('.pptx') || fileName.endsWith('.ppt') || !!output.slide_count || !!output.presentation_id;
-  const Icon = isPptx ? Presentation : FileText;
-  const fileType = isPptx ? 'PowerPoint Presentation' : 'Word Document';
-  const extension = isPptx ? '.pptx' : '.docx';
-  const accentColor = isPptx ? 'amber' : 'blue';
+  const fileType = output.file_type || '';
+  const isDocx = toolName.includes('word') || toolName.includes('docx') || toolName.includes('document') || fileName.endsWith('.docx') || fileName.endsWith('.doc') || fileType === 'docx' || fileType === 'doc';
+  const isPptx = toolName.includes('pptx') || toolName.includes('presentation') || toolName.includes('powerpoint') || fileName.endsWith('.pptx') || fileName.endsWith('.ppt') || fileType === 'pptx' || fileType === 'ppt' || !!output.slide_count || !!output.presentation_id;
+  const isCsv = fileName.endsWith('.csv') || fileType === 'csv';
+  const isPdf = fileName.endsWith('.pdf') || fileType === 'pdf';
+
+  // Choose icon and styling based on file type
+  let Icon = FileIconGeneric;
+  let fileTypeLabel = 'File';
+  let extension = '';
+  let accentClass = 'border-zinc-500/30 bg-gradient-to-br from-zinc-500/10 to-zinc-600/5';
+  let iconBgClass = 'bg-zinc-500/20';
+  let iconColorClass = 'text-zinc-400';
+  let btnClass = 'bg-zinc-500 hover:bg-zinc-600 text-white shadow-lg shadow-zinc-500/25';
+
+  if (isPptx) {
+    Icon = Presentation;
+    fileTypeLabel = 'PowerPoint Presentation';
+    extension = '.pptx';
+    accentClass = 'border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-600/5';
+    iconBgClass = 'bg-amber-500/20';
+    iconColorClass = 'text-amber-400';
+    btnClass = 'bg-amber-500 hover:bg-amber-600 text-black shadow-lg shadow-amber-500/25';
+  } else if (isDocx) {
+    Icon = FileText;
+    fileTypeLabel = 'Word Document';
+    extension = '.docx';
+    accentClass = 'border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-blue-600/5';
+    iconBgClass = 'bg-blue-500/20';
+    iconColorClass = 'text-blue-400';
+    btnClass = 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/25';
+  } else if (isCsv) {
+    fileTypeLabel = 'CSV Spreadsheet';
+    extension = '.csv';
+    accentClass = 'border-green-500/30 bg-gradient-to-br from-green-500/10 to-green-600/5';
+    iconBgClass = 'bg-green-500/20';
+    iconColorClass = 'text-green-400';
+    btnClass = 'bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-500/25';
+  } else if (isPdf) {
+    fileTypeLabel = 'PDF Document';
+    extension = '.pdf';
+    accentClass = 'border-red-500/30 bg-gradient-to-br from-red-500/10 to-red-600/5';
+    iconBgClass = 'bg-red-500/20';
+    iconColorClass = 'text-red-400';
+    btnClass = 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/25';
+  } else {
+    // Infer extension from filename
+    const lastDot = fileName.lastIndexOf('.');
+    if (lastDot > 0) extension = fileName.substring(lastDot);
+  }
+
+  const sizeKb = output.file_size_kb || output.size_kb;
 
   const handleDownload = async () => {
     setDownloading(true);
     try {
-      const downloadUrl = output.download_url;
+      const downloadPath = resolveDownloadUrl(output);
       
-      if (!downloadUrl) {
+      if (!downloadPath) {
         throw new Error('No download URL available');
       }
 
-      // Fetch the file - use Next.js proxy to avoid CORS issues
-      // Backend returns relative paths like /chat/document/<id> or /chat/presentation/<id>
-      // Route through /api/backend/* proxy (configured in next.config.js)
+      // Build fetch URL — use Next.js proxy to avoid CORS issues
       let fetchUrl: string;
-      if (downloadUrl.startsWith('http')) {
+      if (downloadPath.startsWith('http')) {
         // Already a full URL — use directly
-        fetchUrl = downloadUrl;
+        fetchUrl = downloadPath;
       } else {
         // Relative path — use the Next.js proxy to avoid CORS
-        fetchUrl = getProxyUrl(downloadUrl);
+        fetchUrl = getProxyUrl(downloadPath);
       }
 
       const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
@@ -92,7 +170,7 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = output.filename || `document${extension}`;
+      a.download = output.filename || `document${extension || ''}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -102,12 +180,12 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
       setTimeout(() => setDownloaded(false), 3000);
     } catch (error) {
       console.error('[DocumentDownload] Error:', error);
-      // Also try direct backend URL as fallback
+      // Fallback: try direct backend URL
       try {
         const API_BASE = getApiUrl();
-        const downloadUrl = output.download_url;
-        if (downloadUrl && !downloadUrl.startsWith('http')) {
-          const directUrl = `${API_BASE}${downloadUrl}`;
+        const downloadPath = resolveDownloadUrl(output);
+        if (downloadPath && !downloadPath.startsWith('http')) {
+          const directUrl = `${API_BASE}${downloadPath}`;
           console.log('[DocumentDownload] Retrying with direct URL:', directUrl);
           const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
           const headers: HeadersInit = {};
@@ -118,7 +196,7 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = output.filename || `document${extension}`;
+            a.download = output.filename || `document${extension || ''}`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -136,23 +214,18 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
   };
 
   return (
-    <div className={`rounded-xl border ${
-      isDocx 
-        ? 'border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-blue-600/5' 
-        : 'border-amber-500/30 bg-gradient-to-br from-amber-500/10 to-amber-600/5'
-    } p-4 my-3 backdrop-blur-sm`}>
+    <div className={`rounded-xl border ${accentClass} p-4 my-3 backdrop-blur-sm`}>
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className={`p-2.5 rounded-lg ${
-            isDocx ? 'bg-blue-500/20' : 'bg-amber-500/20'
-          }`}>
-            <Icon className={`h-6 w-6 ${isDocx ? 'text-blue-400' : 'text-amber-400'}`} />
+          <div className={`p-2.5 rounded-lg ${iconBgClass}`}>
+            <Icon className={`h-6 w-6 ${iconColorClass}`} />
           </div>
           <div>
-            <h3 className="font-semibold text-white text-sm">{output.title || 'Untitled'}</h3>
+            <h3 className="font-semibold text-white text-sm">{output.title || output.filename || 'Untitled'}</h3>
             <p className="text-xs text-zinc-400 mt-0.5">
-              {fileType} • {output.file_size_kb ? `${output.file_size_kb} KB` : ''}
+              {fileTypeLabel}
+              {sizeKb ? ` • ${sizeKb} KB` : ''}
               {output.slide_count ? ` • ${output.slide_count} slides` : ''}
               {output.doc_type ? ` • ${output.doc_type}` : ''}
             </p>
@@ -168,9 +241,7 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
               ? 'bg-green-500/20 text-green-400 border border-green-500/30'
               : downloading
               ? 'bg-zinc-700 text-zinc-400 cursor-wait'
-              : isDocx
-              ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/25'
-              : 'bg-amber-500 hover:bg-amber-600 text-black shadow-lg shadow-amber-500/25'
+              : btnClass
           }`}
         >
           {downloaded ? (
@@ -186,7 +257,7 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
           ) : (
             <>
               <Download className="h-4 w-4" />
-              Download {extension}
+              Download{extension ? ` ${extension}` : ''}
             </>
           )}
         </button>

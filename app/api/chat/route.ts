@@ -213,7 +213,7 @@ export async function POST(req: NextRequest) {
                   break;
                 }
 
-                case '2': { // Data (artifacts, conversation metadata)
+                case '2': { // Data (artifacts, conversation metadata, file downloads)
                   if (textStarted) {
                     await writeSSE({ type: 'text-end', id: textId });
                     textStarted = false;
@@ -227,12 +227,27 @@ export async function POST(req: NextRequest) {
                           id: item.id || `artifact-${Date.now()}`,
                           data: item,
                         });
+                      } else if (item && item.type === 'file_download') {
+                        // File download event from backend — forward to frontend
+                        await writeSSE({
+                          type: 'data-file-download',
+                          id: item.file_id || `file-${Date.now()}`,
+                          data: item,
+                        });
                       } else if (item && item.conversation_id) {
                         await writeSSE({ type: 'data-conversation', data: item });
                       }
                     }
-                  } else if (parsed && typeof parsed === 'object' && parsed.conversation_id) {
-                    await writeSSE({ type: 'data-conversation', data: parsed });
+                  } else if (parsed && typeof parsed === 'object') {
+                    if (parsed.type === 'file_download') {
+                      await writeSSE({
+                        type: 'data-file-download',
+                        id: parsed.file_id || `file-${Date.now()}`,
+                        data: parsed,
+                      });
+                    } else if (parsed.conversation_id) {
+                      await writeSSE({ type: 'data-conversation', data: parsed });
+                    }
                   }
                   break;
                 }

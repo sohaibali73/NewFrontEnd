@@ -1267,6 +1267,74 @@ class APIClient {
     return `${API_BASE_URL}/chat/presentation/${presentationId}`;
   }
 
+  // ==================== UNIFIED FILE DOWNLOAD ENDPOINTS ====================
+
+  /**
+   * Get the unified download URL for any tool-generated file.
+   * Uses the new /files/{file_id}/download endpoint that checks all stores.
+   * Optionally pass a custom filename for the download.
+   */
+  getFileDownloadUrl(fileId: string, filename?: string): string {
+    const base = `${API_BASE_URL}/files/${fileId}/download`;
+    return filename ? `${base}?filename=${encodeURIComponent(filename)}` : base;
+  }
+
+  /**
+   * Download any tool-generated file by file_id using the unified endpoint.
+   * Falls back to legacy /chat/document/ and /chat/presentation/ endpoints.
+   */
+  async downloadFile(fileId: string, filename?: string): Promise<Blob> {
+    const token = this.getToken();
+    const headers: HeadersInit = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    // Try unified endpoint first
+    const unifiedUrl = this.getFileDownloadUrl(fileId, filename);
+    try {
+      const response = await fetch(unifiedUrl, { headers, mode: 'cors', credentials: 'omit' });
+      if (response.ok) return response.blob();
+    } catch { /* fall through to legacy */ }
+
+    // Fallback: try as document
+    try {
+      const docResp = await fetch(`${API_BASE_URL}/chat/document/${fileId}`, { headers, mode: 'cors', credentials: 'omit' });
+      if (docResp.ok) return docResp.blob();
+    } catch { /* fall through */ }
+
+    // Fallback: try as presentation
+    const pptResp = await fetch(`${API_BASE_URL}/chat/presentation/${fileId}`, { headers, mode: 'cors', credentials: 'omit' });
+    if (!pptResp.ok) throw new Error(`File download failed: ${pptResp.status}`);
+    return pptResp.blob();
+  }
+
+  /**
+   * Get file metadata/info without downloading the file.
+   */
+  async getFileInfo(fileId: string) {
+    return this.request<{
+      file_id: string;
+      filename: string;
+      file_type: string;
+      size_kb: number;
+      exists: boolean;
+    }>(`/files/${fileId}/info`);
+  }
+
+  /**
+   * List all currently available generated files across all stores.
+   */
+  async getGeneratedFiles() {
+    return this.request<{
+      files: Array<{
+        file_id: string;
+        filename: string;
+        file_type: string;
+        size_kb: number;
+        download_url: string;
+      }>;
+    }>('/files/generated');
+  }
+
   async deletePresentation(id: string) {
     return this.request<{ success: boolean }>(`/presentations/${id}`, 'DELETE');
   }
@@ -1631,6 +1699,13 @@ export const api = {
     stream: (slug: string, message: string, options?: any) => apiClient.streamSkill(slug, message, options),
     executeMulti: (request: MultiSkillRequest) => apiClient.executeMultiSkills(request),
     getStreamEndpoint: (slug: string) => apiClient.getSkillStreamEndpoint(slug),
+  },
+  // Unified file download endpoints
+  files: {
+    getDownloadUrl: (fileId: string, filename?: string) => apiClient.getFileDownloadUrl(fileId, filename),
+    download: (fileId: string, filename?: string) => apiClient.downloadFile(fileId, filename),
+    getInfo: (fileId: string) => apiClient.getFileInfo(fileId),
+    listGenerated: () => apiClient.getGeneratedFiles(),
   },
   // NEW: Added YFinance endpoints for financial data
   yfinance: {

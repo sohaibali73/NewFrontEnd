@@ -28,7 +28,7 @@ import { Attachments, Attachment, AttachmentPreview, AttachmentInfo, AttachmentR
 import { Sources, SourcesTrigger, SourcesContent, Source } from '@/components/ai-elements/sources';
 import { Artifact, ArtifactHeader, ArtifactTitle, ArtifactContent, ArtifactActions, ArtifactAction } from '@/components/ai-elements/artifact';
 import { DocumentGenerator } from '@/components/ai-elements/document-generator';
-import DocumentDownloadCard from '@/components/ai-elements/document-download-card';
+import DocumentDownloadCard, { FileDownloadData } from '@/components/ai-elements/document-download-card';
 import { ChainOfThought, ChainOfThoughtHeader, ChainOfThoughtContent, ChainOfThoughtStep } from '@/components/ai-elements/chain-of-thought';
 import { SpeechInput } from '@/components/ai-elements/speech-input';
 import { WebPreview, WebPreviewNavigation, WebPreviewNavigationButton, WebPreviewBody, WebPreviewConsole } from '@/components/ai-elements/web-preview';
@@ -1186,6 +1186,24 @@ export function ChatPage() {
                       );
                     default: return null;
                   }
+                }
+                // File download events from backend (type code 2: with type=file_download)
+                if (part.type === 'data-file-download' && part.data) {
+                  return (
+                    <DocumentDownloadCard
+                      key={pIdx}
+                      output={{
+                        file_id: part.data.file_id,
+                        filename: part.data.filename,
+                        download_url: part.data.download_url,
+                        file_type: part.data.file_type,
+                        file_size_kb: part.data.size_kb || part.data.file_size_kb,
+                        tool_name: part.data.tool_name,
+                        title: part.data.filename || 'Generated File',
+                        success: true,
+                      }}
+                    />
+                  );
                 }
                 // Data parts (artifacts from backend via type code 2:)
                 if (part.type?.startsWith('data-') && part.data) {

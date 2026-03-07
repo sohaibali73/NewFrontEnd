@@ -44,6 +44,7 @@ import { Sandbox, SandboxHeader, SandboxContent, SandboxTabs, SandboxTabsBar, Sa
 import { InlineCitation, InlineCitationText, InlineCitationCard, InlineCitationCardTrigger, InlineCitationCardBody, InlineCitationSource } from '@/components/ai-elements/inline-citation';
 import VoiceMode from '@/components/VoiceMode';
 import { InlineReactPreview, stripReactCodeBlocks } from '@/components/InlineReactPreview';
+import PersistentGenerationCard from '@/components/generative-ui/PersistentGenerationCard';
 import {
   StockCard,
   LiveStockChart,
@@ -1169,58 +1170,32 @@ export function ChatPage() {
                   default: return null;
                 }
 
-              // Create Word Document (DOCX)
+              // Create Word Document (DOCX) — uses PersistentGenerationCard
               case 'tool-create_word_document':
-                switch (part.state) {
-                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="create_word_document" input={part.input} />;
-                  case 'output-available': return <DocumentDownloadCard key={pIdx} output={typeof part.output === 'object' ? part.output : {}} />;
-                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Document generation error: {part.errorText}</div>;
-                  default: return null;
-                }
+                return <PersistentGenerationCard key={pIdx} toolCallId={part.toolCallId || `${message.id}_${pIdx}`} toolName="create_word_document" input={part.input} output={part.state === 'output-available' ? part.output : undefined} state={part.state} errorText={part.errorText} conversationId={conversationIdRef.current || undefined} />;
 
-              // Create PPTX with Skill (Enhanced Presentation)
+              // Create PPTX with Skill — uses PersistentGenerationCard
               case 'tool-create_pptx_with_skill':
-                switch (part.state) {
-                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="create_pptx_with_skill" input={part.input} />;
-                  case 'output-available': return <DocumentDownloadCard key={pIdx} output={typeof part.output === 'object' ? part.output : {}} />;
-                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Presentation generation error: {part.errorText}</div>;
-                  default: return null;
-                }
+                return <PersistentGenerationCard key={pIdx} toolCallId={part.toolCallId || `${message.id}_${pIdx}`} toolName="create_pptx_with_skill" input={part.input} output={part.state === 'output-available' ? part.output : undefined} state={part.state} errorText={part.errorText} conversationId={conversationIdRef.current || undefined} />;
 
-              // Create Presentation (PowerPoint)
+              // Create Presentation — uses PersistentGenerationCard
               case 'tool-create_presentation':
-                switch (part.state) {
-                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName="create_presentation" input={part.input} />;
-                  case 'output-available': return <PresentationCard key={pIdx} {...(typeof part.output === 'object' ? part.output : {})} />;
-                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Presentation error: {part.errorText}</div>;
-                  default: return null;
-                }
+                return <PersistentGenerationCard key={pIdx} toolCallId={part.toolCallId || `${message.id}_${pIdx}`} toolName="create_presentation" input={part.input} output={part.state === 'output-available' ? part.output : undefined} state={part.state} errorText={part.errorText} conversationId={conversationIdRef.current || undefined} />;
 
-              // ===== SKILL TOOL ALIASES =====
-              // Catch alternate tool names the backend/Claude skills might use for document creation
+              // ===== SKILL TOOL ALIASES — all use PersistentGenerationCard =====
               case 'tool-create_document':
               case 'tool-create_docx':
               case 'tool-generate_document':
               case 'tool-generate_docx':
               case 'tool-create_word_doc':
-                switch (part.state) {
-                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName={part.type?.replace('tool-', '') || 'create_document'} input={part.input} />;
-                  case 'output-available': return <DocumentDownloadCard key={pIdx} output={typeof part.output === 'object' ? part.output : {}} />;
-                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Document error: {part.errorText}</div>;
-                  default: return null;
-                }
+                return <PersistentGenerationCard key={pIdx} toolCallId={part.toolCallId || `${message.id}_${pIdx}`} toolName={part.type?.replace('tool-', '') || 'create_document'} input={part.input} output={part.state === 'output-available' ? part.output : undefined} state={part.state} errorText={part.errorText} conversationId={conversationIdRef.current || undefined} />;
 
-              // PPTX alternate names
+              // PPTX alternate names — all use PersistentGenerationCard
               case 'tool-create_pptx':
               case 'tool-generate_pptx':
               case 'tool-generate_presentation':
               case 'tool-create_powerpoint':
-                switch (part.state) {
-                  case 'input-streaming': case 'input-available': return <ToolLoading key={pIdx} toolName={part.type?.replace('tool-', '') || 'create_pptx'} input={part.input} />;
-                  case 'output-available': return <DocumentDownloadCard key={pIdx} output={typeof part.output === 'object' ? part.output : {}} />;
-                  case 'output-error': return <div key={pIdx} style={{ padding: '12px', backgroundColor: 'rgba(220,38,38,0.1)', borderRadius: '12px', color: '#DC2626', fontSize: '13px' }}>Presentation error: {part.errorText}</div>;
-                  default: return null;
-                }
+                return <PersistentGenerationCard key={pIdx} toolCallId={part.toolCallId || `${message.id}_${pIdx}`} toolName={part.type?.replace('tool-', '') || 'create_pptx'} input={part.input} output={part.state === 'output-available' ? part.output : undefined} state={part.state} errorText={part.errorText} conversationId={conversationIdRef.current || undefined} />;
 
               // Web search alternate names (brave_search, search_web, etc.)
               case 'tool-brave_search':

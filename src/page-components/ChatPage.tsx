@@ -236,7 +236,7 @@ export function ChatPage() {
         if (justFinishedStreamRef.current === convId) {
           justFinishedStreamRef.current = null;
         }
-      }, 3000); // Reduced from 8s — 3s is enough for the sidebar refresh cycle
+      }, 10000); // 10s protection — document/presentation tools take 30-60s to complete
 
       // Cache ALL message parts to localStorage so artifacts survive navigation/reload
       if (convId) {

@@ -82,6 +82,18 @@ import {
 
 const logo = '/potomac-icon.png';
 
+// Strip hidden system instructions from user messages (e.g., [FORMATTING: ...])
+// These are injected for the AI but should never be visible to end users
+function stripSystemInstructions(text: string): string {
+  return text
+    .replace(/\[FORMATTING:[^\]]*\]/gi, '')
+    .replace(/\[SYSTEM:[^\]]*\]/gi, '')
+    .replace(/\[INSTRUCTIONS:[^\]]*\]/gi, '')
+    .replace(/\[CONTEXT:[^\]]*\]/gi, '')
+    .replace(/\n{3,}/g, '\n\n')  // Clean up extra blank lines left behind
+    .trim();
+}
+
 // Component to display file attachments inside PromptInput
 function AttachmentsDisplay() {
   const attachments = usePromptInputAttachments();
@@ -295,6 +307,21 @@ export function ChatPage() {
 
   const isStreaming = status === 'streaming' || status === 'submitted';
 
+  // Track which conversation is actively streaming — update ref when streaming starts/stops
+  useEffect(() => {
+    if (isStreaming) {
+      streamingConvRef.current = conversationIdRef.current;
+    } else {
+      // Clear after a delay to protect against rapid state transitions
+      const convId = streamingConvRef.current;
+      setTimeout(() => {
+        if (streamingConvRef.current === convId && !isStreaming) {
+          streamingConvRef.current = null;
+        }
+      }, 2000);
+    }
+  }, [isStreaming]);
+
   const colors = {
     background: isDark ? '#0F0F0F' : '#ffffff',
     sidebar: isDark ? '#1A1A1A' : '#ffffff',
@@ -382,6 +409,12 @@ export function ChatPage() {
       return;
     }
 
+    // Guard: don't reload if currently streaming — switching back to an active streaming
+    // conversation should preserve the live stream state, not overwrite it
+    if (isStreaming && streamingConvRef.current === conversationId) {
+      return;
+    }
+
     // === INSTANT CACHE LOAD ===
     // Show cached messages IMMEDIATELY to prevent blank screen during API fetch
     const memCached = messageCacheRef.current[conversationId];
@@ -443,6 +476,8 @@ export function ChatPage() {
   // Track which conversation just finished streaming — prevents loadPreviousMessages from wiping tool UI parts
   // Stores the conversationId (not boolean) so it's scoped to the right conversation
   const justFinishedStreamRef = useRef<string | null>(null);
+  // Track which conversation is currently being streamed to — prevents message overwrite on re-select
+  const streamingConvRef = useRef<string | null>(null);
 
   // === FULL MESSAGE CACHE ===
   // Cache complete message arrays per conversation to prevent blank screen on switch
@@ -742,9 +777,12 @@ export function ChatPage() {
                     </React.Fragment>
                   );
                 }
+                // Strip system instructions (e.g., [FORMATTING:...]) from user messages
+                const cleanedUserText = stripSystemInstructions(part.text);
+                if (!cleanedUserText) return null;
                 return (
                   <p key={pIdx} className="whitespace-pre-wrap break-words text-sm leading-relaxed" style={{ color: colors.text, fontWeight: 400 }}>
-                    {part.text}
+                    {cleanedUserText}
                   </p>
                 );
 

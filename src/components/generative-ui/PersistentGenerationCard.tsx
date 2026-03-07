@@ -125,12 +125,8 @@ export default function PersistentGenerationCard({
     const existing = getJob(jobId);
 
     if (state === 'output-available' && output) {
-      // Tool completed — save result
       const completedJob: GenerationJob = {
-        id: jobId,
-        toolName,
-        title,
-        conversationId,
+        id: jobId, toolName, title, conversationId,
         status: 'complete',
         startedAt: existing?.startedAt || Date.now(),
         completedAt: Date.now(),
@@ -143,10 +139,7 @@ export default function PersistentGenerationCard({
 
     if (state === 'output-error') {
       const failedJob: GenerationJob = {
-        id: jobId,
-        toolName,
-        title,
-        conversationId,
+        id: jobId, toolName, title, conversationId,
         status: 'failed',
         startedAt: existing?.startedAt || Date.now(),
         completedAt: Date.now(),
@@ -158,7 +151,6 @@ export default function PersistentGenerationCard({
     }
 
     if (existing && existing.status === 'complete' && existing.output) {
-      // Already completed from a previous render
       setJob(existing);
       return;
     }
@@ -168,18 +160,119 @@ export default function PersistentGenerationCard({
       return;
     }
 
-    // Active generation — create/update job
+    // Active generation
     const activeJob: GenerationJob = {
-      id: jobId,
-      toolName,
-      title,
-      conversationId,
+      id: jobId, toolName, title, conversationId,
       status: 'generating',
       startedAt: existing?.startedAt || Date.now(),
     };
     saveJob(activeJob);
     setJob(activeJob);
   }, [jobId, toolName, title, conversationId, state, output, errorText]);
+
+  // === BACKEND POLLING: Check /api/tasks for real completion status ===
+  // This is the source of truth — works across devices, tabs, refreshes
+  useEffect(() => {
+    if (!job || job.status !== 'generating') return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const token = localStorage.getItem('auth_token') || '';
+        const resp = await fetch('/api/tasks', {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const tasks = data.tasks || [];
+
+        // Find a matching task by title or tool name
+        for (const task of tasks) {
+          const matches = task.title === title ||
+            task.title?.includes(title?.split(' ')[0] || '') ||
+            (task.task_type === 'presentation' && isPptx) ||
+            (task.task_type === 'document' && !isPptx);
+
+          if (matches && task.status === 'complete' && task.result) {
+            // Task completed on backend — extract file info
+            const result = task.result;
+            const fileOutput: FileDownloadData = {
+              success: true,
+              title: result.filename || title,
+              filename: result.filename || `${title}.${isPptx ? 'pptx' : 'docx'}`,
+              file_id: result.files?.[0]?.file_id || result.file_id,
+              download_url: result.files?.[0]?.download_url || result.download_url,
+              file_type: isPptx ? 'pptx' : 'docx',
+              skill_used: result.skill,
+              execution_time: result.execution_time,
+              tool_name: toolName,
+            };
+            const completedJob: GenerationJob = {
+              ...job,
+              status: 'complete',
+              completedAt: Date.now(),
+              output: fileOutput,
+            };
+            saveJob(completedJob);
+            setJob(completedJob);
+            clearInterval(pollInterval);
+            return;
+          }
+
+          if (matches && task.status === 'failed') {
+            const failedJob: GenerationJob = {
+              ...job,
+              status: 'failed',
+              completedAt: Date.now(),
+              error: task.error || 'Generation failed on server',
+            };
+            saveJob(failedJob);
+            setJob(failedJob);
+            clearInterval(pollInterval);
+            return;
+          }
+
+          // Update progress from backend
+          if (matches && task.status === 'running' && task.progress > 0) {
+            setCurrentStep(Math.min(Math.floor(task.progress / (100 / steps.length)), steps.length - 1));
+          }
+        }
+
+        // Also check if the conversation has new messages with tool output
+        if (conversationId) {
+          try {
+            const msgsResp = await fetch(`/api/backend/chat/conversations/${conversationId}/messages`, {
+              headers: { 'Authorization': `Bearer ${token}` },
+            });
+            if (msgsResp.ok) {
+              const msgs = await msgsResp.json();
+              for (const msg of msgs) {
+                const parts = msg.metadata?.parts || [];
+                for (const p of parts) {
+                  if (p.state === 'output-available' && p.output && typeof p.output === 'object') {
+                    const out = p.output as any;
+                    if (out.download_url || out.document_id || out.presentation_id || out.file_id) {
+                      const completedJob: GenerationJob = {
+                        ...job,
+                        status: 'complete',
+                        completedAt: Date.now(),
+                        output: { ...out, tool_name: toolName } as FileDownloadData,
+                      };
+                      saveJob(completedJob);
+                      setJob(completedJob);
+                      clearInterval(pollInterval);
+                      return;
+                    }
+                  }
+                }
+              }
+            }
+          } catch { /* ignore */ }
+        }
+      } catch { /* silently fail */ }
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [job?.status, job?.id, title, isPptx, toolName, conversationId, steps.length]);
 
   // Step animation timer
   useEffect(() => {

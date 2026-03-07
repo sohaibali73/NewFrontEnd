@@ -781,7 +781,7 @@ export function ChatPage() {
                 const cleanedUserText = stripSystemInstructions(part.text);
                 if (!cleanedUserText) return null;
                 return (
-                  <p key={pIdx} className="whitespace-pre-wrap break-words text-sm leading-relaxed" style={{ color: colors.text, fontWeight: 400 }}>
+                  <p key={pIdx} className="whitespace-pre-wrap break-words text-sm leading-relaxed" style={{ color: '#1A1A1A', fontWeight: 400 }}>
                     {cleanedUserText}
                   </p>
                 );
@@ -1569,7 +1569,7 @@ export function ChatPage() {
                     style={{ flex: 1, background: colors.inputBg, border: `2px solid ${colors.primaryYellow}`, borderRadius: '4px', color: colors.text, fontSize: '13px', padding: '4px 8px', outline: 'none', minWidth: 0, fontFamily: "var(--font-quicksand), 'Quicksand', sans-serif" }}
                   />
                 ) : (
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, fontWeight: selectedConversation?.id === conv.id ? 600 : 400 }}>{conv.title}</span>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, fontWeight: selectedConversation?.id === conv.id ? 600 : 400 }}>{stripSystemInstructions(conv.title || 'New Conversation')}</span>
                 )}
                 {renamingId !== conv.id && (
                   <div style={{ display: 'flex', gap: '2px', opacity: 0.5 }}>

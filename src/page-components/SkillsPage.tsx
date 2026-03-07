@@ -5,6 +5,7 @@ import { apiClient } from '@/lib/api';
 import { Skill, SkillCategoryInfo } from '@/types/api';
 import { useTheme } from '@/contexts/ThemeContext';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
+import DocumentDownloadCard, { FileDownloadData } from '@/components/ai-elements/document-download-card';
 
 // ── Category icons & colors ───────────────────────────────────────────────
 const CATEGORY_META: Record<string, { icon: string; color: string }> = {
@@ -33,6 +34,7 @@ export default function SkillsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [executionTime, setExecutionTime] = useState<number | null>(null);
+  const [downloadableFiles, setDownloadableFiles] = useState<FileDownloadData[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const responseRef = useRef<HTMLDivElement>(null);
 
@@ -82,6 +84,7 @@ export default function SkillsPage() {
     setResponse('');
     setError(null);
     setExecutionTime(null);
+    setDownloadableFiles([]);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -94,6 +97,26 @@ export default function SkillsPage() {
           // Auto-scroll
           if (responseRef.current) {
             responseRef.current.scrollTop = responseRef.current.scrollHeight;
+          }
+        },
+        onData: (data) => {
+          // Handle file_download events from the stream (type 2: custom data)
+          // The backend emits these as arrays: [{type: "file_download", ...}]
+          const items = Array.isArray(data) ? data : [data];
+          for (const item of items) {
+            if (item?.type === 'file_download') {
+              console.log('[Skills] File download event:', item);
+              setDownloadableFiles(prev => [...prev, {
+                success: true,
+                file_id: item.file_id,
+                filename: item.filename,
+                download_url: item.download_url,
+                file_type: item.file_type,
+                size_kb: item.size_kb,
+                tool_name: item.tool_name,
+                skill_used: activeSkill.slug,
+              } as FileDownloadData]);
+            }
           }
         },
         onError: (err) => {
@@ -206,7 +229,7 @@ export default function SkillsPage() {
               return (
                 <button
                   key={skill.slug}
-                  onClick={() => { setActiveSkill(skill); setResponse(''); setError(null); setExecutionTime(null); }}
+                  onClick={() => { setActiveSkill(skill); setResponse(''); setError(null); setExecutionTime(null); setDownloadableFiles([]); }}
                   style={{
                     textAlign: 'left',
                     padding: '16px',
@@ -408,6 +431,14 @@ export default function SkillsPage() {
                   marginBottom: '12px',
                 }}>
                   ⚠️ {error}
+                </div>
+              )}
+              {/* File Download Cards — rendered above the text when files are available */}
+              {downloadableFiles.length > 0 && (
+                <div style={{ marginBottom: '16px' }}>
+                  {downloadableFiles.map((file, idx) => (
+                    <DocumentDownloadCard key={file.file_id || idx} output={file} />
+                  ))}
                 </div>
               )}
               {response ? (

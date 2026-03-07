@@ -56,9 +56,117 @@ export function useProcessManager() {
 /*  Provider                                                           */
 /* ================================================================== */
 
+const STORAGE_KEY = 'pm_processes';
+const POLL_INTERVAL = 3000;
+
+/** Serialize processes for localStorage (strip non-serializable fields) */
+function serializeProcesses(procs: BackgroundProcess[]): string {
+  return JSON.stringify(procs.map(({ onComplete, result, ...rest }) => rest));
+}
+
+/** Restore processes from localStorage */
+function restoreProcesses(): BackgroundProcess[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as BackgroundProcess[];
+    // Filter out stale completed tasks older than 1 hour
+    const cutoff = Date.now() - 3600000;
+    return parsed.filter(p => {
+      if (p.status === 'complete' || p.status === 'failed') {
+        return (p.completedAt || p.startedAt) > cutoff;
+      }
+      return true; // Keep all active tasks
+    });
+  } catch { return []; }
+}
+
 export function ProcessManagerProvider({ children }: { children: React.ReactNode }) {
-  const [processes, setProcesses] = useState<BackgroundProcess[]>([]);
+  const [processes, setProcesses] = useState<BackgroundProcess[]>(() => restoreProcesses());
   const counterRef = useRef(0);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const backendTaskMapRef = useRef<Map<string, string>>(new Map()); // backend task_id → process_id
+
+  // === PERSIST to localStorage on every change ===
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, serializeProcesses(processes));
+    } catch { /* storage full */ }
+  }, [processes]);
+
+  // === BACKEND POLLING: Sync with /api/tasks across ALL pages ===
+  const activeCount = processes.filter(p => p.status === 'pending' || p.status === 'running').length;
+
+  useEffect(() => {
+    const getToken = () => { try { return localStorage.getItem('auth_token') || ''; } catch { return ''; } };
+
+    const pollBackendTasks = async () => {
+      const token = getToken();
+      if (!token) return;
+      try {
+        const resp = await fetch('/api/tasks', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const tasks = data.tasks || [];
+
+        setProcesses(prev => {
+          let updated = [...prev];
+          for (const task of tasks) {
+            const existingProcId = backendTaskMapRef.current.get(task.id);
+            const status: ProcessStatus = task.status === 'complete' ? 'complete' :
+              task.status === 'failed' || task.status === 'cancelled' ? 'failed' :
+              task.status === 'running' ? 'running' : 'pending';
+
+            if (existingProcId) {
+              // Update existing process
+              updated = updated.map(p => {
+                if (p.id !== existingProcId) return p;
+                return {
+                  ...p,
+                  status,
+                  progress: task.progress || p.progress,
+                  message: task.message || p.message,
+                  error: task.error || p.error,
+                  completedAt: (status === 'complete' || status === 'failed') ? (task.completed_at ? task.completed_at * 1000 : Date.now()) : p.completedAt,
+                };
+              });
+            } else if (task.status === 'pending' || task.status === 'running') {
+              // New backend task not tracked locally — add it
+              const typeMap: Record<string, ProcessType> = {
+                presentation: 'slide', document: 'document', research: 'article', afl: 'afl',
+              };
+              const procId = `backend_${task.id}`;
+              backendTaskMapRef.current.set(task.id, procId);
+              const exists = updated.some(p => p.id === procId);
+              if (!exists) {
+                updated = [{
+                  id: procId,
+                  title: task.title || 'Background Task',
+                  type: typeMap[task.task_type] || 'general',
+                  status,
+                  progress: task.progress || 0,
+                  message: task.message || '',
+                  startedAt: task.started_at ? task.started_at * 1000 : task.created_at * 1000,
+                }, ...updated];
+              }
+            }
+          }
+          return updated;
+        });
+      } catch { /* silently fail */ }
+    };
+
+    // Initial check on mount
+    pollBackendTasks();
+
+    // Poll every 3s if there are active tasks, otherwise every 15s for discovery
+    const interval = activeCount > 0 ? POLL_INTERVAL : 15000;
+    pollingRef.current = setInterval(pollBackendTasks, interval);
+
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [activeCount]);
 
   const addProcess = useCallback((proc: Omit<BackgroundProcess, 'id' | 'startedAt'>) => {
     const id = `proc_${Date.now()}_${++counterRef.current}`;
@@ -92,8 +200,6 @@ export function ProcessManagerProvider({ children }: { children: React.ReactNode
   const clearCompleted = useCallback(() => {
     setProcesses(prev => prev.filter(p => p.status !== 'complete' && p.status !== 'failed'));
   }, []);
-
-  const activeCount = processes.filter(p => p.status === 'pending' || p.status === 'running').length;
 
   return (
     <ProcessManagerContext.Provider value={{

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AnalystWorkbench")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c7158f4ce7afcf53eff62945221e7909ad099786")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4eaaaf09dbfa4c0eeb89ee1735bf40d9b0e337ae")]
 [assembly: System.Reflection.AssemblyProductAttribute("AnalystWorkbench")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AnalystWorkbench")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

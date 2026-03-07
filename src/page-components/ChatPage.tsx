@@ -236,7 +236,7 @@ export function ChatPage() {
         if (justFinishedStreamRef.current === convId) {
           justFinishedStreamRef.current = null;
         }
-      }, 10000); // 10s protection — document/presentation tools take 30-60s to complete
+      }, 30000); // 30s protection — document/presentation tools take 30-60s to complete
 
       // Cache ALL message parts to localStorage so artifacts survive navigation/reload
       if (convId) {
@@ -444,6 +444,7 @@ export function ChatPage() {
   const messageCacheRef = useRef<Record<string, any[]>>({});
 
   // Save current messages to cache whenever they change (debounced via conversation ID)
+  // Also persist rich tool parts to localStorage during streaming so they survive navigation
   useEffect(() => {
     const convId = conversationIdRef.current;
     if (convId && streamMessages.length > 0) {
@@ -458,6 +459,29 @@ export function ChatPage() {
       try {
         sessionStorage.setItem(`chat_msgs_${convId}`, JSON.stringify(messageCacheRef.current[convId]));
       } catch { /* storage full, ignore */ }
+
+      // === LIVE PARTS CACHE ===
+      // Persist rich tool parts to localStorage DURING streaming (not just on finish)
+      // This ensures tool cards survive navigation away and back during generation
+      try {
+        const partsCache: Record<string, any[]> = {};
+        streamMessages.forEach((m: any) => {
+          if (m.parts && m.parts.length > 0) {
+            const hasRichParts = m.parts.some((p: any) => p.type !== 'text' && p.type !== 'step-start');
+            if (hasRichParts) {
+              partsCache[m.id] = m.parts;
+            }
+          }
+        });
+        if (Object.keys(partsCache).length > 0) {
+          try {
+            const existing = JSON.parse(localStorage.getItem(`chat_parts_${convId}`) || '{}');
+            localStorage.setItem(`chat_parts_${convId}`, JSON.stringify({ ...existing, ...partsCache }));
+          } catch {
+            localStorage.setItem(`chat_parts_${convId}`, JSON.stringify(partsCache));
+          }
+        }
+      } catch { /* localStorage error, ignore */ }
     }
   }, [streamMessages]);
 

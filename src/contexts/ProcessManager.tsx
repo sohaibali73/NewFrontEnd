@@ -28,6 +28,7 @@ export interface BackgroundProcess {
   completedAt?: number;
   error?: string;
   result?: unknown;       // Result data when complete
+  conversationId?: string; // Link back to the chat conversation
   onComplete?: (result: unknown) => void;
 }
 
@@ -439,6 +440,40 @@ function TaskItem({
             }}>
               {proc.error}
             </p>
+          )}
+
+          {/* Navigate to conversation button */}
+          {proc.conversationId && (
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                // Store target conversation ID and navigate to chat
+                sessionStorage.setItem('pm_navigate_to_conv', proc.conversationId!);
+                window.location.href = '/chat';
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '3px 10px',
+                background: isDark ? 'rgba(254,192,15,0.1)' : 'rgba(254,192,15,0.12)',
+                border: `1px solid ${isDark ? 'rgba(254,192,15,0.2)' : 'rgba(254,192,15,0.3)'}`,
+                borderRadius: '6px',
+                color: '#FEC00F',
+                cursor: 'pointer',
+                fontSize: '10px',
+                fontFamily: "'Rajdhani', sans-serif",
+                fontWeight: 600,
+                letterSpacing: '0.3px',
+                transition: 'all 0.15s',
+                marginRight: '6px',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(254,192,15,0.2)' : 'rgba(254,192,15,0.2)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = isDark ? 'rgba(254,192,15,0.1)' : 'rgba(254,192,15,0.12)'; }}
+            >
+              <ChevronRight size={10} />
+              GO TO CHAT
+            </button>
           )}
 
           {/* Dismiss button for done/failed */}

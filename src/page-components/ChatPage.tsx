@@ -385,6 +385,19 @@ export function ChatPage() {
       const data = allData.filter((c: any) => c.conversation_type === 'agent' || !c.conversation_type);
       setConversations(data);
 
+      // === DEEP-LINK: Check if Task Manager is directing us to a specific conversation ===
+      const navigateToConvId = sessionStorage.getItem('pm_navigate_to_conv');
+      if (navigateToConvId) {
+        sessionStorage.removeItem('pm_navigate_to_conv');
+        const targetConv = data.find((c: any) => c.id === navigateToConvId);
+        if (targetConv) {
+          setSelectedConversation(targetConv);
+          initialLoadDoneRef.current = true;
+          setLoadingConversations(false);
+          return; // Skip auto-select logic
+        }
+      }
+
       // Auto-select first conversation if none is selected
       if (data.length > 0 && !conversationIdRef.current) {
         if (initialLoadDoneRef.current) {
@@ -573,13 +586,14 @@ export function ChatPage() {
         const isFailed = part.state === 'output-error';
 
         if (isActive && !trackedToolsRef.current.has(toolKey)) {
-          // Register new tool as a running process
+          // Register new tool as a running process (with conversationId for navigation)
           const processId = addProcess({
             title: getToolTitle(toolName, part.input),
             type: getProcessType(toolName),
             status: 'running',
             progress: 0,
             message: `Running ${toolName.replace(/_/g, ' ')}...`,
+            conversationId: conversationIdRef.current || undefined,
           });
           trackedToolsRef.current.set(toolKey, processId);
         } else if (isDone && trackedToolsRef.current.has(toolKey)) {

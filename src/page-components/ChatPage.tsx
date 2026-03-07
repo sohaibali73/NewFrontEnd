@@ -1669,6 +1669,46 @@ export function ChatPage() {
                     </div>
                   )}
 
+                  {/* === PERSISTENT GENERATION CARDS FROM LOCALSTORAGE ===
+                      Renders active generation jobs that may not be in the message stream
+                      (e.g., user switched conversations while PPTX was generating) */}
+                  {(() => {
+                    try {
+                      const raw = localStorage.getItem('gen_cards');
+                      if (!raw) return null;
+                      const jobs = JSON.parse(raw) as Record<string, any>;
+                      const convId = conversationIdRef.current;
+                      const activeJobs = Object.values(jobs).filter(
+                        (j: any) => j.status === 'generating' && j.conversationId === convId
+                      );
+                      if (activeJobs.length === 0) return null;
+                      // Check if these jobs are already rendered by message parts
+                      const renderedJobIds = new Set<string>();
+                      allMessages.forEach((m: any) => {
+                        if (m.parts) {
+                          m.parts.forEach((p: any, idx: number) => {
+                            const tn = p.type?.replace('tool-', '') || '';
+                            if (tn.includes('pptx') || tn.includes('presentation') || tn.includes('document') || tn.includes('docx') || tn.includes('word') || tn.includes('powerpoint')) {
+                              renderedJobIds.add(p.toolCallId || `${m.id}_${idx}`);
+                            }
+                          });
+                        }
+                      });
+                      return activeJobs
+                        .filter((j: any) => !renderedJobIds.has(j.id))
+                        .map((j: any) => (
+                          <PersistentGenerationCard
+                            key={`orphan_${j.id}`}
+                            toolCallId={j.id}
+                            toolName={j.toolName}
+                            input={{ title: j.title }}
+                            state="input-available"
+                            conversationId={j.conversationId}
+                          />
+                        ));
+                    } catch { return null; }
+                  })()}
+
                   {/* Submitted state — waiting for first token */}
                   {status === 'submitted' && allMessages.length > 0 && allMessages[allMessages.length - 1]?.role === 'user' && (
                     <AIMessage from="assistant">

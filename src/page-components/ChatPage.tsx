@@ -423,9 +423,40 @@ export function ChatPage() {
       return;
     }
 
-    // Guard: don't reload if currently streaming — switching back to an active streaming
-    // conversation should preserve the live stream state, not overwrite it
+    // === CRITICAL: Save current streaming messages before switching ===
+    // Without this, switching conversations wipes the streaming tool cards
+    const prevConvId = streamingConvRef.current;
+    if (prevConvId && prevConvId !== conversationId && streamMessages.length > 0) {
+      messageCacheRef.current[prevConvId] = streamMessages.map((m: any) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content || '',
+        parts: m.parts || [{ type: 'text', text: m.content || '' }],
+        createdAt: m.createdAt,
+      }));
+      // Also persist to sessionStorage and localStorage parts cache
+      try {
+        sessionStorage.setItem(`chat_msgs_${prevConvId}`, JSON.stringify(messageCacheRef.current[prevConvId]));
+        const partsCache: Record<string, any[]> = {};
+        streamMessages.forEach((m: any) => {
+          if (m.parts && m.parts.length > 0) {
+            const hasRichParts = m.parts.some((p: any) => p.type !== 'text' && p.type !== 'step-start');
+            if (hasRichParts) partsCache[m.id] = m.parts;
+          }
+        });
+        if (Object.keys(partsCache).length > 0) {
+          const existing = JSON.parse(localStorage.getItem(`chat_parts_${prevConvId}`) || '{}');
+          localStorage.setItem(`chat_parts_${prevConvId}`, JSON.stringify({ ...existing, ...partsCache }));
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Guard: if switching back to active streaming conversation, restore from cache
     if (isStreaming && streamingConvRef.current === conversationId) {
+      const cached = messageCacheRef.current[conversationId];
+      if (cached && cached.length > 0) {
+        setMessages(cached);
+      }
       return;
     }
 

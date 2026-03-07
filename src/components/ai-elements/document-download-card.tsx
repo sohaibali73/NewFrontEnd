@@ -133,6 +133,7 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
   }
 
   const sizeKb = output.file_size_kb || output.size_kb;
+  const hasDownload = !!(resolveDownloadUrl(output));
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -232,35 +233,39 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
           </div>
         </div>
         
-        {/* Download Button */}
-        <button
-          onClick={handleDownload}
-          disabled={downloading}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-            downloaded
-              ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-              : downloading
-              ? 'bg-zinc-700 text-zinc-400 cursor-wait'
-              : btnClass
-          }`}
-        >
-          {downloaded ? (
-            <>
-              <CheckCircle className="h-4 w-4" />
-              Downloaded
-            </>
-          ) : downloading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Downloading...
-            </>
-          ) : (
-            <>
-              <Download className="h-4 w-4" />
-              Download{extension ? ` ${extension}` : ''}
-            </>
-          )}
-        </button>
+        {/* Download Button — only show if a download URL is available */}
+        {hasDownload ? (
+          <button
+            onClick={handleDownload}
+            disabled={downloading}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              downloaded
+                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                : downloading
+                ? 'bg-zinc-700 text-zinc-400 cursor-wait'
+                : btnClass
+            }`}
+          >
+            {downloaded ? (
+              <>
+                <CheckCircle className="h-4 w-4" />
+                Downloaded
+              </>
+            ) : downloading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Downloading...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4" />
+                Download{extension ? ` ${extension}` : ''}
+              </>
+            )}
+          </button>
+        ) : (
+          <span className="text-xs text-zinc-500 px-3 py-2">Text only</span>
+        )}
       </div>
 
       {/* Subtitle */}

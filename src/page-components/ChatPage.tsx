@@ -521,7 +521,7 @@ export function ChatPage() {
       if (msg.role !== 'assistant' || !msg.parts) continue;
 
       for (let pIdx = 0; pIdx < msg.parts.length; pIdx++) {
-        const part = msg.parts[pIdx];
+        const part = msg.parts[pIdx] as any;
         const isToolPart = part.type?.startsWith('tool-') || part.type === 'dynamic-tool';
         if (!isToolPart) continue;
 

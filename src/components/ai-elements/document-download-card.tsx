@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { FileText, Presentation, Download, CheckCircle, Loader2, FileIcon, ExternalLink, File as FileIconGeneric, Eye, EyeOff, X, Maximize2, ChevronDown, ChevronUp } from 'lucide-react';
 import { getApiUrl, getProxyUrl } from '@/lib/env';
 
@@ -408,6 +408,24 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
   const [showModal, setShowModal] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
 
+  // === MAMMOTH DOCX PREVIEW STATE ===
+  const [docxHtml, setDocxHtml] = useState<string | null>(null);
+  const [docxPreviewError, setDocxPreviewError] = useState<string | null>(null);
+
+  // === PPTX BACKEND PREVIEW STATE ===
+  const [pptxSlides, setPptxSlides] = useState<Array<{ title?: string; content?: string; slide_number?: number }> | null>(null);
+  const [pptxPreviewError, setPptxPreviewError] = useState<string | null>(null);
+
+  // === ENRICHED OUTPUT: Merge backend-fetched preview data with original output ===
+  const enrichedOutput = React.useMemo(() => {
+    const merged = { ...output };
+    if (pptxSlides && pptxSlides.length > 0) {
+      merged.slides = pptxSlides;
+      merged.slide_count = pptxSlides.length;
+    }
+    return merged;
+  }, [output, pptxSlides]);
+
   // Handle various success indicators from different tool implementations
   const isSuccess = output?.success === true || output?.download_url || output?.document_id || output?.presentation_id || output?.file_id || output?.filename;
 
@@ -484,7 +502,81 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
 
   const sizeKb = output.file_size_kb || output.size_kb;
   const hasDownload = !!(resolveDownloadUrl(output));
-  const hasPreviewContent = !!(output.content_preview || output.sections?.length || output.slides?.length || output.outline?.length || output.slide_count || output.title);
+  const hasPreviewContent = !!(output.content_preview || output.sections?.length || output.slides?.length || output.outline?.length || output.slide_count || output.title || docxHtml || pptxSlides);
+
+  // === MAMMOTH DOCX PREVIEW: Fetch file and convert to HTML ===
+  const loadDocxPreview = useCallback(async () => {
+    if (docxHtml || docxPreviewError || previewLoading) return;
+    setPreviewLoading(true);
+    setDocxPreviewError(null);
+    try {
+      const downloadPath = resolveDownloadUrl(output);
+      if (!downloadPath) throw new Error('No download URL');
+
+      const fetchUrl = downloadPath.startsWith('http') ? downloadPath : getProxyUrl(downloadPath);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+      const headers: HeadersInit = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const resp = await fetch(fetchUrl, { headers });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+      const arrayBuffer = await resp.arrayBuffer();
+      // Dynamic import mammoth to avoid SSR issues
+      const mammoth = await import('mammoth');
+      const result = await mammoth.default.convertToHtml({ arrayBuffer });
+      setDocxHtml(result.value);
+    } catch (err) {
+      console.error('[DocxPreview] Error:', err);
+      setDocxPreviewError(err instanceof Error ? err.message : 'Failed to load preview');
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [output, docxHtml, docxPreviewError, previewLoading]);
+
+  // === PPTX BACKEND PREVIEW: Fetch slide data from backend ===
+  const loadPptxPreview = useCallback(async () => {
+    if (pptxSlides || pptxPreviewError || previewLoading) return;
+    if (output.slides && output.slides.length > 0) return; // Already have slide data
+    setPreviewLoading(true);
+    setPptxPreviewError(null);
+    try {
+      const fileId = output.file_id || output.presentation_id;
+      if (!fileId) throw new Error('No file ID for preview');
+
+      const fetchUrl = getProxyUrl(`/files/${fileId}/preview`);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+      const headers: HeadersInit = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const resp = await fetch(fetchUrl, { headers });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+      const data = await resp.json();
+      if (data.slides && data.slides.length > 0) {
+        setPptxSlides(data.slides);
+      }
+    } catch (err) {
+      console.error('[PptxPreview] Error:', err);
+      setPptxPreviewError(err instanceof Error ? err.message : 'Failed to load preview');
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [output, pptxSlides, pptxPreviewError, previewLoading]);
+
+  // Trigger preview loading when preview is opened
+  const handleTogglePreview = useCallback(() => {
+    const newState = !showPreview;
+    setShowPreview(newState);
+    if (newState && hasDownload) {
+      // Load rich preview if we don't have content yet
+      if (isDocx && !docxHtml && !output.sections?.length) {
+        loadDocxPreview();
+      } else if (isPptx && !pptxSlides && !output.slides?.length) {
+        loadPptxPreview();
+      }
+    }
+  }, [showPreview, hasDownload, isDocx, isPptx, docxHtml, pptxSlides, output, loadDocxPreview, loadPptxPreview]);
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -585,10 +677,11 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
           
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
-            {/* Preview Button */}
-            {hasPreviewContent && (
+            {/* Preview Button — always show for downloadable DOCX/PPTX */}
+            {(hasPreviewContent || (hasDownload && (isDocx || isPptx))) && (
               <button
-                onClick={() => setShowPreview(!showPreview)}
+                onClick={handleTogglePreview}
+                disabled={previewLoading}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all border"
                 style={{
                   backgroundColor: showPreview ? `${accentColor}15` : 'rgba(255,255,255,0.05)',
@@ -712,7 +805,50 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
               maxHeight: '250px',
               overflowY: 'auto',
             }}>
-              <PreviewContent output={output} accentColor={accentColor} />
+              {/* Loading state */}
+              {previewLoading && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '24px', color: 'rgba(255,255,255,0.4)', fontSize: '12px' }}>
+                  <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                  Loading preview...
+                </div>
+              )}
+
+              {/* Mammoth DOCX HTML preview */}
+              {!previewLoading && docxHtml && (
+                <div
+                  dangerouslySetInnerHTML={{ __html: docxHtml }}
+                  style={{
+                    padding: '16px',
+                    background: 'white',
+                    color: '#1a1a1a',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    lineHeight: 1.7,
+                    maxHeight: '220px',
+                    overflow: 'auto',
+                  }}
+                  className="docx-preview-content"
+                />
+              )}
+
+              {/* DOCX preview error */}
+              {!previewLoading && docxPreviewError && !docxHtml && (
+                <div style={{ padding: '12px', color: 'rgba(239,68,68,0.8)', fontSize: '12px', textAlign: 'center' }}>
+                  Preview failed: {docxPreviewError}
+                </div>
+              )}
+
+              {/* PPTX preview error */}
+              {!previewLoading && pptxPreviewError && !pptxSlides && (
+                <div style={{ padding: '12px', color: 'rgba(239,68,68,0.8)', fontSize: '12px', textAlign: 'center' }}>
+                  Preview failed: {pptxPreviewError}
+                </div>
+              )}
+
+              {/* Structured preview (slides, sections, etc.) */}
+              {!previewLoading && !docxHtml && !docxPreviewError && !pptxPreviewError && (
+                <PreviewContent output={enrichedOutput} accentColor={accentColor} />
+              )}
             </div>
           </div>
         )}
@@ -737,10 +873,10 @@ export default function DocumentDownloadCard({ output }: DocumentDownloadCardPro
         </div>
       </div>
 
-      {/* Full-screen preview modal */}
+      {/* Full-screen preview modal — use enrichedOutput so backend-fetched slides appear */}
       {showModal && (
         <PreviewModal
-          output={output}
+          output={docxHtml ? { ...enrichedOutput, content_preview: docxHtml } : enrichedOutput}
           fileTypeLabel={fileTypeLabel}
           accentColor={accentColor}
           onClose={() => setShowModal(false)}

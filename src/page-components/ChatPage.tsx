@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useProcessManager, ProcessType } from '@/contexts/ProcessManager';
+import { useBackgroundTasks } from '@/hooks/useBackgroundTasks';
 import { ArtifactRenderer } from '@/components/artifacts';
 
 // AI Elements - Composable Components

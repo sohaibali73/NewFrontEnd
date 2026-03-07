@@ -13,6 +13,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useResponsive } from '@/hooks/useResponsive';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
+import { useProcessManager, ProcessType } from '@/contexts/ProcessManager';
 import { ArtifactRenderer } from '@/components/artifacts';
 
 // AI Elements - Composable Components
@@ -155,6 +156,10 @@ export function ChatPage() {
 
   // Connection status
   const { status: connStatus, check: recheckConnection } = useConnectionStatus({ interval: 60000 });
+
+  // Process Manager — connect tool invocations to the task manager widget
+  const { addProcess, updateProcess } = useProcessManager();
+  const trackedToolsRef = useRef<Map<string, string>>(new Map()); // toolPartKey -> processId
 
   // Voice mode state
   const [voiceMode, setVoiceMode] = useState(false);
@@ -484,6 +489,94 @@ export function ChatPage() {
       } catch { /* localStorage error, ignore */ }
     }
   }, [streamMessages]);
+
+  // === PROCESS MANAGER SYNC ===
+  // Automatically register tool invocations as background tasks in the Task Manager widget.
+  // This allows users to navigate away and see tool progress in the bottom-right widget.
+  useEffect(() => {
+    if (streamMessages.length === 0) return;
+
+    // Helper: Map tool name to ProcessType
+    const getProcessType = (toolName: string): ProcessType => {
+      if (toolName.includes('pptx') || toolName.includes('presentation') || toolName.includes('powerpoint') || toolName.includes('slide')) return 'slide';
+      if (toolName.includes('document') || toolName.includes('docx') || toolName.includes('word')) return 'document';
+      if (toolName.includes('afl') || toolName.includes('code')) return 'afl';
+      if (toolName.includes('chart') || toolName.includes('stock') || toolName.includes('market') || toolName.includes('backtest') || toolName.includes('sector') || toolName.includes('risk') || toolName.includes('dividend') || toolName.includes('options') || toolName.includes('correlation') || toolName.includes('position') || toolName.includes('screener') || toolName.includes('compare')) return 'dashboard';
+      if (toolName.includes('research') || toolName.includes('article') || toolName.includes('linkedin')) return 'article';
+      return 'general';
+    };
+
+    // Helper: Get a readable title from tool name and input
+    const getToolTitle = (toolName: string, input?: any): string => {
+      const readable = toolName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      if (input?.title) return input.title;
+      if (input?.symbol) return `${readable} (${input.symbol})`;
+      if (input?.topic) return input.topic.slice(0, 40);
+      if (input?.query) return input.query.slice(0, 40);
+      return readable;
+    };
+
+    // Scan all messages for tool parts and sync with ProcessManager
+    for (const msg of streamMessages) {
+      if (msg.role !== 'assistant' || !msg.parts) continue;
+
+      for (let pIdx = 0; pIdx < msg.parts.length; pIdx++) {
+        const part = msg.parts[pIdx];
+        const isToolPart = part.type?.startsWith('tool-') || part.type === 'dynamic-tool';
+        if (!isToolPart) continue;
+
+        const toolName = part.type === 'dynamic-tool'
+          ? (part.toolName || 'unknown')
+          : (part.type?.replace('tool-', '') || 'unknown');
+
+        // Create a unique key for this tool invocation
+        const toolKey = `${msg.id}_${pIdx}_${toolName}`;
+
+        const isActive = part.state === 'input-streaming' || part.state === 'input-available';
+        const isDone = part.state === 'output-available';
+        const isFailed = part.state === 'output-error';
+
+        if (isActive && !trackedToolsRef.current.has(toolKey)) {
+          // Register new tool as a running process
+          const processId = addProcess({
+            title: getToolTitle(toolName, part.input),
+            type: getProcessType(toolName),
+            status: 'running',
+            progress: 0,
+            message: `Running ${toolName.replace(/_/g, ' ')}...`,
+          });
+          trackedToolsRef.current.set(toolKey, processId);
+        } else if (isDone && trackedToolsRef.current.has(toolKey)) {
+          // Update process to complete
+          const processId = trackedToolsRef.current.get(toolKey)!;
+          updateProcess(processId, {
+            status: 'complete',
+            progress: 100,
+            message: 'Completed successfully',
+            result: part.output,
+          });
+          trackedToolsRef.current.delete(toolKey);
+        } else if (isFailed && trackedToolsRef.current.has(toolKey)) {
+          // Update process to failed
+          const processId = trackedToolsRef.current.get(toolKey)!;
+          updateProcess(processId, {
+            status: 'failed',
+            progress: 0,
+            message: 'Failed',
+            error: part.errorText || 'Tool execution failed',
+          });
+          trackedToolsRef.current.delete(toolKey);
+        } else if (isActive && trackedToolsRef.current.has(toolKey)) {
+          // Update progress for running tools (simulate progress based on elapsed time)
+          const processId = trackedToolsRef.current.get(toolKey)!;
+          const inputInfo = part.input?.title || part.input?.symbol || part.input?.topic || '';
+          updateProcess(processId, {
+            message: inputInfo ? `Processing: ${inputInfo.slice(0, 50)}` : `Running ${toolName.replace(/_/g, ' ')}...`,
+          });
+        }
+      }
+    }
+  }, [streamMessages, addProcess, updateProcess]);
 
   const handleNewConversation = async () => {
     try {

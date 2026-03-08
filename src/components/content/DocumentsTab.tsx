@@ -29,12 +29,41 @@ export function DocumentsTab({ colors, isDark }: DocumentsTabProps) {
 
   useEffect(() => { fetchItems(); }, [fetchItems]);
 
+  /**
+   * Generate DOCX using Claude Skills API (non-streaming, blocking).
+   * Calls POST /api/backend/skills/create-word-document/execute
+   * Returns the actual file for download.
+   */
   const handleGenerate = async (prompt: string, title: string) => {
     try {
-      const res = await apiClient.generateContent(prompt, 'document', title);
-      return res;
+      const { getProxyUrl } = await import('@/lib/env');
+      const { toast } = await import('sonner');
+      const toastId = toast.loading(`Generating "${title}"...`, { duration: 300000 });
+
+      const token = localStorage.getItem('auth_token') || '';
+      const resp = await fetch(getProxyUrl('/skills/create-word-document/execute'), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: prompt, title }),
+      });
+
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }));
+        throw new Error(errData.detail || `Skill execution failed (${resp.status})`);
+      }
+
+      const data = await resp.json();
+      const result = data.result || data;
+      toast.success(`"${title}" generated successfully!`, { id: toastId, duration: 5000 });
+      fetchItems();
+      return result;
     } catch (err) {
       console.error('Document generation failed:', err);
+      const { toast } = await import('sonner');
+      toast.error(`Generation failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 

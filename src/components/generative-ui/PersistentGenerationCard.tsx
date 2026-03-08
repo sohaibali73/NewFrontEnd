@@ -309,6 +309,22 @@ export default function PersistentGenerationCard({
     };
   }, [job?.status, job?.startedAt]);
 
+  // === AUTO-TIMEOUT: If generating for more than 5 minutes, mark as stale ===
+  useEffect(() => {
+    if (!job || job.status !== 'generating') return;
+    const age = Date.now() - job.startedAt;
+    if (age > 300000) { // 5 minutes
+      const failedJob: GenerationJob = {
+        ...job,
+        status: 'failed',
+        completedAt: Date.now(),
+        error: 'Generation timed out. The stream was likely interrupted when you navigated away. Please try again.',
+      };
+      saveJob(failedJob);
+      setJob(failedJob);
+    }
+  }, [job, elapsed]);
+
   // === RENDER: Completed → show DocumentDownloadCard ===
   if (job?.status === 'complete' && job.output) {
     return <DocumentDownloadCard output={job.output} />;
